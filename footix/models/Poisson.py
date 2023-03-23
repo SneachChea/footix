@@ -1,6 +1,6 @@
 import numpy as np
 from .abstract_model import CustomModel
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import pandas as pd
 from ..utils import DICO_COMPATIBILITY, EPS
 import scipy.stats as stats
@@ -78,7 +78,7 @@ class Poisson(CustomModel):
 
         self.params = model_params
 
-    def predict(self, HomeTeam: str, AwayTeam: str, score_matrix: bool = False)-> Tuple[float, np.ndarray]:
+    def predict(self, HomeTeam: str, AwayTeam: str, score_matrix: bool = False)-> Union[Tuple[float, np.ndarray], Tuple]:
         if not hasattr(self, "params"):
              raise AttributeError("Model is not trained. Please train it.")
         home_team = DICO_COMPATIBILITY[HomeTeam]

@@ -1,3 +1,5 @@
 numpy >=1.23.0
 scipy
 pytest==7.1.2
+scikit-learn
+tqdm
