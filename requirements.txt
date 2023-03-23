@@ -3,3 +3,5 @@ scipy
 pytest==7.1.2
 scikit-learn
 tqdm
+pymc==5.1.2
+pytensor
