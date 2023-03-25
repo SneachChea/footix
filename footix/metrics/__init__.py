@@ -1,1 +1,3 @@
-from .metrics import RPS, entropy, Zscore
+from .RPS import RPS
+from .Entropy import Entropy
+from .Zscore import Zscore
