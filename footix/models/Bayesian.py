@@ -9,6 +9,7 @@ import scipy.stats as stats
 from sklearn.preprocessing import LabelEncoder
 
 from footix.models.abstract_model import CustomModel
+from footix.models.scored_matrix import GoalMatrix
 from footix.utils.utils import DICO_COMPATIBILITY
 
 
@@ -56,16 +57,14 @@ class Bayesian(CustomModel):
         home_probs = stats.poisson.pmf(range(6), home_goal_expectation)
         away_probs = stats.poisson.pmf(range(6), away_goal_expectation)
 
-        m = np.outer(home_probs, away_probs)
-        home = np.sum(np.tril(m, -1))
-        draw = np.sum(np.diag(m))
-        away = np.sum(np.triu(m, 1))
+        goals_matrix = GoalMatrix(home_probs, away_probs)
+        home, draw, away = goals_matrix.return_probas()
 
         if score_matrix:
-            return (home, draw, away), m
+            return (home, draw, away), goals_matrix
         return home, draw, away
 
-    def goal_expectation(self, home_team_id, away_team_id):
+    def goal_expectation(self, home_team_id: int, away_team_id: int):
         # get parameters
         home = np.mean(self.trace["home"])
         intercept = np.mean(self.trace["intercept"])

@@ -130,9 +130,8 @@ def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) ->
 
 
 def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> List[Dict]:
-    """Select bets profitable in the sense p > 1./o
-
-
+    """
+    Select bets profitable in the sense p > 1./o
     Args:
         odds_bookie (pd.DataFrame): odds from fdj scrapper
         probas (np.ndarray): probability from the custom model. Size (len(matchs), 3)

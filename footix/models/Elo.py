@@ -51,11 +51,11 @@ class EloDavidson(CustomModel):
         self.championnat = {}
 
     @staticmethod
-    def computeKappa(P_H: float, P_D: float, P_A: float) -> None:
+    def computeKappa(P_H: float, P_D: float, P_A: float) -> float:
         return P_D / np.sqrt(P_H * P_A)
 
     @staticmethod
-    def computeEta(P_H: float, P_A: float) -> None:
+    def computeEta(P_H: float, P_A: float) -> float:
         return np.log10(P_H / P_A)
 
     @staticmethod
@@ -68,18 +68,19 @@ class EloDavidson(CustomModel):
 
     @staticmethod
     def correspondance_result(result: str) -> float:
+        if result not in ["D", "H", "A"]:
+            raise ValueError("result must be 'D', 'H' or 'A'")
         if result == "D":
             return 0.5
         if result == "H":
-            return 1
-        if result == "A":
-            return 0
+            return 1.0
+        return 0.0
 
     def estimated_res(self, difference: float) -> float:
         denom = 0.5 * difference / self.sigma
         return (10**denom + 0.5 * self.kappa) / (10**denom + 10 ** (-denom) + self.kappa)
 
-    def update_rank(self, teamH, teamA, result: float, K: float) -> None:
+    def update_rank(self, teamH: team, teamA: team, result: float, K: float) -> None:
         diff_rank = teamH.rank - teamA.rank + self.eta * self.sigma
         new_rankH = teamH.rank + K * (result - self.estimated_res(diff_rank))
         new_rankA = teamA.rank + K * (1.0 - result - self.estimated_res(-diff_rank))
@@ -98,7 +99,9 @@ class EloDavidson(CustomModel):
         else:
             return "{}"
 
-    def predict(self, HomeTeam: str, AwayTeam: str, cote_fdj: bool = True) -> Tuple[float]:
+    def predict(
+        self, HomeTeam: str, AwayTeam: str, cote_fdj: bool = True
+    ) -> Tuple[float, float, float]:
         if cote_fdj:
             Home = DICO_COMPATIBILITY[HomeTeam]
             Away = DICO_COMPATIBILITY[AwayTeam]
@@ -115,7 +118,7 @@ class EloDavidson(CustomModel):
         num = 0.5 * diff / self.sigma
         return self.kappa / (10**num + 10 ** (-num) + self.kappa)
 
-    def compute_proba(self, teamH, teamA) -> Tuple[float]:
+    def compute_proba(self, teamH, teamA) -> Tuple[float, float, float]:
         diff = teamH.rank - teamA.rank
         diff = diff + self.eta * self.sigma
         probaH = self.probaW(diff)

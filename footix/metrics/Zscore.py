@@ -7,7 +7,6 @@ from footix.metrics.abc_metric import Metric
 from footix.metrics.functional.metrics_function import rps, zscore
 
 
-# broken
 class Zscore(Metric):
     higher_is_better: bool = False
     _zscore: List
