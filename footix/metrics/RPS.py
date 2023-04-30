@@ -1,4 +1,4 @@
-from typing import Union
+from typing import List, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,7 +8,7 @@ from footix.metrics.functional.metrics_function import rps
 
 
 class RPS(Metric):
-    _rps: list
+    _rps: List[float]
     higher_is_better = False
 
     def __init__(self) -> None:

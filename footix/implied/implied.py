@@ -3,6 +3,7 @@ from typing import List, Tuple, Union
 import numpy as np
 from scipy import optimize
 
+__all__ = ["multiplicative", "power", "shin"]
 # Most of those functions come from the awesome package penaltyblog
 
 
