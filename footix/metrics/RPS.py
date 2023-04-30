@@ -17,7 +17,7 @@ class RPS(Metric):
         self._rps.append(rps(probas, outcome_idx))
 
     def compute(self) -> tuple[float, float]:
-        return np.mean(self._rps), np.std(self._rps)
+        return np.mean(self._rps), np.std(self._rps)  # type: ignore
 
     def visualize(self, n_bins: int):
         fig = plt.figure()
