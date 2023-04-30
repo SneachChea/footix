@@ -1,5 +1,6 @@
+from typing import List, Tuple, Union
+
 import numpy as np
-from typing import Union, List, Tuple
 
 
 def entropy(proba: Union[List, np.ndarray], outcome_idx: int) -> float:
@@ -39,9 +40,7 @@ def rps(probas: Union[List, np.ndarray], outcome_idx: int) -> float:
     return sum_rps / (len(outcome) - 1)
 
 
-def zscore(
-    probas: Union[List, np.ndarray], RPS_real: float
-) -> Tuple[float, float, float]:
+def zscore(probas: Union[List, np.ndarray], RPS_real: float) -> Tuple[float, float, float]:
     """
         Compute the Z-score in respect of the RPS computed
 

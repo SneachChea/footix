@@ -1,13 +1,15 @@
-import numpy as np
-from typing import Union, Any
-from .functional import zscore, rps
-from .abc_metric import Metric
+from typing import List, Union
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+from footix.metrics.abc_metric import Metric
+from footix.metrics.functional.metrics_function import rps, zscore
 
 
 class Zscore(Metric):
-    higher_is_better = False
-    _zscore: list
+    higher_is_better: bool = False
+    _zscore: List
 
     def __init__(self) -> None:
         super().__init__()
@@ -18,7 +20,7 @@ class Zscore(Metric):
         self._zscore.append(zscore(probas, rps_real))
 
     def compute(self) -> tuple[float, float]:
-        return np.mean(self._zscore), np.std(self._zscore)
+        return np.mean(self._zscore), np.std(self._zscore)  # ignore: type
 
     def visualize(self, n_bins: int):
         fig = plt.figure()

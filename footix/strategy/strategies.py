@@ -1,20 +1,25 @@
+import itertools
 import math
 import time
-import itertools
+from collections import defaultdict
+from datetime import datetime
+from typing import Dict, List
+
 import numpy as np
 import pandas as pd
 import scipy.optimize
-from datetime import datetime
-from collections import defaultdict
-from typing import List, Dict
+
 
 def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) -> None:
     """
-        Compute the real Kelly criterion for mutually exclusive bets. 
-        This function comes from https://github.com/BettingIsCool/real_kelly-independent_concurrent_outcomes-/blob/master/real_kelly-independent_concurrent_outcomes-.py
+        Compute the real Kelly criterion for mutually exclusive bets.
+        This function comes from
+        https://github.com/BettingIsCool/real_kelly-independent_concurrent_outcomes-/blob/master/
+        real_kelly-independent_concurrent_outcomes-.py
 
     Args:
-        selections (List[Dict]): selections of bets. This arguments is a list of dictionnary with keys 'name','odds_bookie',
+        selections (List[Dict]): selections of bets. This arguments is a
+        list of dictionnary with keys 'name','odds_bookie',
         'probability'
         bankroll (float): the bankroll
         max_multiple (int, optional): max length for combined bets. Defaults to 1.
@@ -30,7 +35,7 @@ def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) ->
 
     # MAXIMUM TEAMS IN A MULTIPLE MUST NOT EXCEED LEN(SELECTIONS)
     if max_multiple > len(selections):
-        raise ValueError(f'Error: Maximum multiple must not exceed {len(selections)}')
+        raise ValueError(f"Error: Maximum multiple must not exceed {len(selections)}")
 
     # CREATE A MATRIX OF POSSIBLE COMBINATIONS AND A PROBABILITY VECTOR OF SIZE LEN(COMBINATIONS)
     combinations = []
@@ -42,10 +47,10 @@ def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) ->
             for selection in selections:
                 if selection in subset:
                     combination.append(1)
-                    prob *= selection['probability']
+                    prob *= selection["probability"]
                 else:
                     combination.append(0)
-                    prob *= (1 - selection['probability'])
+                    prob *= 1 - selection["probability"]
             combinations.append(combination)
             probs.append(prob)
 
@@ -59,7 +64,7 @@ def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) ->
             for selection in selections:
                 if selection in subset:
                     bet.append(1)
-                    prod *= selection['odds_book']
+                    prod *= selection["odds_book"]
                 else:
                     bet.append(0)
             bets.append(bet)
@@ -73,7 +78,10 @@ def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) ->
                 winning_bets[index_bet].append(index_combination)
 
     def f(stakes):
-        """ This function will be called by scipy.optimize.minimize repeatedly to find the global maximum """
+        """
+        This function will be called by scipy.optimize.minimize repeatedly to
+        find the global maximum
+        """
 
         # INITIALIZE END_BANKROLLS AND OBJECTIVE BEFORE EACH OPTIMIZATION STEP
         end_bankrolls = len(combinations) * [bankroll - np.sum(stakes)]
@@ -82,11 +90,12 @@ def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) ->
             for index_combination in index_combinations:
                 end_bankrolls[index_combination] += stakes[index_bet] * book_odds[index_bet]
 
-        # RETURN THE OBJECTIVE AS A SUMPRODUCT OF PROBABILITIES AND END_BANKROLLS - THIS IS THE FUNCTION TO BE MAXIMIZED
+        # RETURN THE OBJECTIVE AS A SUMPRODUCT OF PROBABILITIES AND END_BANKROLLS
+        # - THIS IS THE FUNCTION TO BE MAXIMIZED
         return -sum([p * e for p, e in zip(probs, np.log(end_bankrolls))])
 
     def constraint(stakes):
-        """ Sum of all stakes must not exceed bankroll """
+        """Sum of all stakes must not exceed bankroll"""
         return sum(stakes)
 
     # FIND THE GLOBAL MAXIMUM USING SCIPY'S CONSTRAINED MINIMIZATION
@@ -95,7 +104,10 @@ def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) ->
     res = scipy.optimize.differential_evolution(func=f, bounds=bounds, constraints=(nlc))
 
     runtime = time.time() - start_time
-    print(f"\n{datetime.now().replace(microsecond=0)} - Optimization finished. Runtime --- {round(runtime, 3)} seconds ---\n")
+    print(
+        f"\n{datetime.now().replace(microsecond=0)} - Optimization finished. Runtime",
+        f"--- {round(runtime, 3)} seconds ---\n",
+    )
     print(f"Objective: {round(res.fun, 5)}")
     print(f"Certainty Equivalent: {round(math.exp(-res.fun), 3)}\n")
 
@@ -105,13 +117,17 @@ def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) ->
         bet_strings = list()
         for index_sel, sel in enumerate(bet):
             if sel == 1:
-                bet_strings.append(selections[index_sel]['name'])
+                bet_strings.append(selections[index_sel]["name"])
 
         stake = res.x[index_bet]
         if stake >= 0.50:
-            print(f"{(' / ').join(bet_strings)} @{round(book_odds[index_bet], 3)} - € {int(round(stake, 0))}")
-            sum_stake+=stake
+            print(
+                f"{(' / ').join(bet_strings)} @{round(book_odds[index_bet], 3)}",
+                f"- € {int(round(stake, 0))}",
+            )
+            sum_stake += stake
     print(f"Bankroll used {sum_stake} €")
+
 
 def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> List[Dict]:
     """Select bets profitable in the sense p > 1./o
@@ -128,16 +144,20 @@ def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> List[Dict]:
     for idx, rows in odds_bookie.iterrows():
         odd_object = rows[["1", "N", "2"]].to_numpy()
         for i in range(3):
-            if probas[idx, i]> 1./odd_object[i]:
-                selections.append({"name": fromIdx2Res(i, rows["Home team"], rows["Away team"]), "odds_book": odd_object[i],
-                "probability": probas[idx, i]})
+            if probas[idx, i] > 1.0 / odd_object[i]:
+                selections.append(
+                    {
+                        "name": fromIdx2Res(i, rows["Home team"], rows["Away team"]),
+                        "odds_book": odd_object[i],
+                        "probability": probas[idx, i],
+                    }
+                )
     return selections
-                
 
 
-def fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str)->str:
+def fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str) -> str:
     if index == 0:
         return f"Victoire à domicile de {HomeTeam} (contre {AwayTeam})"
     if index == 1:
         return f"Match nul ({HomeTeam} vs {AwayTeam})"
-    return  f"Victoire à l'extérieur de {AwayTeam} (contre {HomeTeam})"
+    return f"Victoire à l'extérieur de {AwayTeam} (contre {HomeTeam})"

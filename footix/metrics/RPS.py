@@ -1,8 +1,10 @@
-import numpy as np
-from typing import Union, Any
-from .functional import rps
-from .abc_metric import Metric
+from typing import Union
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+from footix.metrics.abc_metric import Metric
+from footix.metrics.functional.metrics_function import rps
 
 
 class RPS(Metric):

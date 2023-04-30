@@ -1,9 +1,11 @@
-import numpy as np
-from .abstract_model import CustomModel
-from .teamElo import team
 from typing import List, Tuple
+
+import numpy as np
 import pandas as pd
-from ..utils import DICO_COMPATIBILITY
+
+from footix.models.abstract_model import CustomModel
+from footix.models.teamElo import team
+from footix.utils.utils import DICO_COMPATIBILITY
 
 
 class EloDavidson(CustomModel):
@@ -27,12 +29,11 @@ class EloDavidson(CustomModel):
         self.championnat = {}
 
     def fit(self, X_train: pd.DataFrame):
-        clubs = np.sort(
-            np.unique(np.concatenate([X_train["HomeTeam"], X_train["AwayTeam"]]))
-        )
+        clubs = np.sort(np.unique(np.concatenate([X_train["HomeTeam"], X_train["AwayTeam"]])))
         if len(clubs) != self.n_teams:
             raise ValueError(
-                "Number of teams in the training dataset is not the same as in this class instanciation"
+                "Number of teams in the training dataset is not the same as in this class"
+                "instanciation"
             )
 
         for club in clubs:
@@ -76,9 +77,7 @@ class EloDavidson(CustomModel):
 
     def estimated_res(self, difference: float) -> float:
         denom = 0.5 * difference / self.sigma
-        return (10**denom + 0.5 * self.kappa) / (
-            10**denom + 10 ** (-denom) + self.kappa
-        )
+        return (10**denom + 0.5 * self.kappa) / (10**denom + 10 ** (-denom) + self.kappa)
 
     def update_rank(self, teamH, teamA, result: float, K: float) -> None:
         diff_rank = teamH.rank - teamA.rank + self.eta * self.sigma
@@ -91,10 +90,7 @@ class EloDavidson(CustomModel):
         if hasattr(self, "championnat"):
             classement = ""
             sorted_championnat = {
-                k: v
-                for k, v in sorted(
-                    self.championnat.items(), key=lambda item: -item[1].rank
-                )
+                k: v for k, v in sorted(self.championnat.items(), key=lambda item: -item[1].rank)
             }
             for i, k in enumerate(sorted_championnat.keys()):
                 classement += f"{i+1}. {k} : {sorted_championnat[k].rank} \n"
@@ -102,9 +98,7 @@ class EloDavidson(CustomModel):
         else:
             return "{}"
 
-    def predict(
-        self, HomeTeam: str, AwayTeam: str, cote_fdj: bool = True
-    ) -> Tuple[float]:
+    def predict(self, HomeTeam: str, AwayTeam: str, cote_fdj: bool = True) -> Tuple[float]:
         if cote_fdj:
             Home = DICO_COMPATIBILITY[HomeTeam]
             Away = DICO_COMPATIBILITY[AwayTeam]

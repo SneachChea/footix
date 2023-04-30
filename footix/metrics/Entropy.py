@@ -1,8 +1,10 @@
-import numpy as np
-from typing import Union, Any
-from .functional import entropy
-from .abc_metric import Metric
+from typing import Union
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+from footix.metrics.abc_metric import Metric
+from footix.metrics.functional.metrics_function import entropy
 
 
 class Entropy(Metric):
@@ -17,7 +19,7 @@ class Entropy(Metric):
         self._entropy.append(entropy(probas, outcome_idx))
 
     def compute(self) -> tuple[float, float]:
-        return np.mean(self._entropy), np.std(self._entropy)
+        return np.mean(self._entropy), np.std(self._entropy)  # ignore: type
 
     def visualize(self, n_bins: int):
         fig = plt.figure()

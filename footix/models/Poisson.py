@@ -1,10 +1,12 @@
+from typing import Optional, Tuple, Union
+
 import numpy as np
-from .abstract_model import CustomModel
-from typing import Tuple, Union, Optional
 import pandas as pd
-from ..utils import DICO_COMPATIBILITY, EPS
 import scipy.stats as stats
 from scipy.optimize import minimize
+
+from footix.models.abstract_model import CustomModel
+from footix.utils.utils import DICO_COMPATIBILITY, EPS
 
 
 class Poisson(CustomModel):
@@ -13,13 +15,11 @@ class Poisson(CustomModel):
         self.params = {}
 
     def fit(self, X_train: pd.DataFrame, weighted: bool) -> None:
-
-        teams = np.sort(
-            np.unique(np.concatenate([X_train["HomeTeam"], X_train["AwayTeam"]]))
-        )
+        teams = np.sort(np.unique(np.concatenate([X_train["HomeTeam"], X_train["AwayTeam"]])))
         if len(teams) != self.n_teams:
             raise ValueError(
-                "Number of teams in the training dataset is not the same as in this class instanciation"
+                "Number of teams in the training dataset is not the same as in this class"
+                "instanciation"
             )
 
         params = np.concatenate(
@@ -34,9 +34,7 @@ class Poisson(CustomModel):
         def _fit(params, df, teams):
             attack_params = dict(zip(teams, params[: self.n_teams]))
             defence_params = dict(zip(teams, params[self.n_teams : (2 * self.n_teams)]))
-            home_advantage = dict(
-                zip(teams, params[(2 * self.n_teams) : (3 * self.n_teams)])
-            )
+            home_advantage = dict(zip(teams, params[(2 * self.n_teams) : (3 * self.n_teams)]))
             rho = params[-1]
 
             llk = list()
@@ -75,9 +73,7 @@ class Poisson(CustomModel):
             "disp": False,
         }
 
-        constraints = [
-            {"type": "eq", "fun": lambda x: sum(x[: self.n_teams]) - self.n_teams}
-        ]
+        constraints = [{"type": "eq", "fun": lambda x: sum(x[: self.n_teams]) - self.n_teams}]
 
         res = minimize(
             _fit,
@@ -194,8 +190,6 @@ def log_likelihood(
             np.log(home_llk + EPS) + np.log(away_llk + EPS) + np.log(adj_llk + EPS)
         )
     else:
-        log_llk = (
-            np.log(home_llk + EPS) + np.log(away_llk + EPS) + np.log(adj_llk + EPS)
-        )
+        log_llk = np.log(home_llk + EPS) + np.log(away_llk + EPS) + np.log(adj_llk + EPS)
 
     return -log_llk

@@ -1,13 +1,15 @@
-import pymc as pm
-import numpy as np
-import pytensor.tensor as pt
-import pandas as pd
-import scipy.stats as stats
-from .abstract_model import CustomModel
-from typing import Tuple, Union
-from sklearn.preprocessing import LabelEncoder
 from copy import copy
-from footix.utils import DICO_COMPATIBILITY
+from typing import Tuple, Union
+
+import numpy as np
+import pandas as pd
+import pymc as pm
+import pytensor.tensor as pt
+import scipy.stats as stats
+from sklearn.preprocessing import LabelEncoder
+
+from footix.models.abstract_model import CustomModel
+from footix.utils.utils import DICO_COMPATIBILITY
 
 
 class Bayesian(CustomModel):
@@ -26,9 +28,7 @@ class Bayesian(CustomModel):
         goals_away_obs = x_train_cop["FTAG"].to_numpy()
         home_team = x_train_cop["HomeTeamId"].to_numpy()
         away_team = x_train_cop["AwayTeamId"].to_numpy()
-        self.model = self.modelPoisson(
-            goals_home_obs, goals_away_obs, home_team, away_team
-        )
+        self.model = self.modelPoisson(goals_home_obs, goals_away_obs, home_team, away_team)
         with self.model:
             self.trace = pm.sample(2000, tune=1000, cores=6, return_inferencedata=False)
 
@@ -39,7 +39,6 @@ class Bayesian(CustomModel):
         score_matrix: bool = False,
         cote_fdj: bool = True,
     ) -> Union[Tuple[float, np.ndarray], Tuple]:
-
         if cote_fdj:
             home_team = DICO_COMPATIBILITY[HomeTeam]
             away_team = DICO_COMPATIBILITY[AwayTeam]
