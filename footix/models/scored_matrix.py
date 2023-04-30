@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Tuple
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -50,10 +51,9 @@ class GoalMatrix:
 
     def visualize(self) -> None:
         fig, ax = plt.subplots()
-        im = ax.matshow(self.m, cmap="coolwarm")
+        ax.matshow(self.m, cmap="coolwarm")
         for i in range(len(self.home_probs)):
             for j in range(len(self.away_probs)):
-                text = ax.text(j, i, round(self.m[i, j], 3),
-                            ha="center", va="center", color="w")
+                ax.text(j, i, round(self.m[i, j], 3), ha="center", va="center", color="w")
         ax.set_xlabel("Away team")
         ax.set_ylabel("Home team")
