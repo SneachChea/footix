@@ -1,21 +1,24 @@
-import numpy as np
-from typing import Union, List, Tuple
+from typing import List, Tuple, Union
 
-def entropy(proba: Union[List, np.ndarray], outcome_idx : int) -> float:
+import numpy as np
+
+
+def entropy(proba: Union[List, np.ndarray], outcome_idx: int) -> float:
     """
     Compute the entropy (or incertity) metric.
 
     Args:
         proba (Union[List, np.ndarray]): list of probabilities
-        outcome_idx (int): index of the outcome, can be 0, 1, 2 for Home, Draw and Away 
+        outcome_idx (int): index of the outcome, can be 0, 1, 2 for Home, Draw and Away
 
     Returns:
         float: entropy metrics
     """
     pr = proba[outcome_idx]
-    return -np.log(pr)/np.log(3)
+    return -np.log(pr) / np.log(3)
 
-def RPS(probas: Union[List, np.ndarray], outcome_idx: int)-> float:
+
+def rps(probas: Union[List, np.ndarray], outcome_idx: int) -> float:
     """
         Compute the Ranked Probability Score.
 
@@ -27,17 +30,17 @@ def RPS(probas: Union[List, np.ndarray], outcome_idx: int)-> float:
         float: RPS metrics
     """
     outcome = np.zeros_like(probas)
-    outcome[outcome_idx] = 1.
+    outcome[outcome_idx] = 1.0
     cum_probas = np.cumsum(probas)
     cum_outcome = np.cumsum(outcome)
     sum_rps = 0
-    for i in range(len(outcome)):         
-        sum_rps+= (cum_probas[i] - cum_outcome[i])**2
-    
-    return sum_rps/(len(outcome)-1)
+    for i in range(len(outcome)):
+        sum_rps += (cum_probas[i] - cum_outcome[i]) ** 2
+
+    return sum_rps / (len(outcome) - 1)
 
 
-def Zscore(probas: Union[List, np.ndarray], RPS_real: float) -> Tuple[float, float, float]:
+def zscore(probas: Union[List, np.ndarray], RPS_real: float) -> Tuple[float, float, float]:
     """
         Compute the Z-score in respect of the RPS computed
 
@@ -51,18 +54,18 @@ def Zscore(probas: Union[List, np.ndarray], RPS_real: float) -> Tuple[float, flo
 
     eps = 1e-5
     N = 100
-    
-    def _monteCarl(probas : Union[List, np.ndarray], N : int):
+
+    def _monteCarl(probas: Union[List, np.ndarray], N: int):
         outcomes = [0, 1, 2]
         RPS_stats = np.zeros(N)
-        
-        if np.sum(probas)!=1.:
-            probas = probas/np.sum(probas)
+
+        if np.sum(probas) != 1.0:
+            probas = probas / np.sum(probas)
         for i in range(N):
             res = np.random.choice(outcomes, p=probas)
-            RPS_stats[i] = RPS(probas, res)
+            RPS_stats[i] = rps(probas, res)
         return np.mean(RPS_stats), np.std(RPS_stats)
-    
+
     mu, sigma = _monteCarl(probas, N)
-    
-    return (RPS_real-mu)/(sigma+eps), mu, sigma
+
+    return (RPS_real - mu) / (sigma + eps), mu, sigma
