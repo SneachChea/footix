@@ -1,5 +1,3 @@
-from typing import List, Tuple
-
 import numpy as np
 import pandas as pd
 
@@ -15,7 +13,7 @@ class EloDavidson(CustomModel):
         k0: int,
         lambd: float,
         sigma: int,
-        agnostic_probs: List,
+        agnostic_probs: list,
         **kwargs,
     ):
         super().__init__(n_teams, **kwargs)
@@ -59,7 +57,7 @@ class EloDavidson(CustomModel):
         return np.log10(P_H / P_A)
 
     @staticmethod
-    def checkProbas(agnostic_probs: List):
+    def checkProbas(agnostic_probs: list) -> None:
         if not np.isclose(np.sum(agnostic_probs), b=1.0):
             raise ValueError("Probabilities do not sum to one.\n")
 
@@ -101,7 +99,7 @@ class EloDavidson(CustomModel):
 
     def predict(
         self, HomeTeam: str, AwayTeam: str, cote_fdj: bool = True
-    ) -> Tuple[float, float, float]:
+    ) -> tuple[float, float, float]:
         if cote_fdj:
             Home = DICO_COMPATIBILITY[HomeTeam]
             Away = DICO_COMPATIBILITY[AwayTeam]
@@ -118,7 +116,7 @@ class EloDavidson(CustomModel):
         num = 0.5 * diff / self.sigma
         return self.kappa / (10**num + 10 ** (-num) + self.kappa)
 
-    def compute_proba(self, teamH, teamA) -> Tuple[float, float, float]:
+    def compute_proba(self, teamH, teamA) -> tuple[float, float, float]:
         diff = teamH.rank - teamA.rank
         diff = diff + self.eta * self.sigma
         probaH = self.probaW(diff)

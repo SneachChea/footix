@@ -3,7 +3,7 @@ from typing import List, Tuple, Union
 import numpy as np
 
 
-def entropy(proba: Union[List, np.ndarray], outcome_idx: int) -> float:
+def entropy(proba: list | np.ndarray, outcome_idx: int) -> float:
     """
     Compute the entropy (or incertity) metric.
 
@@ -18,7 +18,7 @@ def entropy(proba: Union[List, np.ndarray], outcome_idx: int) -> float:
     return -np.log(pr) / np.log(3)
 
 
-def rps(probas: Union[List, np.ndarray], outcome_idx: int) -> float:
+def rps(probas: list | np.ndarray, outcome_idx: int) -> float:
     """
         Compute the Ranked Probability Score.
 
@@ -40,7 +40,7 @@ def rps(probas: Union[List, np.ndarray], outcome_idx: int) -> float:
     return sum_rps / (len(outcome) - 1)
 
 
-def zscore(probas: Union[List, np.ndarray], RPS_real: float) -> Tuple[float, float, float]:
+def zscore(probas: list | np.ndarray, RPS_real: float) -> Tuple[float, float, float]:
     """
         Compute the Z-score in respect of the RPS computed
 

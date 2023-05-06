@@ -1,5 +1,3 @@
-from typing import List, Union
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -8,14 +6,14 @@ from footix.metrics.functional.metrics_function import rps
 
 
 class RPS(Metric):
-    _rps: List[float]
+    _rps: list[float]
     higher_is_better = False
 
     def __init__(self) -> None:
         super().__init__()
         self.add_state("_rps")
 
-    def __call__(self, probas: Union[list, np.ndarray], outcome_idx: int) -> None:
+    def __call__(self, probas: list | np.ndarray, outcome_idx: int) -> None:
         self._rps.append(rps(probas, outcome_idx))
 
     def compute(self) -> tuple[float, float]:

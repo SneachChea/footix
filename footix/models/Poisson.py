@@ -1,5 +1,3 @@
-from typing import Optional, Tuple, Union
-
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
@@ -103,7 +101,7 @@ class Poisson(CustomModel):
         AwayTeam: str,
         score_matrix: bool = False,
         cote_fdj: bool = True,
-    ) -> Union[Tuple[float, np.ndarray], Tuple]:
+    ) -> tuple[float, np.ndarray] | tuple:
         if not bool(self.params):
             raise AttributeError("Model is not trained. Please train it.")
         if cote_fdj:
@@ -168,7 +166,7 @@ def log_likelihood(
     away_defence: float,
     home_advantage: float,
     rho: float,
-    weight: Optional[float] = None,
+    weight: float | None = None,
 ) -> float:
     goal_expectation_home = np.exp(home_attack + away_defence + home_advantage)
     goal_expectation_away = np.exp(away_attack + home_defence)

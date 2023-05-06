@@ -1,5 +1,3 @@
-from typing import List, Tuple, Union
-
 import numpy as np
 from scipy import optimize
 
@@ -8,8 +6,8 @@ __all__ = ["multiplicative", "power", "shin"]
 
 
 def multiplicative(
-    odds: Union[List, np.ndarray], axis: int = -1
-) -> Tuple[np.ndarray, Union[float, np.ndarray]]:
+    odds: list | np.ndarray, axis: int = -1
+) -> tuple[np.ndarray, float | np.ndarray]:
     """
         multiplicative way to normalize the odds.
 
@@ -27,7 +25,7 @@ def multiplicative(
     return 1.0 / (Z * odds), margin
 
 
-def power(odds: Union[List, np.ndarray]) -> Tuple:
+def power(odds: list | np.ndarray) -> tuple:
     """
     From penaltyblog package.
     The power method computes the implied probabilities by solving for the
@@ -55,7 +53,7 @@ def power(odds: Union[List, np.ndarray]) -> Tuple:
     return normalized, margin
 
 
-def shin(odds: Union[list, np.ndarray]) -> Tuple:
+def shin(odds: list | np.ndarray) -> tuple:
     """
     Computes the implied probabilities via the Shin (1992, 1993) method
 

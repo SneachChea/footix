@@ -1,5 +1,4 @@
 from copy import copy
-from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -39,7 +38,7 @@ class Bayesian(CustomModel):
         AwayTeam: str,
         score_matrix: bool = False,
         cote_fdj: bool = True,
-    ) -> Union[Tuple[float, np.ndarray], Tuple]:
+    ) -> tuple[float, np.ndarray] | tuple:
         if cote_fdj:
             home_team = DICO_COMPATIBILITY[HomeTeam]
             away_team = DICO_COMPATIBILITY[AwayTeam]

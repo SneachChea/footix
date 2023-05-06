@@ -3,14 +3,13 @@ import math
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List
 
 import numpy as np
 import pandas as pd
 import scipy.optimize
 
 
-def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) -> None:
+def realKelly(selections: list[dict], bankroll: float, max_multiple: int = 1) -> None:
     """
         Compute the real Kelly criterion for mutually exclusive bets.
         This function comes from
@@ -129,7 +128,7 @@ def realKelly(selections: List[Dict], bankroll: float, max_multiple: int = 1) ->
     print(f"Bankroll used {sum_stake} €")
 
 
-def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> List[Dict]:
+def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> list[dict]:
     """
     Select bets profitable in the sense p > 1./o
     Args:
@@ -146,7 +145,7 @@ def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> List[Dict]:
             if probas[idx, i] > 1.0 / odd_object[i]:
                 selections.append(
                     {
-                        "name": fromIdx2Res(i, rows["Home team"], rows["Away team"]),
+                        "name": _fromIdx2Res(i, rows["Home team"], rows["Away team"]),
                         "odds_book": odd_object[i],
                         "probability": probas[idx, i],
                     }
@@ -154,7 +153,7 @@ def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> List[Dict]:
     return selections
 
 
-def fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str) -> str:
+def _fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str) -> str:
     if index == 0:
         return f"Victoire à domicile de {HomeTeam} (contre {AwayTeam})"
     if index == 1:
