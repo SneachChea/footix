@@ -33,9 +33,10 @@ target-version = ["py310"]
 
 [tool.taskipy.tasks]
 lint = "flake8 --max-line-length 99 --extend-ignore=E203 ."
+test = "pytest -v"
 format-isort = "isort ."
 format-black = "black ."
-precommit = "task format-isort && task format-black && task lint"
+precommit = "task format-isort && task format-black && task lint && task test"
 
 [build-system]
 requires = ["poetry-core>=1.2.3"]
