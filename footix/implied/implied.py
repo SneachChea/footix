@@ -1,6 +1,7 @@
+import operator
+
 import numpy as np
 from scipy import optimize
-import operator
 
 # Most of those functions are inspired by the awesome package penaltyblog
 # https://github.com/martineastwood/penaltyblog/tree/master
@@ -17,9 +18,8 @@ def _assert_odds(odds: list[float] | np.ndarray, axis: None | int = None) -> Non
     else:
         if odds.shape[0] != 3:
             raise ValueError("It is a football package ! You must provide 3 odds.")
-    if (odds <1.0).any():
+    if (odds < 1.0).any():
         raise ValueError("All odds must be greater then 1.")
-
 
 
 def multiplicative(
@@ -43,7 +43,7 @@ def multiplicative(
     return 1.0 / (Z * odds), margin
 
 
-def power(odds: list | np.ndarray) -> tuple[np.ndarray,  float]:
+def power(odds: list | np.ndarray) -> tuple[np.ndarray, float]:
     """
     From penaltyblog package.
     The power method computes the implied probabilities by solving for the
@@ -84,17 +84,15 @@ def shin(odds: list | np.ndarray) -> tuple:
 
     def _fit(z: float, inv_odds: np.ndarray) -> float:
         implied = _shin(z, inv_odds)
-        return 1. - np.sum(implied)
+        return 1.0 - np.sum(implied)
 
     res = optimize.ridder(_fit, 0, 100, args=(inv_odds,))
     normalized = _shin(res, inv_odds)
     return normalized, margin
 
 
-def _shin(z:float, inv_odds:np.ndarray) -> np.ndarray:
+def _shin(z: float, inv_odds: np.ndarray) -> np.ndarray:
     """Compute the implied probability using Shin's method"""
     normalized = np.sum(inv_odds)
-    implied = (np.sqrt(z**2 + 4 * (1 - z) * inv_odds**2 / normalized) - z) / (
-        2 - 2 * z
-    )
+    implied = (np.sqrt(z**2 + 4 * (1 - z) * inv_odds**2 / normalized) - z) / (2 - 2 * z)
     return implied

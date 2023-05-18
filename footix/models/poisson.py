@@ -4,6 +4,7 @@ import scipy.stats as stats
 from scipy.optimize import minimize
 
 from footix.models.abstract_model import CustomModel
+from footix.utils.decorators import verify_required_column
 from footix.utils.utils import DICO_COMPATIBILITY, EPS
 
 
@@ -12,6 +13,7 @@ class Poisson(CustomModel):
         super().__init__(n_teams, **kwargs)
         self.params = {}
 
+    @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
     def fit(self, X_train: pd.DataFrame, weighted: bool) -> None:
         teams = np.sort(np.unique(np.concatenate([X_train["HomeTeam"], X_train["AwayTeam"]])))
         if len(teams) != self.n_teams:

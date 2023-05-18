@@ -9,6 +9,7 @@ from sklearn.preprocessing import LabelEncoder
 
 from footix.models.abstract_model import CustomModel
 from footix.models.scored_matrix import GoalMatrix
+from footix.utils.decorators import verify_required_column
 from footix.utils.utils import DICO_COMPATIBILITY
 
 
@@ -16,6 +17,7 @@ class Bayesian(CustomModel):
     def __init__(self, n_teams: int):
         super().__init__(n_teams)
 
+    @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
     def fit(self, X_train: pd.DataFrame):
         x_train_cop = copy(X_train)
         if not hasattr(self, "label"):
