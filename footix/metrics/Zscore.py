@@ -18,7 +18,7 @@ class Zscore(Metric):
         self._zscore.append(zscore(probas, rps_real))
 
     def compute(self) -> tuple[float, float]:
-        return np.mean(self._zscore), np.std(self._zscore)  # ignore: type
+        return np.mean(self._zscore), np.std(self._zscore)  # type: ignore
 
     def visualize(self, n_bins: int):
         fig = plt.figure()

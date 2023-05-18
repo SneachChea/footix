@@ -1,6 +1,8 @@
-EPS = 1e-5
+from typing import Final
 
-DICO_COMPATIBILITY = {
+EPS: Final[float] = 1e-5
+
+DICO_COMPATIBILITY: Final[dict[str, str]] = {
     "AC Ajaccio": "Ajaccio",
     "Lyon": "Lyon",
     "Rennes": "Rennes",

@@ -17,7 +17,7 @@ class Entropy(Metric):
         self._entropy.append(entropy(probas, outcome_idx))
 
     def compute(self) -> tuple[float, float]:
-        return np.mean(self._entropy), np.std(self._entropy)  # ignore: type
+        return np.mean(self._entropy), np.std(self._entropy)  # type: ignore
 
     def visualize(self, n_bins: int):
         fig = plt.figure()

@@ -55,7 +55,7 @@ def zscore(probas: list | np.ndarray, RPS_real: float) -> Tuple[float, float, fl
     eps = 1e-5
     N = 100
 
-    def _monteCarl(probas: Union[List, np.ndarray], N: int):
+    def _monteCarl(probas: Union[List, np.ndarray], N: int) -> tuple[float, float]:
         outcomes = [0, 1, 2]
         RPS_stats = np.zeros(N)
 
@@ -64,7 +64,7 @@ def zscore(probas: list | np.ndarray, RPS_real: float) -> Tuple[float, float, fl
         for i in range(N):
             res = np.random.choice(outcomes, p=probas)
             RPS_stats[i] = rps(probas, res)
-        return np.mean(RPS_stats), np.std(RPS_stats)
+        return np.mean(RPS_stats), np.std(RPS_stats)  # type: ignore
 
     mu, sigma = _monteCarl(probas, N)
 
