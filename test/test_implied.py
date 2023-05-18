@@ -1,12 +1,14 @@
-import pytest
-import footix.implied as implied
 import numpy as np
+
+import footix.implied as implied
+
 
 def test_multiplicative_method_1D():
     odds = [5.4, 4.3, 1.55]
     proba, margin = implied.multiplicative(odds)
     assert np.allclose(proba, [0.1742, 0.2188, 0.6070], rtol=1e-3)
     assert np.isclose(margin, 0.0629, rtol=1e-3)
+
 
 def test_multiplicative_method_2D():
     odds = np.array([[5.4, 4.3, 1.55]])
