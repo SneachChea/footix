@@ -6,6 +6,9 @@ import numpy as np
 
 @dataclass
 class GoalMatrix:
+    """Dataclass that compile all functions related to probability from
+    Poisson models (Bayesian, Dixon, etc.)"""
+
     home_probs: np.ndarray
     away_probs: np.ndarray
     m: np.ndarray = field(init=False)
@@ -42,11 +45,11 @@ class GoalMatrix:
 
     def assert_format_15(self):
         if len(self.home_probs) < 2:
-            raise TypeError("Probas should be larger than 3")
+            raise TypeError("Probas should be longer than 3")
 
     def assert_format_25(self):
         if len(self.home_probs) < 3:
-            raise TypeError("Probas should be larger than 4")
+            raise TypeError("Probas should be longer than 4")
 
     def visualize(self) -> None:
         _, ax = plt.subplots()

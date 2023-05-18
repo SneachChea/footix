@@ -3,6 +3,7 @@ import pandas as pd
 
 from footix.models.abstract_model import CustomModel
 from footix.models.teamElo import team
+from footix.utils.decorators import verify_required_column
 from footix.utils.utils import DICO_COMPATIBILITY
 
 
@@ -26,6 +27,7 @@ class EloDavidson(CustomModel):
         self.sigma = sigma
         self.championnat = {}
 
+    @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
     def fit(self, X_train: pd.DataFrame):
         clubs = np.sort(np.unique(np.concatenate([X_train["HomeTeam"], X_train["AwayTeam"]])))
         if len(clubs) != self.n_teams:
