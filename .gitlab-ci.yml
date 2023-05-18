@@ -24,7 +24,7 @@ stages:          # List of stages for jobs, and their order of execution
 
 before_script:
   - pip install poetry
-  - poetry config virtualenvs.create fals
+  - poetry config virtualenvs.create false
   - poetry install
 
 
