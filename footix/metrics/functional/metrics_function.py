@@ -3,7 +3,7 @@ from typing import List, Tuple, Union
 import numpy as np
 
 
-def entropy(proba: list | np.ndarray, outcome_idx: int) -> float:
+def entropy(proba: list[float] | np.ndarray, outcome_idx: int) -> float:
     """
     Compute the entropy (or incertity) metric.
 
@@ -14,11 +14,11 @@ def entropy(proba: list | np.ndarray, outcome_idx: int) -> float:
     Returns:
         float: entropy metrics
     """
-    pr = proba[outcome_idx]
-    return -np.log(pr) / np.log(3)
+    p_r = proba[outcome_idx]
+    return -np.log(p_r) / np.log(3)
 
 
-def rps(probas: list | np.ndarray, outcome_idx: int) -> float:
+def rps(probas: list[float] | np.ndarray, outcome_idx: int) -> float:
     """
         Compute the Ranked Probability Score.
 
@@ -40,7 +40,7 @@ def rps(probas: list | np.ndarray, outcome_idx: int) -> float:
     return sum_rps / (len(outcome) - 1)
 
 
-def zscore(probas: list | np.ndarray, RPS_real: float) -> Tuple[float, float, float]:
+def zscore(probas: list[float] | np.ndarray, rps_real: float) -> Tuple[float, float, float]:
     """
         Compute the Z-score in respect of the RPS computed
 
@@ -53,19 +53,19 @@ def zscore(probas: list | np.ndarray, RPS_real: float) -> Tuple[float, float, fl
     """
 
     eps = 1e-5
-    N = 100
+    n_iter = 100
 
-    def _monteCarl(probas: Union[List, np.ndarray], N: int) -> tuple[float, float]:
+    def _monteCarl(probas: Union[List, np.ndarray], n_iter: int) -> tuple[float, float]:
         outcomes = [0, 1, 2]
-        RPS_stats = np.zeros(N)
+        rps_stats = np.zeros(n_iter)
 
         if np.sum(probas) != 1.0:
             probas = probas / np.sum(probas)
-        for i in range(N):
+        for i in range(n_iter):
             res = np.random.choice(outcomes, p=probas)
-            RPS_stats[i] = rps(probas, res)
-        return np.mean(RPS_stats), np.std(RPS_stats)  # type: ignore
+            rps_stats[i] = rps(probas, res)
+        return np.mean(rps_stats), np.std(rps_stats)  # type: ignore
 
-    mu, sigma = _monteCarl(probas, N)
+    mu, sigma = _monteCarl(probas, n_iter)
 
-    return (RPS_real - mu) / (sigma + eps), mu, sigma
+    return (rps_real - mu) / (sigma + eps), mu, sigma

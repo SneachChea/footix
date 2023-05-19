@@ -36,11 +36,11 @@ def multiplicative(
     if isinstance(odds, list):
         odds = np.array(odds)
     if len(odds.shape) > 1:
-        Z = np.sum(1.0 / odds, axis=axis, keepdims=True)
+        normalization = np.sum(1.0 / odds, axis=axis, keepdims=True)
     else:
-        Z = np.sum(1.0 / odds, axis=axis)
-    margin = Z - 1.0
-    return 1.0 / (Z * odds), margin
+        normalization = np.sum(1.0 / odds, axis=axis)
+    margin = normalization - 1.0
+    return 1.0 / (normalization * odds), margin
 
 
 def power(odds: list | np.ndarray) -> tuple[np.ndarray, float]:
@@ -67,7 +67,7 @@ def power(odds: list | np.ndarray) -> tuple[np.ndarray, float]:
     return normalized, margin
 
 
-def shin(odds: list | np.ndarray) -> tuple:
+def shin(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
     """
     Computes the implied probabilities via the Shin (1992, 1993) method
 
@@ -82,8 +82,8 @@ def shin(odds: list | np.ndarray) -> tuple:
     inv_odds = 1.0 / odds
     margin = np.sum(inv_odds) - 1.0
 
-    def _fit(z: float, inv_odds: np.ndarray) -> float:
-        implied = _shin(z, inv_odds)
+    def _fit(z_param: float, inv_odds: np.ndarray) -> float:
+        implied = _shin(z_param, inv_odds)
         return 1.0 - np.sum(implied)
 
     res = optimize.ridder(_fit, 0, 100, args=(inv_odds,))
@@ -91,8 +91,10 @@ def shin(odds: list | np.ndarray) -> tuple:
     return normalized, margin
 
 
-def _shin(z: float, inv_odds: np.ndarray) -> np.ndarray:
+def _shin(z_param: float, inv_odds: np.ndarray) -> np.ndarray:
     """Compute the implied probability using Shin's method"""
     normalized = np.sum(inv_odds)
-    implied = (np.sqrt(z**2 + 4 * (1 - z) * inv_odds**2 / normalized) - z) / (2 - 2 * z)
+    implied = (
+        np.sqrt(z_param**2 + 4 * (1 - z_param) * inv_odds**2 / normalized) - z_param
+    ) / (2 - 2 * z_param)
     return implied

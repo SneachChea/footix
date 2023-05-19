@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 import scipy.optimize
 
+from footix.utils.decorators import verify_required_column
+
 
 def realKelly(selections: list[dict], bankroll: float, max_multiple: int = 1) -> None:
     """
@@ -128,6 +130,7 @@ def realKelly(selections: list[dict], bankroll: float, max_multiple: int = 1) ->
     print(f"Bankroll used {sum_stake} €")
 
 
+@verify_required_column(column_names={"1", "2", "N"})
 def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> list[dict]:
     """
     Select bets profitable in the sense p > 1./o
