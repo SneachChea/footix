@@ -4,7 +4,7 @@ import pytest
 from footix.utils.decorators import verify_required_column
 
 
-@verify_required_column(["Home", "Away", "result"])
+@verify_required_column({"Home", "Away", "result"})
 def process_dataframe(df: pd.DataFrame) -> None:
     pass
 

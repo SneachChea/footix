@@ -6,7 +6,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def verify_required_column(column_names: Sequence[str]) -> Callable:
+def verify_required_column(column_names: set[str]) -> Callable:
     """Decorator that check if the first input argument is a pandas
     Dataframme and check if the columns in column_names are presents"""
 
