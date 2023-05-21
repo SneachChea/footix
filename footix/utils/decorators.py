@@ -1,4 +1,4 @@
-from typing import Callable, ParamSpec, Sequence, TypeVar
+from typing import Callable, ParamSpec, TypeVar
 
 import pandas as pd
 
