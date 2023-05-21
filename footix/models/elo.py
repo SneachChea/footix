@@ -25,7 +25,7 @@ class EloDavidson(CustomModel):
         self.k0 = k0
         self.lambda_ = lambd
         self.sigma = sigma
-        self.championnat = {}
+        self.championnat: dict[str, team] = {}
 
     @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
     def fit(self, X_train: pd.DataFrame):
