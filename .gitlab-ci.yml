@@ -20,6 +20,7 @@ image: python:3.10
 
 stages:          # List of stages for jobs, and their order of execution
   - lint
+  - type
   - test
 
 before_script:
@@ -34,6 +35,8 @@ unit-test-job:   # This job runs in the test stage.
   script:
     - echo "Running unit tests"
     - poetry run task test
+  only:
+    - merge_requests
 
 lint-test-job:   # This job also runs in the test stage.
   stage: lint    # It can run at the same time as unit-test-job (in parallel).
@@ -41,3 +44,13 @@ lint-test-job:   # This job also runs in the test stage.
   script:
     - echo "Linting code..."
     - poetry run task lint
+  only:
+    - merge_requests
+
+type-test-job:
+  stage: type
+  script:
+    - echo "Typing code..."
+    - poetry run task type
+  only:
+    - merge_requests
