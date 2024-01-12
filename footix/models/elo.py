@@ -4,6 +4,7 @@ import pandas as pd
 from footix.models.teamElo import team
 from footix.utils.decorators import verify_required_column
 from footix.utils.utils import DICO_COMPATIBILITY
+from footix.data_io.data_reader import EloDataReader
 
 # TODO: A dataclass for agnostic_probs?
 class EloDavidson:
@@ -26,9 +27,10 @@ class EloDavidson:
         self.sigma = sigma
         self.championnat: dict[str, team] = {}
 
-    @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
-    def fit(self, X_train: pd.DataFrame):
-        clubs = np.sort(np.unique(np.concatenate([X_train["HomeTeam"], X_train["AwayTeam"]])))
+    def fit(self, X_train: pd.DataFrame | EloDataReader):
+        if isinstance(X_train, pd.DataFrame):
+            X_train = EloDataReader(df_data=X_train)
+        clubs = X_train.unique_teams()
         if len(clubs) != self.n_teams:
             raise ValueError(
                 "Number of teams in the training dataset is not the same as in this class"
@@ -38,11 +40,11 @@ class EloDavidson:
         for club in clubs:
             self.championnat[club] = team(club)
 
-        for idx, row in X_train.iterrows():
-            Home = row["HomeTeam"]
-            Away = row["AwayTeam"]
-            result = self.correspondance_result(row["FTR"])
-            gamma = np.abs(row["FTHG"] - row["FTAG"])
+        for game in X_train:
+            Home = game.home_team
+            Away = game.away_team
+            result = self.correspondance_result(game.result)
+            gamma = np.abs(game.home_goals - game.away_goals)
             K = self.K(gamma)
             self.update_rank(self.championnat[Home], self.championnat[Away], result, K)
 
@@ -99,8 +101,8 @@ class EloDavidson:
             return "{}"
 
     def predict(
-        self, HomeTeam: str, AwayTeam: str) -> tuple[float, float, float]:
-        return self.compute_proba(self.championnat[HomeTeam], self.championnat[AwayTeam])
+        self, home_team: str, away_team: str) -> tuple[float, float, float]:
+        return self.compute_proba(self.championnat[home_team], self.championnat[away_team])
 
     def probaW(self, diff: float) -> float:
         num = 0.5 * diff / self.sigma

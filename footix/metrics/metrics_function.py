@@ -4,7 +4,7 @@ import numpy as np
 
 
 
-def entropy(proba: list[float] | np.ndarray, outcome_idx: int) -> float:
+def entropy(probas: list[float] | np.ndarray, outcome_idx: int) -> float:
     """
     Compute the entropy (or incertity) metric.
 
@@ -15,7 +15,7 @@ def entropy(proba: list[float] | np.ndarray, outcome_idx: int) -> float:
     Returns:
         float: entropy metrics
     """
-    p_r = proba[outcome_idx]
+    p_r = probas[outcome_idx]
     return -np.log(p_r) / np.log(3)
 
 

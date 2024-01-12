@@ -3,7 +3,7 @@ import numpy as np
 import math
 
 def test_entropy():
-    res = fn_metrics.entropy(proba=[1./3, 1./3, 1./3], outcome_idx=0)
+    res = fn_metrics.entropy(probas=[1./3, 1./3, 1./3], outcome_idx=0)
     assert np.isclose(res, 1.0)
 
 def test_rps():
