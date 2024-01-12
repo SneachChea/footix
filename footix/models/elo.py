@@ -1,13 +1,12 @@
 import numpy as np
 import pandas as pd
 
-from footix.models.abstract_model import CustomModel
 from footix.models.teamElo import team
 from footix.utils.decorators import verify_required_column
 from footix.utils.utils import DICO_COMPATIBILITY
 
-
-class EloDavidson(CustomModel):
+# TODO: A dataclass for agnostic_probs?
+class EloDavidson:
     def __init__(
         self,
         n_teams: int,
@@ -17,7 +16,7 @@ class EloDavidson(CustomModel):
         agnostic_probs: list,
         **kwargs,
     ):
-        super().__init__(n_teams, **kwargs)
+        self.n_teams = n_teams
         self.checkProbas(agnostic_probs)
         PH, PD, PA = agnostic_probs
         self.kappa = self.computeKappa(P_H=PH, P_D=PD, P_A=PA)
@@ -100,15 +99,8 @@ class EloDavidson(CustomModel):
             return "{}"
 
     def predict(
-        self, HomeTeam: str, AwayTeam: str, cote_fdj: bool = True
-    ) -> tuple[float, float, float]:
-        if cote_fdj:
-            Home = DICO_COMPATIBILITY[HomeTeam]
-            Away = DICO_COMPATIBILITY[AwayTeam]
-        else:
-            Home = HomeTeam
-            Away = AwayTeam
-        return self.compute_proba(self.championnat[Home], self.championnat[Away])
+        self, HomeTeam: str, AwayTeam: str) -> tuple[float, float, float]:
+        return self.compute_proba(self.championnat[HomeTeam], self.championnat[AwayTeam])
 
     def probaW(self, diff: float) -> float:
         num = 0.5 * diff / self.sigma

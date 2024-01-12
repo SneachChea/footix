@@ -3,6 +3,7 @@ from typing import List, Tuple, Union
 import numpy as np
 
 
+
 def entropy(proba: list[float] | np.ndarray, outcome_idx: int) -> float:
     """
     Compute the entropy (or incertity) metric.
@@ -40,32 +41,37 @@ def rps(probas: list[float] | np.ndarray, outcome_idx: int) -> float:
     return sum_rps / (len(outcome) - 1)
 
 
-def zscore(probas: list[float] | np.ndarray, rps_real: float) -> Tuple[float, float, float]:
+def zscore(probas: list[float] | np.ndarray, rps_real: float, seed: int | None = None, n_iter: int= 1000) -> Tuple[float, float, float]:
     """
-        Compute the Z-score in respect of the RPS computed
+        Compute the Z-score in respect of the RPS computed.
+        The z-score shows how many standard deviations the observed RPS was away from what could have been expected,
+        if the probabilities of each model were perfect.
+
 
     Args:
         probas (Union[List, np.ndarray]): list of probabilities
         RPS_real (float): RPS result
+        seed (int): seed for Monte-Carlo computation
 
     Returns:
         float: Z-score
+        float: mu
+        float: sigma
     """
 
-    eps = 1e-5
-    n_iter = 100
+    _eps = 1e-5
 
-    def _monteCarl(probas: Union[List, np.ndarray], n_iter: int) -> tuple[float, float]:
+    def _monteCarl(probas: Union[List, np.ndarray], n_iter: int, seed: int) -> tuple[float, float]:
         outcomes = [0, 1, 2]
         rps_stats = np.zeros(n_iter)
-
+        rng = np.random.default_rng(seed=seed)
         if np.sum(probas) != 1.0:
             probas = probas / np.sum(probas)
         for i in range(n_iter):
-            res = np.random.choice(outcomes, p=probas)
+            res = rng.choice(outcomes, p=probas)
             rps_stats[i] = rps(probas, res)
         return np.mean(rps_stats), np.std(rps_stats)  # type: ignore
 
-    mu, sigma = _monteCarl(probas, n_iter)
+    mu, sigma = _monteCarl(probas, n_iter=n_iter, seed=seed)
 
-    return (rps_real - mu) / (sigma + eps), mu, sigma
+    return (rps_real - mu) / (sigma + _eps), mu, sigma
