@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 # TODO: Add a dataclass for probabilities ?
 @dataclass
 class GoalMatrix:
@@ -42,7 +43,12 @@ class GoalMatrix:
 
     def less_25_goals(self) -> float:
         self.assert_format_25()
-        return self.less_15_goals() + self.matrix_array[0, 2] + self.matrix_array[1, 1] + self.matrix_array[2, 0]
+        return (
+            self.less_15_goals()
+            + self.matrix_array[0, 2]
+            + self.matrix_array[1, 1]
+            + self.matrix_array[2, 0]
+        )
 
     def more_25_goals(self) -> float:
         return 1 - self.less_25_goals()
@@ -63,7 +69,9 @@ class GoalMatrix:
         ax.matshow(self.matrix_array, cmap="coolwarm")
         for i in range(len(self.home_probs)):
             for j in range(len(self.away_probs)):
-                ax.text(j, i, round(self.matrix_array[i, j], 3), ha="center", va="center", color="w")
+                ax.text(
+                    j, i, round(self.matrix_array[i, j], 3), ha="center", va="center", color="w"
+                )
         ax.set_xlabel("Away team")
         ax.set_ylabel("Home team")
         plt.show()

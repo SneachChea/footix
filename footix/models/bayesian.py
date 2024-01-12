@@ -1,11 +1,11 @@
 from copy import copy
 from typing import TypeVar
+
 import numpy as np
 import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
 import scipy.stats as stats
-
 from sklearn import preprocessing
 
 from footix.models.scored_matrix import GoalMatrix
@@ -13,6 +13,7 @@ from footix.utils.decorators import verify_required_column
 from footix.utils.utils import DICO_COMPATIBILITY
 
 T = TypeVar("MultiTrace")
+
 
 class Bayesian:
     def __init__(self, n_teams: int):
@@ -23,7 +24,7 @@ class Bayesian:
         x_train_cop = copy(x_train)
         if not hasattr(self, "label"):
             self.label = preprocessing.LabelEncoder()
-            self.label.fit(x_train["HomeTeam"]) # type: ignore
+            self.label.fit(x_train["HomeTeam"])  # type: ignore
         x_train_cop["HomeTeamId"] = self.label.transform(x_train["HomeTeam"])
         x_train_cop["AwayTeamId"] = self.label.transform(x_train["AwayTeam"])
 

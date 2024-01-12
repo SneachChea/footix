@@ -1,10 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from footix.models.teamElo import team
-from footix.utils.decorators import verify_required_column
-from footix.utils.utils import DICO_COMPATIBILITY
 from footix.data_io.data_reader import EloDataReader
+from footix.models.team_elo import team
+
 
 # TODO: A dataclass for agnostic_probs?
 class EloDavidson:
@@ -100,8 +99,7 @@ class EloDavidson:
         else:
             return "{}"
 
-    def predict(
-        self, home_team: str, away_team: str) -> tuple[float, float, float]:
+    def predict(self, home_team: str, away_team: str) -> tuple[float, float, float]:
         return self.compute_proba(self.championnat[home_team], self.championnat[away_team])
 
     def probaW(self, diff: float) -> float:

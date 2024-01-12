@@ -3,7 +3,6 @@ from typing import List, Tuple, Union
 import numpy as np
 
 
-
 def entropy(probas: list[float] | np.ndarray, outcome_idx: int) -> float:
     """
     Compute the entropy (or incertity) metric.
@@ -41,11 +40,13 @@ def rps(probas: list[float] | np.ndarray, outcome_idx: int) -> float:
     return sum_rps / (len(outcome) - 1)
 
 
-def zscore(probas: list[float] | np.ndarray, rps_real: float, seed: int | None = None, n_iter: int= 1000) -> Tuple[float, float, float]:
+def zscore(
+    probas: list[float] | np.ndarray, rps_real: float, seed: int | None = None, n_iter: int = 1000
+) -> Tuple[float, float, float]:
     """
         Compute the Z-score in respect of the RPS computed.
-        The z-score shows how many standard deviations the observed RPS was away from what could have been expected,
-        if the probabilities of each model were perfect.
+        The z-score shows how many standard deviations the observed RPS was away
+        from what could have been expected, if the probabilities of each model were perfect.
 
 
     Args:
