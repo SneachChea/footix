@@ -52,8 +52,8 @@ def zscore(
     Args:
         probas (Union[List, np.ndarray]): list of probabilities
         RPS_real (float): RPS result
-        seed (int): seed for Monte-Carlo computation
-
+        seed (int or None): seed for Monte-Carlo computation
+        n_iter (int): number of iteration for Monte-Carlo simulation
     Returns:
         float: Z-score
         float: mu
@@ -62,7 +62,9 @@ def zscore(
 
     _eps = 1e-5
 
-    def _monteCarl(probas: Union[List, np.ndarray], n_iter: int, seed: int) -> tuple[float, float]:
+    def _monteCarl(
+        probas: Union[List, np.ndarray], n_iter: int, seed: int | None
+    ) -> tuple[float, float]:
         outcomes = [0, 1, 2]
         rps_stats = np.zeros(n_iter)
         rng = np.random.default_rng(seed=seed)
