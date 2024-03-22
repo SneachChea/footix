@@ -8,7 +8,7 @@ import pytensor.tensor as pt
 import scipy.stats as stats
 from sklearn import preprocessing
 
-from footix.models.scored_matrix import GoalMatrix
+from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
 from footix.utils.utils import DICO_COMPATIBILITY
 

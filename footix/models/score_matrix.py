@@ -12,17 +12,25 @@ class GoalMatrix:
 
     home_probs: np.ndarray
     away_probs: np.ndarray
+    correlation_matrix: np.ndarray | None = None
     matrix_array: np.ndarray = field(init=False)
 
     def __post_init__(self):
         self._assert_init()
         self.matrix_array = np.outer(self.home_probs, self.away_probs)
+        if self.correlation_matrix is not None:
+            self.matrix_array = self.matrix_array * self.correlation_matrix
 
     def _assert_init(self):
         if (self.home_probs.ndim > 1) or (self.away_probs.ndim > 1):
             raise TypeError("Array probs should be one dimensional")
         if len(self.home_probs) != len(self.away_probs):
             raise TypeError("Length of proba's array should be the same")
+        if self.correlation_matrix is not None:
+            if self.home_probs.shape[0] != self.correlation_matrix.shape[0]:
+                raise ValueError(
+                    "Size between probability matrix and correlation matrix should be the same"
+                )
 
     def return_probas(self) -> tuple[float, float, float]:
         """
