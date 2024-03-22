@@ -16,10 +16,10 @@ class team:
         if isinstance(new_rank, float):
             self.rank_ = new_rank
         else:
-            print("Enter a valid rank")
+            print("Enter a valid rank, i.e. a float")
 
     def __str__(self):
         return f"team {self.name}"
 
     def __repr__(self):
-        return f"team {self.name}"
+        return str(self)

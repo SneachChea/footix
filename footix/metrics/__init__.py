@@ -1,3 +1,3 @@
-from .entropy import Entropy  # noqa: F401
-from .rps import RPS  # noqa: F401
-from .zscore import Zscore  # noqa: F401
+from .metrics_function import entropy, rps, zscore
+
+__all__ = ["entropy", "rps", "zscore"]

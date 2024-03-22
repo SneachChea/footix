@@ -8,7 +8,41 @@ import numpy as np
 import pandas as pd
 import scipy.optimize
 
-from footix.utils.decorators import verify_required_column
+import footix.utils.decorators as decorators
+
+
+@decorators.verify_required_column(
+    ["Home_Team", "Away_Team", "C_H", "C_D", "C_A", "P_H", "P_D", "P_A"]
+)
+def classic_kelly(input_df: pd.DataFrame, bankroll: float) -> None:
+    """
+    Classic Kelly criterion function.
+    Parameters
+    ----------
+    input_df: pandas.DataFrame
+    bankroll: float
+        The current bankroll.
+    Returns
+    -------
+    pandas.DataFrame
+        The Kelly criterion function.
+    """
+
+    def _kelly_criterion(odds: float, probability: float, bankroll: float) -> float:
+        kelly = bankroll * (probability * (odds - 1.0) - 1.0 + probability) / (odds - 1.0)
+        if kelly > 0.0:
+            return kelly
+        return 0.0
+
+    input_df["Kelly_H"] = input_df.apply(
+        lambda x: _kelly_criterion(x["C_H"], x["P_H"], bankroll=bankroll), axis=1
+    )
+    input_df["Kelly_A"] = input_df.apply(
+        lambda x: _kelly_criterion(x["C_A"], x["P_A"], bankroll=bankroll), axis=1
+    )
+    input_df["Kelly_D"] = input_df.apply(
+        lambda x: _kelly_criterion(x["C_D"], x["P_D"], bankroll=bankroll), axis=1
+    )
 
 
 def realKelly(selections: list[dict], bankroll: float, max_multiple: int = 1) -> None:
@@ -130,7 +164,7 @@ def realKelly(selections: list[dict], bankroll: float, max_multiple: int = 1) ->
     print(f"Bankroll used {sum_stake} €")
 
 
-@verify_required_column(column_names={"1", "2", "N"})
+@decorators.verify_required_column(column_names={"1", "2", "N"})
 def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> list[dict]:
     """
     Select bets profitable in the sense p > 1./o
