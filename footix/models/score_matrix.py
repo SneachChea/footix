@@ -20,6 +20,7 @@ class GoalMatrix:
         self.matrix_array = np.outer(self.home_probs, self.away_probs)
         if self.correlation_matrix is not None:
             self.matrix_array = self.matrix_array * self.correlation_matrix
+            self.matrix_array = self.matrix_array/np.sum(self.matrix_array)
 
     def _assert_init(self):
         if (self.home_probs.ndim > 1) or (self.away_probs.ndim > 1):

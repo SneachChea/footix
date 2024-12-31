@@ -104,7 +104,7 @@ def dixon_coles_likelihood(
         + mus
         - goals_home * log_lamdas
         - goals_away * log_mus
-        - np.log(rho_correction_vec(rho, x=goals_home, y=goals_away, lam=lambdas, mu=mus) + 1e-6)
+        - np.log(rho_correction_vec(rho, x=goals_home, y=goals_away, lam=lambdas, mu=mus) + 1e-8)
     )
     return np.sum(log)
 
@@ -125,7 +125,7 @@ def rho_correction_vec(
             1 + (mu * rho),
             1 - rho,
         ],
-        default=1,
+        default=1.,
     )
     return dc_adj
 

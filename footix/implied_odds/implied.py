@@ -1,4 +1,5 @@
 import operator
+from typing import cast
 
 import numpy as np
 from scipy import optimize
@@ -56,7 +57,7 @@ def power(odds: list | np.ndarray) -> tuple[np.ndarray, float]:
     if isinstance(odds, list):
         odds = np.array(odds)
     inv_odds = 1.0 / odds
-    margin = np.sum(inv_odds) - 1.0
+    margin = cast(float, np.sum(inv_odds) - 1.0)
 
     def _fit(k: float, inv_odds: np.ndarray) -> float:
         implied = operator.pow(inv_odds, k)
@@ -80,7 +81,7 @@ def shin(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
         odds = np.array(odds)
 
     inv_odds = 1.0 / odds
-    margin = np.sum(inv_odds) - 1.0
+    margin = cast(float, np.sum(inv_odds) - 1.0)
 
     def _fit(z_param: float, inv_odds: np.ndarray) -> float:
         implied = _shin(z_param, inv_odds)

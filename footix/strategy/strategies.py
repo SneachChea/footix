@@ -191,8 +191,20 @@ def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> list[dict]:
 
 
 def _fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str) -> str:
+    """
+    Convert an index to a result string.
+
+    Args:
+        index (int): Index of the result.
+        HomeTeam (str): Name of the home team.
+        AwayTeam (str): Name of the away team.
+
+    Returns:
+        str: A string describing the result, such as "Victoire à domicile de [HomeTeam] contre [AwayTeam]".
+    """
     if index == 0:
-        return f"Victoire à domicile de {HomeTeam} (contre {AwayTeam})"
-    if index == 1:
+        return f"Victoire à domicile de {HomeTeam} contre {AwayTeam}"
+    elif index == 1:
         return f"Match nul ({HomeTeam} vs {AwayTeam})"
-    return f"Victoire à l'extérieur de {AwayTeam} (contre {HomeTeam})"
+    else:
+        return f"Victoire à l'extérieur de {AwayTeam} contre {HomeTeam}"
