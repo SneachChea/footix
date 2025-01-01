@@ -44,7 +44,7 @@ def multiplicative(
     return 1.0 / (normalization * odds), margin
 
 
-def power(odds: list | np.ndarray) -> tuple[np.ndarray, float]:
+def power(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
     """
     From penaltyblog package.
     The power method computes the implied probabilities by solving for the

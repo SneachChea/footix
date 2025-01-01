@@ -61,8 +61,8 @@ class BasicPoisson:
         lamb = np.exp(self.alphas[i] + self.betas[j] + self.gamma)
         mu = np.exp(self.alphas[j] + self.betas[i])
         return score_matrix.GoalMatrix(
-            home_probs=poisson_proba(lambda_params=lamb, k=self.n_goals),
-            away_probs=poisson_proba(lambda_params=mu, k=self.n_goals),
+            home_probs=poisson_proba(lambda_param=lamb, k=self.n_goals),
+            away_probs=poisson_proba(lambda_param=mu, k=self.n_goals),
         )
 
     def mapping_team_index(self, teams: pd.Series) -> dict[str, int]:
@@ -98,7 +98,18 @@ def basic_poisson_likelihood(
     return np.sum(log)
 
 
-def poisson_proba(lambda_params: float, k: int) -> np.ndarray:
-    poisson = stats.poisson(mu=lambda_params)
+def poisson_proba(lambda_param: float, k: int) -> np.ndarray:
+    """
+    Calculate the probability of achieving upto k goals given a lambda parameter.
+
+    Parameters:
+        lambda_param (float): The expected number of goals.
+        k (int): The number of goals to achieve.
+
+    Returns:
+        np.ndarray: An array containing the probabilities of achieving each possible number
+                  of goals from 0 to n_goals, inclusive.
+    """
+    poisson = stats.poisson(mu=lambda_param)
     k_list = np.arange(k)
-    return poisson.pmf(k=k_list)
+    return poisson.pmf(k=k_list)  # type:ignore

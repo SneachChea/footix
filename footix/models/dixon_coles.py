@@ -125,7 +125,7 @@ def rho_correction_vec(
             1 + (mu * rho),
             1 - rho,
         ],
-        default=1.,
+        default=1.0,
     )
     return dc_adj
 
