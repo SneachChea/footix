@@ -1,5 +1,4 @@
 from copy import copy
-from typing import TypeVar
 
 import numpy as np
 import pandas as pd
@@ -11,7 +10,6 @@ from sklearn import preprocessing
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
 from footix.utils.utils import DICO_COMPATIBILITY
-
 
 
 class Bayesian:
