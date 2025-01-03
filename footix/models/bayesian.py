@@ -12,7 +12,6 @@ from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
 from footix.utils.utils import DICO_COMPATIBILITY
 
-T = TypeVar("MultiTrace")
 
 
 class Bayesian:
