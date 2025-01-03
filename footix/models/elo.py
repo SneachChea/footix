@@ -1,13 +1,12 @@
 import numpy as np
 import pandas as pd
 
-from footix.models.abstract_model import CustomModel
-from footix.models.teamElo import team
-from footix.utils.decorators import verify_required_column
-from footix.utils.utils import DICO_COMPATIBILITY
+from footix.data_io.data_reader import EloDataReader
+from footix.models.team_elo import team
 
 
-class EloDavidson(CustomModel):
+# TODO: A dataclass for agnostic_probs?
+class EloDavidson:
     def __init__(
         self,
         n_teams: int,
@@ -17,7 +16,7 @@ class EloDavidson(CustomModel):
         agnostic_probs: list,
         **kwargs,
     ):
-        super().__init__(n_teams, **kwargs)
+        self.n_teams = n_teams
         self.checkProbas(agnostic_probs)
         PH, PD, PA = agnostic_probs
         self.kappa = self.computeKappa(P_H=PH, P_D=PD, P_A=PA)
@@ -27,9 +26,10 @@ class EloDavidson(CustomModel):
         self.sigma = sigma
         self.championnat: dict[str, team] = {}
 
-    @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
-    def fit(self, X_train: pd.DataFrame):
-        clubs = np.sort(np.unique(np.concatenate([X_train["HomeTeam"], X_train["AwayTeam"]])))
+    def fit(self, X_train: pd.DataFrame | EloDataReader):
+        if isinstance(X_train, pd.DataFrame):
+            X_train = EloDataReader(df_data=X_train)
+        clubs = X_train.unique_teams()
         if len(clubs) != self.n_teams:
             raise ValueError(
                 "Number of teams in the training dataset is not the same as in this class"
@@ -39,11 +39,11 @@ class EloDavidson(CustomModel):
         for club in clubs:
             self.championnat[club] = team(club)
 
-        for idx, row in X_train.iterrows():
-            Home = row["HomeTeam"]
-            Away = row["AwayTeam"]
-            result = self.correspondance_result(row["FTR"])
-            gamma = np.abs(row["FTHG"] - row["FTAG"])
+        for game in X_train:
+            Home = game.home_team
+            Away = game.away_team
+            result = self.correspondance_result(game.result)
+            gamma = np.abs(game.home_goals - game.away_goals)
             K = self.K(gamma)
             self.update_rank(self.championnat[Home], self.championnat[Away], result, K)
 
@@ -99,16 +99,8 @@ class EloDavidson(CustomModel):
         else:
             return "{}"
 
-    def predict(
-        self, HomeTeam: str, AwayTeam: str, cote_fdj: bool = True
-    ) -> tuple[float, float, float]:
-        if cote_fdj:
-            Home = DICO_COMPATIBILITY[HomeTeam]
-            Away = DICO_COMPATIBILITY[AwayTeam]
-        else:
-            Home = HomeTeam
-            Away = AwayTeam
-        return self.compute_proba(self.championnat[Home], self.championnat[Away])
+    def predict(self, home_team: str, away_team: str) -> tuple[float, float, float]:
+        return self.compute_proba(self.championnat[home_team], self.championnat[away_team])
 
     def probaW(self, diff: float) -> float:
         num = 0.5 * diff / self.sigma
