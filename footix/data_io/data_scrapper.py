@@ -8,7 +8,10 @@ import footix.data_io.utils_scrapper as utils_scrapper
 
 class ScrapFootballData:
     base_url: str = "https://www.football-data.co.uk/mmz4281/"
-    def __init__(self, competition: str, season: str, path: str, force_reload: bool = False) -> None:
+
+    def __init__(
+        self, competition: str, season: str, path: str, force_reload: bool = False
+    ) -> None:
         self.competition = utils_scrapper.process_string(competition)
         slug = utils_scrapper.MAPPING_COMPETITIONS[self.competition]
         self.season = _process_season(season)
@@ -16,7 +19,6 @@ class ScrapFootballData:
         self.force_reload = force_reload
         self.infered_url = self.base_url + self.season + "/" + slug + ".csv"
         self.df = self.load()
-
 
     @staticmethod
     def manage_path(path: str) -> pathlib.Path:
@@ -57,8 +59,8 @@ def _process_season(season: str) -> str:
     """Process a season string to extract a standardized format.
 
     Args:
-        season (str): A string representing a football season in the format 'YYYY/YYYY' or 'YYYY-YYYY'.
-                     For example: '2020/2021' or '2020-2021'
+        season (str): A string representing a football season in the format
+            'YYYY/YYYY' or 'YYYY-YYYY'. For example: '2020/2021' or '2020-2021'
 
     Raises:
         ValueError: if the season string cannot be split into exactly two years.

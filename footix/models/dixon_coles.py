@@ -125,7 +125,7 @@ def rho_correction_vec(
             1 + (mu * rho),
             1 - rho,
         ],
-        default=1.,
+        default=1.0,
     )
     return dc_adj
 
@@ -133,7 +133,7 @@ def rho_correction_vec(
 def poisson_proba(lambda_params: float, k: int) -> np.ndarray:
     poisson = stats.poisson(mu=lambda_params)
     k_list = np.arange(k)
-    return poisson.pmf(k=k_list) #type: ignore
+    return poisson.pmf(k=k_list)  # type: ignore
 
 
 def matrix_rho(rho: float, lam: float, mu: float, size: int) -> np.ndarray:
