@@ -7,7 +7,6 @@ import scipy.stats as stats
 
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
-
 from footix.models.protocol_model import ProtoPoisson
 from footix.utils.decorators import verify_required_column
 
