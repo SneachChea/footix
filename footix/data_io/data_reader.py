@@ -21,10 +21,6 @@ class MatchupResult:
         away_goals (float): The number of goals scored by the away team.
         home_goals (float): The number of goals scored by the home team.
 
-    Methods:
-        from_dict(dict_row: dict) -> "MatchupResult": Factory method to create a MatchupResult
-            object from a dictionary row.
-
     """
 
     home_team: str

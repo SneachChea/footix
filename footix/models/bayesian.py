@@ -7,11 +7,12 @@ import pytensor.tensor as pt
 import scipy.stats as stats
 from sklearn import preprocessing
 
+from footix.models.protocol_model import ProtoPoisson
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
 
 
-class Bayesian:
+class Bayesian(ProtoPoisson):
     def __init__(self, n_teams: int, n_goals: int):
         self.n_teams = n_teams
         self.n_goals = n_goals

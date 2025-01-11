@@ -5,13 +5,14 @@ import pandas as pd
 import scipy.optimize as optimize
 import scipy.stats as stats
 
+from footix.models.protocol_model import ProtoPoisson
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
 
 logger = logging.getLogger(name=__name__)
 
 
-class DixonColes:
+class DixonColes(ProtoPoisson):
     def __init__(self, n_teams: int, n_goals: int) -> None:
         self.n_teams = n_teams
         self.n_goals = n_goals
