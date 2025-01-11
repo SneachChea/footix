@@ -7,8 +7,8 @@ import numpy as np
 # TODO: Add a dataclass for probabilities ?
 @dataclass
 class GoalMatrix:
-    """Dataclass that compile all functions related to probability from
-    Poisson models (Bayesian, Dixon, etc.)"""
+    """Dataclass that compile all functions related to probability from Poisson models (Bayesian,
+    Dixon, etc.)"""
 
     home_probs: np.ndarray
     away_probs: np.ndarray
@@ -34,9 +34,7 @@ class GoalMatrix:
                 )
 
     def return_probas(self) -> tuple[float, float, float]:
-        """
-        Return results probabilities in this order:
-        home_win, draw, away_win
+        """Return results probabilities in this order: home_win, draw, away_win.
 
         Returns:
             tuple[float, float, float]: _description_

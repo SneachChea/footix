@@ -7,15 +7,18 @@ import scipy.stats as stats
 
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
+from footix.models.protocol_model import ProtoPoisson
+from footix.utils.decorators import verify_required_column
 
 logger = logging.getLogger(name=__name__)
 
 
-class BasicPoisson:
+class BasicPoisson(ProtoPoisson):
     def __init__(self, n_teams: int, n_goals: int) -> None:
         self.n_teams = n_teams
         self.n_goals = n_goals
 
+    @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
     def fit(self, X_train: pd.DataFrame) -> None:
         self.dict_teams = self.mapping_team_index(X_train["HomeTeam"])
         self._sanity_check(X_train["AwayTeam"])
@@ -99,16 +102,14 @@ def basic_poisson_likelihood(
 
 
 def poisson_proba(lambda_param: float, k: int) -> np.ndarray:
-    """
-    Calculate the probability of achieving upto k goals given a lambda parameter.
+    """Calculate the probability of achieving upto k goals given a lambda parameter.
 
-    Parameters:
-        lambda_param (float): The expected number of goals.
-        k (int): The number of goals to achieve.
+    Parameters:     lambda_param (float): The expected number of goals.     k (int): The number of
+    goals to achieve.
 
-    Returns:
-        np.ndarray: An array containing the probabilities of achieving each possible number
-                  of goals from 0 to n_goals, inclusive.
+    Returns:     np.ndarray: An array containing the probabilities of achieving each possible
+    number               of goals from 0 to n_goals, inclusive.
+
     """
     poisson = stats.poisson(mu=lambda_param)
     k_list = np.arange(k)

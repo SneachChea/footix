@@ -16,7 +16,7 @@
 # This specific template is located at:
 # https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
 
-image: python:3.10
+image: python:3.11
 
 stages:          # List of stages for jobs, and their order of execution
   - lint

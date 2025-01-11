@@ -3,3 +3,15 @@ __pycache__/
 .vscode/
 *.egg-info/
 .DS_Store
+
+# Sphinx build directory
+build/
+
+# Sphinx doctrees directory
+doctrees/
+html/
+
+# Temporary files
+*.swp
+*.bak
+*.tmp
