@@ -26,12 +26,12 @@ def _assert_odds(odds: list[float] | np.ndarray, axis: None | int = None) -> Non
 def multiplicative(
     odds: list[float] | np.ndarray, axis: int = -1
 ) -> tuple[np.ndarray, float | np.ndarray]:
-    """
-        Multiplicative way to normalize the odds.
-        Work for multidimensionnal array
+    """Multiplicative way to normalize the odds. Work for multidimensionnal array.
+
     Args:
         odds (list or np.array): list of odds
         axis (int) : axis where compute the probabilities
+
     """
     _assert_odds(odds, axis=axis)
     if isinstance(odds, list):
@@ -45,13 +45,12 @@ def multiplicative(
 
 
 def power(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
-    """
-    From penaltyblog package.
-    The power method computes the implied probabilities by solving for the
-    power coefficient that normalizes the inverse of the odds to sum to 1.0
+    """From penaltyblog package. The power method computes the implied probabilities by solving
+    for the power coefficient that normalizes the inverse of the odds to sum to 1.0.
 
     Args:
         odds : (list or np.array): list of odds
+
     """
     _assert_odds(odds)
     if isinstance(odds, list):
@@ -69,11 +68,11 @@ def power(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
 
 
 def shin(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
-    """
-    Computes the implied probabilities via the Shin (1992, 1993) method
+    """Computes the implied probabilities via the Shin (1992, 1993) method.
 
     Args:
         odds : (list or np.ndarray): list of odds
+
     """
     _assert_odds(odds)
 
@@ -93,7 +92,7 @@ def shin(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
 
 
 def _shin(z_param: float, inv_odds: np.ndarray) -> np.ndarray:
-    """Compute the implied probability using Shin's method"""
+    """Compute the implied probability using Shin's method."""
     normalized = np.sum(inv_odds)
     implied = (
         np.sqrt(z_param**2 + 4 * (1 - z_param) * inv_odds**2 / normalized) - z_param

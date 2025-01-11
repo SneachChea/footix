@@ -99,16 +99,14 @@ def basic_poisson_likelihood(
 
 
 def poisson_proba(lambda_param: float, k: int) -> np.ndarray:
-    """
-    Calculate the probability of achieving upto k goals given a lambda parameter.
+    """Calculate the probability of achieving upto k goals given a lambda parameter.
 
-    Parameters:
-        lambda_param (float): The expected number of goals.
-        k (int): The number of goals to achieve.
+    Parameters:     lambda_param (float): The expected number of goals.     k (int): The number of
+    goals to achieve.
 
-    Returns:
-        np.ndarray: An array containing the probabilities of achieving each possible number
-                  of goals from 0 to n_goals, inclusive.
+    Returns:     np.ndarray: An array containing the probabilities of achieving each possible
+    number               of goals from 0 to n_goals, inclusive.
+
     """
     poisson = stats.poisson(mu=lambda_param)
     k_list = np.arange(k)

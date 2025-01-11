@@ -4,8 +4,7 @@ import numpy as np
 
 
 def entropy(probas: list[float] | np.ndarray, outcome_idx: int) -> float:
-    """
-    Compute the entropy (or incertity) metric.
+    """Compute the entropy (or incertity) metric.
 
     Args:
         proba (Union[List, np.ndarray]): list of probabilities
@@ -13,21 +12,21 @@ def entropy(probas: list[float] | np.ndarray, outcome_idx: int) -> float:
 
     Returns:
         float: entropy metrics
+
     """
     p_r = probas[outcome_idx]
     return -np.log(p_r) / np.log(3)
 
 
 def rps(probas: list[float] | np.ndarray, outcome_idx: int) -> float:
-    """
-        Compute the Ranked Probability Score.
+    """Compute the Ranked Probability Score.
 
     Args:
         probas (Union[List, np.ndarray]): list of probabilities
         outcome_idx (int): index of the outcome. 0, 1, 2 for Home, Draw and Away
-
     Returns:
         float: RPS metrics
+
     """
     outcome = np.zeros_like(probas)
     outcome[outcome_idx] = 1.0
@@ -43,11 +42,9 @@ def rps(probas: list[float] | np.ndarray, outcome_idx: int) -> float:
 def zscore(
     probas: list[float] | np.ndarray, rps_real: float, seed: int | None = None, n_iter: int = 1000
 ) -> Tuple[float, float, float]:
-    """
-        Compute the Z-score in respect of the RPS computed.
-        The z-score shows how many standard deviations the observed RPS was away
-        from what could have been expected, if the probabilities of each model were perfect.
-
+    """Compute the Z-score in respect of the RPS computed. The z-score shows how many standard
+    deviations the observed RPS was away from what could have been expected, if the probabilities
+    of each model were perfect.
 
     Args:
         probas (Union[List, np.ndarray]): list of probabilities
@@ -58,6 +55,7 @@ def zscore(
         float: Z-score
         float: mu
         float: sigma
+
     """
 
     _eps = 1e-5

@@ -30,11 +30,7 @@ class Bayesian:
         away_team = x_train_cop["AwayTeamId"].to_numpy()
         self.trace = self.hierarchical_bayes(goals_home_obs, goals_away_obs, home_team, away_team)
 
-    def predict(
-        self,
-        home_team: str,
-        away_team: str) -> GoalMatrix:
-
+    def predict(self, home_team: str, away_team: str) -> GoalMatrix:
         team_id = self.label.transform([home_team, away_team])
 
         home_goal_expectation, away_goal_expectation = self.goal_expectation(
@@ -56,8 +52,6 @@ class Bayesian:
         atts_away = np.mean([x[away_team_id] for x in self.trace["atts"]])
         defs_home = np.mean([x[home_team_id] for x in self.trace["defs"]])
         defs_away = np.mean([x[away_team_id] for x in self.trace["defs"]])
-
-
 
         # calculate theta
         home_theta = np.exp(intercept + home + atts_home - defs_away)

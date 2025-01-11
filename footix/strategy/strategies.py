@@ -16,8 +16,8 @@ import footix.utils.decorators as decorators
     ["Home_Team", "Away_Team", "C_H", "C_D", "C_A", "P_H", "P_D", "P_A"]
 )
 def classic_kelly(input_df: pd.DataFrame, bankroll: float) -> None:
-    """
-    Classic Kelly criterion function.
+    """Classic Kelly criterion function.
+
     Parameters
     ----------
     input_df: pandas.DataFrame
@@ -27,6 +27,7 @@ def classic_kelly(input_df: pd.DataFrame, bankroll: float) -> None:
     -------
     None
         Modifies the input DataFrame in place.
+
     """
 
     def _kelly_criterion(odds: pd.Series, probability: pd.Series, bankroll: float) -> pd.Series:
@@ -53,8 +54,7 @@ def realKelly(
 
     Args:
         selections (List[dict[str, Any]]): selections of bets. This arguments is a
-        list of dictionnary with keys 'name','odds_bookie',
-        'probability'
+            list of dictionnary with keys 'name','odds_bookie', 'probability'
         bankroll (float): the bankroll
         max_multiple (int, optional): max length for combined bets. Defaults to 1.
 
@@ -82,7 +82,7 @@ def realKelly(
                 winning_bets[index_bet].append(index_combination)
 
     def constraint(stakes):
-        """Sum of all stakes must not exceed bankroll"""
+        """Sum of all stakes must not exceed bankroll."""
         return sum(stakes)
 
     # FIND THE GLOBAL MAXIMUM USING SCIPY'S CONSTRAINED MINIMIZATION
@@ -155,8 +155,7 @@ def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> list[dict]:
 
 
 def _fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str) -> str:
-    """
-    Convert an index to a result string.
+    """Convert an index to a result string.
 
     Args:
         index (int): Index of the result.
@@ -165,6 +164,7 @@ def _fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str) -> str:
 
     Returns:
         str: A string describing the result
+
     """
     if index == 0:
         return f"Victoire à domicile de {HomeTeam} contre {AwayTeam}"
@@ -175,20 +175,21 @@ def _fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str) -> str:
 
 
 def generate_combinations(selections: list[dict[str, Any]]) -> tuple[list[list[int]], list[float]]:
-    """Generate a matrix of all possible combinations of selections
-        and their corresponding probabilities.
+    """Generate a matrix of all possible combinations of selections and their corresponding
+    probabilities.
 
     Args:
         selections (list[dict[str, Any]]):
-                A list of dictionaries representing the selectable options,
-                where each dictionary contains
+            A list of dictionaries representing the selectable options,
+            where each dictionary contains
             - 'probability': The probability associated with selecting that option.
 
     Returns:
         tuple[list[list[int]], list[float]]: A tuple containing two lists:
             1. A list of lists, where each sublist represents a combination of selections (0 or 1),
-               indicating which options are selected in that combination.
+            indicating which options are selected in that combination.
             2. A list of probabilities corresponding to each combination.
+
     """
     combinations = []
     probs = []
@@ -211,21 +212,18 @@ def generate_combinations(selections: list[dict[str, Any]]) -> tuple[list[list[i
 def generate_bets_combination(
     selections: list[dict], max_multiple: int
 ) -> tuple[list[list[int]], list[float]]:
-    """
-    Generates all possible bets based on selections and a maximum multiple.
+    """Generates all possible bets based on selections and a maximum multiple.
 
-    Parameters:
-    selections (list[dict]):
-            A list of dictionaries, where each dictionary contains selection information,
-            including the "odds_book" key for the odds in the book.
-    max_multiple (int): The maximum number of selections that can be combined in a strategy.
+    Args:
+        selections (list[dict]): A list of dictionaries, where each dictionary contains selection
+        information, including the "odds_book" key for the odds in the book.
+        max_multiple (int): The maximum number of selections that can be combined in a strategy.
 
     Returns:
-    tuple[list[list[int]], list[float]]:
-                A tuple containing two lists. The first list contains all possible bets,
-                where each bet is represented as a list of 1s and 0s indicating the selection.
-                The second list contains the product of odds for each combination,
-                representing the book odds.
+        tuple[list[list[int]], list[float]]: The first list contains all possible bets, where each
+            bet is represented as a list of 1s and 0s indicating the selection. The second list
+            contains the product of odds for each combination, representing the book odds.
+
     """
     bets = []
     book_odds = []
@@ -250,10 +248,8 @@ def compute_stacks(
     book_odds: list[float],
     probs,
 ):
-    """
-    This function will be called by scipy.optimize.minimize repeatedly to
-    find the global maximum
-    """
+    """This function will be called by scipy.optimize.minimize repeatedly to find the global
+    maximum."""
     end_bankrolls = len(combinations) * [bankroll - np.sum(stakes)]
 
     for index_bet, index_combinations in winning_bets.items():

@@ -11,20 +11,20 @@ class DataProtocol(Protocol):
 
 @dataclasses.dataclass
 class MatchupResult:
-    """
-    A dataclass representing the result of a football match.
+    """A dataclass representing the result of a football match.
 
     Attributes:
         home_team (str): The name of the home team.
         away_team (str): The name of the away team.
-        result (str): The final result of the match
-                ('H' for Home Win, 'A' for Away Win, 'D' for Draw).
+        result (str): The final result of the match:
+            ('H' for Home Win, 'A' for Away Win, 'D' for Draw).
         away_goals (float): The number of goals scored by the away team.
         home_goals (float): The number of goals scored by the home team.
 
     Methods:
-        from_dict(dict_row: dict) -> "MatchupResult":
-            Factory method to create a MatchupResult object from a dictionary row.
+        from_dict(dict_row: dict) -> "MatchupResult": Factory method to create a MatchupResult
+            object from a dictionary row.
+
     """
 
     home_team: str
@@ -35,21 +35,20 @@ class MatchupResult:
 
     @staticmethod
     def from_dict(dict_row: dict) -> "MatchupResult":
-        """
-        Factory method to create a MatchupResult object from a dictionary row.
+        """Factory method to create a MatchupResult object from a dictionary row.
 
         Parameters:
             dict_row (dict): A dictionary containing the match results with keys:
-                - 'HomeTeam': The name of the home team.
-                - 'AwayTeam': The name of the away team.
-                - 'FTR': The final result
-                    ('H' for Home Win, 'A' for Away Win, 'D' for Draw).
-                - 'FTAG': The number of goals scored by the away team.
-                - 'FTHG': The number of goals scored by the home team.
-
+            - 'HomeTeam': The name of the home team.
+            - 'AwayTeam': The name of the away team.
+            - 'FTR': The final result
+                ('H' for Home Win, 'A' for Away Win, 'D' for Draw).
+            - 'FTAG': The number of goals scored by the away team.
+            - 'FTHG': The number of goals scored by the home team.
         Returns:
-            MatchupResult: An instance of the MatchupResult class
-            populated with data from the dictionary row.
+            MatchupResult: An instance of the MatchupResult class populated with data
+            from the dictionary row.
+
         """
         return MatchupResult(
             home_team=dict_row["HomeTeam"],
