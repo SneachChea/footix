@@ -3,11 +3,13 @@ import math
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-import scipy.optimize
+import torch
+from torch.optim import Adam
+from tqdm.auto import tqdm
 
 import footix.utils.decorators as decorators
 
@@ -44,88 +46,136 @@ def realKelly(
     selections: list[dict[str, Any]],
     bankroll: float,
     max_multiple: int = 1,
-    optimizer_kwargs: dict[str, Any] | None = None,
+    num_iterations: int = 1000,
+    learning_rate: float = 0.1,
+    penalty_weight: float = 1000.0,
+    device: Literal["cpu", "cuda", "mps"] = "cpu",
+    early_stopping: bool = True,
+    tolerance: int = 5,
 ) -> None:
-    """
-        Compute the real Kelly criterion for mutually exclusive bets.
-        This function comes from
-        https://github.com/BettingIsCool/real_kelly-independent_concurrent_outcomes-/blob/master/
-        real_kelly-independent_concurrent_outcomes-.py
+    """Compute the real Kelly criterion using a GPU accelerated gradient-based optimizer
+    (PyTorch).
 
     Args:
-        selections (List[dict[str, Any]]): selections of bets. This arguments is a
-            list of dictionnary with keys 'name','odds_bookie', 'probability'
-        bankroll (float): the bankroll
-        max_multiple (int, optional): max length for combined bets. Defaults to 1.
-
-    Raises:
-        ValueError: max_multiple must not exceed the number of bets
+        selections (list[dict[str, Any]]): List of betting selections.
+        bankroll (float): Total bankroll available.
+        max_multiple (int, optional): Maximum number of selections to combine. Defaults to 1.
+        num_iterations (int, optional): Number of iterations for gradient descent.
+        learning_rate (float, optional): Learning rate for the optimizer.
+        penalty_weight (float, optional): Weight for the penalty term enforcing the bankroll
+        constraint.
+        device (str, optional): Device to run the computations on ("cuda" or "cpu").
 
     Returns:
         None
-    """
 
+    """
     start_time = time.time()
 
     if max_multiple > len(selections):
-        raise ValueError(f"Error: Maximum multiple must not exceed {len(selections)}")
+        raise ValueError(f"Error: max_multiple must not exceed {len(selections)}")
 
+    # Generate combinations and bets (this part runs on CPU)
     combinations, probs = generate_combinations(selections)
     bets, book_odds = generate_bets_combination(selections, max_multiple)
 
-    winning_bets: defaultdict[int, list[int]] = defaultdict(list)
+    # Build winning_bets mapping
+    winning_bets: dict[int, list[int]] = defaultdict(list)
     for index_combination, combination in enumerate(combinations):
-        # Iterate over each bet to check if the sum of combinations equals the sum of the bet
         for index_bet, bet in enumerate(bets):
             if sum(c * b for c, b in zip(combination, bet)) == sum(bet):
-                # If true, add the combination index to the list of winning bets for this bet index
                 winning_bets[index_bet].append(index_combination)
 
-    def constraint(stakes):
-        """Sum of all stakes must not exceed bankroll."""
-        return sum(stakes)
+    # Convert constant lists to torch tensors (on the chosen device)
+    probs_t = torch.tensor(probs, device=device, dtype=torch.float32)
+    book_odds_t = torch.tensor(book_odds, device=device, dtype=torch.float32)
+    bankroll_t = torch.tensor(bankroll, device=device, dtype=torch.float32)
+    eps = 1e-9
 
-    # FIND THE GLOBAL MAXIMUM USING SCIPY'S CONSTRAINED MINIMIZATION
-    bounds = list(zip(len(bets) * [0], len(bets) * [bankroll]))
-    nlc = scipy.optimize.NonlinearConstraint(constraint, 0.0, bankroll)
-    res = scipy.optimize.differential_evolution(
-        func=compute_stacks,
-        bounds=bounds,
-        constraints=(nlc),
-        args=(
-            bankroll,
-            combinations,
-            winning_bets,
-            book_odds,
-            probs,
-        ),
-        **(optimizer_kwargs or {}),
-    )
+    # Number of bets (decision variables)
+    num_bets = len(bets)
+
+    # Initialize stakes as torch parameters (starting with an equal fraction of bankroll)
+    stakes = torch.nn.Parameter(torch.full((num_bets,), bankroll / (2 * num_bets), device=device))
+
+    optimizer = Adam([stakes], lr=learning_rate)
+
+    # Precompute a mapping from each bet to the list of outcome indices that are won.
+    # For GPU efficiency, we create a mask matrix of shape (num_bets, num_outcomes).
+    num_outcomes = len(combinations)
+    win_mask = torch.zeros((num_bets, num_outcomes), device=device)
+    for bet_idx, outcome_indices in winning_bets.items():
+        win_mask[bet_idx, outcome_indices] = 1.0
+
+    old_loss = torch.tensor(torch.inf, device=device)
+    counter = 0
+    # Optimization loop
+    with tqdm(total=num_iterations) as pbar:
+        for iter in range(num_iterations):
+            optimizer.zero_grad()
+
+            # Compute base bankroll remaining after placing all stakes.
+            total_stake = torch.sum(stakes)
+            base = bankroll_t - total_stake
+
+            # Create an outcome vector: for each outcome, add winnings from bets that win.
+            # stakes: (num_bets,), win_mask: (num_bets, num_outcomes), book_odds_t: (num_bets,)
+            # Compute winnings per outcome as a sum over bets:
+            winnings = torch.matmul((stakes * book_odds_t), win_mask)  # shape: (num_outcomes,)
+            end_bankrolls = base + winnings
+
+            # Compute the objective: negative weighted sum of log(end_bankrolls)
+            # Add eps to avoid log(0).
+            objective = -torch.sum(probs_t * torch.log(end_bankrolls + eps))
+
+            # Penalty to enforce the bankroll constraint (if total_stake exceeds bankroll)
+            constraint_violation = torch.clamp(total_stake - bankroll_t, min=0.0)
+            penalty = penalty_weight * (constraint_violation**2)
+
+            loss = objective + penalty
+
+            loss.backward()
+            optimizer.step()
+            # Clamp stakes to be non-negative
+            pbar.set_postfix(loss=f"{loss.item():.5f}", stake=f"{total_stake.item():.2f}")
+            pbar.update(1)
+
+            with torch.no_grad():
+                stakes.clamp_(min=0.0)
+                if early_stopping:
+                    if torch.isclose(old_loss, loss, rtol=1e-7):
+                        if counter == tolerance:
+                            break
+                        else:
+                            counter += 1
+            old_loss = loss
 
     runtime = time.time() - start_time
     print(
-        f"\n{datetime.now().replace(microsecond=0)} - Optimization finished. Runtime",
-        f"--- {round(runtime, 3)} seconds ---\n",
+        f"\n{datetime.now().replace(microsecond=0)}"
+        f"- Optimization finished. Runtime --- "
+        f"{round(runtime, 3)} seconds ---\n"
     )
-    print(f"Objective: {round(res.fun, 5)}")
-    print(f"Certainty Equivalent: {round(math.exp(-res.fun), 3)}\n")
+    final_objective = loss.item()
+    print(f"Objective: {round(final_objective, 5)}")
+    ce = math.exp(-final_objective)
+    print(f"Certainty Equivalent: {round(ce, 3)}\n")
 
-    # CONSOLE OUTPUT
+    # Display the bets with non-negligible stakes
     sum_stake = 0
+    stakes_final = stakes.detach().cpu().numpy()
     for index_bet, bet in enumerate(bets):
-        bet_strings = list()
-        for index_sel, sel in enumerate(bet):
-            if sel == 1:
-                bet_strings.append(selections[index_sel]["name"])
-
-        stake = res.x[index_bet]
-        if stake >= 0.50:
+        bet_strings = [
+            selections[index_sel]["name"] for index_sel, sel in enumerate(bet) if sel == 1
+        ]
+        stake_value = stakes_final[index_bet]
+        if stake_value >= 0.50:
             print(
-                f"{(' / ').join(bet_strings)} @{round(book_odds[index_bet], 3)}",
-                f"- € {int(round(stake, 0))}",
+                f"{' / '.join(bet_strings)} @ {round(book_odds[index_bet], 3)}"
+                f"- € {int(round(stake_value, 0))}"
             )
-            sum_stake += stake
-    print(f"Bankroll used {sum_stake} €")
+            sum_stake += stake_value
+    print(f"Bankroll used: {sum_stake:.2f} €")
 
 
 @decorators.verify_required_column(column_names={"1", "2", "N"})
@@ -241,19 +291,34 @@ def generate_bets_combination(
 
 
 def compute_stacks(
-    stakes,
+    stakes: list[float],
     bankroll: float,
     combinations: list[list[int]],
     winning_bets: dict[int, list[int]],
     book_odds: list[float],
     probs,
+    eps: float = 1e-9,
 ):
-    """This function will be called by scipy.optimize.minimize repeatedly to find the global
-    maximum."""
-    end_bankrolls = len(combinations) * [bankroll - np.sum(stakes)]
+    """Compute the expected bankroll after placing bets.
 
-    for index_bet, index_combinations in winning_bets.items():
-        for index_combination in index_combinations:
-            end_bankrolls[index_combination] += stakes[index_bet] * book_odds[index_bet]
+    Args:
+        stakes (list[float]): The amount of money placed on each bet.
+        bankroll (float): The initial amount of money available.
+        combinations (list[list[int]]): A list of combinations of bet indices.
+        winning_bets (dict[int, list[int]]): A dictionary where keys are bet indices and
+        values are lists of combination indices that win.
+        book_odds (list[float]): The odds provided by the bookmaker for each bet.
+        probs (list[float]): The probabilities of each combination occurring.
+        eps (float, optional): A small value to avoid log(0). Defaults to 1e-9.
 
-    return -sum([p * e for p, e in zip(probs, np.log(end_bankrolls))])
+    Returns:
+        float: The negative sum of the expected log bankrolls.
+
+    """
+
+    end_bankrolls = np.array([bankroll - np.sum(stakes)] * len(combinations), dtype=float)
+    for index_bet, comb_indices in winning_bets.items():
+        for index in comb_indices:
+            end_bankrolls[index] += stakes[index_bet] * book_odds[index_bet]
+    # Avoid log(0) by adding a small epsilon.
+    return -np.sum([p * math.log(max(e, eps)) for p, e in zip(probs, end_bankrolls)])

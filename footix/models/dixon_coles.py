@@ -7,18 +7,15 @@ import scipy.stats as stats
 
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
-from footix.models.protocol_model import ProtoPoisson
-from footix.utils.decorators import verify_required_column
 
 logger = logging.getLogger(name=__name__)
 
 
-class DixonColes(ProtoPoisson):
+class DixonColes:
     def __init__(self, n_teams: int, n_goals: int) -> None:
         self.n_teams = n_teams
         self.n_goals = n_goals
 
-    @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
     def fit(self, X_train: pd.DataFrame) -> None:
         self.dict_teams = self.mapping_team_index(X_train["HomeTeam"])
         self._sanity_check(X_train["AwayTeam"])
@@ -136,7 +133,7 @@ def rho_correction_vec(
 def poisson_proba(lambda_params: float, k: int) -> np.ndarray:
     poisson = stats.poisson(mu=lambda_params)
     k_list = np.arange(k)
-    return poisson.pmf(k=k_list)
+    return poisson.pmf(k=k_list)  # type: ignore
 
 
 def matrix_rho(rho: float, lam: float, mu: float, size: int) -> np.ndarray:

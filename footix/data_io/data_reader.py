@@ -57,23 +57,24 @@ class MatchupResult:
 
 class EloDataReader(DataProtocol):
     def __init__(self, df_data: pd.DataFrame):
-        self.data_df = df_data.copy().reset_index(drop=True)
-        self._process_df()
+        self.df_data = self._process_df(df_data)
         # Better performances for iteration over rows
-        self.data = self.data_df.to_dict(orient="index")
+        self.data = self.df_data.to_dict(orient="index")
 
     # TODO: Add a sanity check to verify if columns are presents in the df
-    def _process_df(self) -> None:
-        self.data_df = self.data_df[["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG", "FTR"]]
-        self.data_df["Date"] = pd.to_datetime(self.data_df["Date"], dayfirst=True)
-        self.data_df = self.data_df.sort_values(by="Date", ascending=True)
+    def _process_df(self, df_data: pd.DataFrame) -> pd.DataFrame:
+        df = df_data.copy().reset_index(drop=True)
+        df = df[["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG", "FTR"]]
+        df["Date"] = pd.to_datetime(df["Date"], dayfirst=True)
+        df = df.sort_values(by="Date", ascending=True)
+        return df
 
     def __len__(self) -> int:
-        return len(self.data_df)
+        return len(self.df_data)
 
     def unique_teams(self) -> list[str]:
         list_unique_team = list(
-            set(self.data_df["HomeTeam"].unique()).intersection(self.data_df["AwayTeam"].unique())
+            set(self.df_data["HomeTeam"].unique()).intersection(self.df_data["AwayTeam"].unique())
         )
         return sorted(list_unique_team)
 
