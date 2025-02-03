@@ -3,7 +3,6 @@ from copy import copy
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as pt
 import scipy.stats as stats
 from sklearn import preprocessing
 
@@ -45,20 +44,25 @@ class Bayesian(ProtoPoisson):
         return goals_matrix
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
-        # get parameters
+        # Extract posterior means from the InferenceData object.
+        # This assumes that self.trace is the InferenceData returned by
+        # pm.sample(..., return_inferencedata=True)
+        posterior = self.trace.posterior
+        home = posterior["home"].mean(dim=["chain", "draw"]).values
+        intercept = posterior["intercept"].mean(dim=["chain", "draw"]).values
+        atts = posterior["atts"].mean(dim=["chain", "draw"]).values
+        defs = posterior["defs"].mean(dim=["chain", "draw"]).values
 
-        home = np.mean(self.trace["home"])
-        intercept = np.mean(self.trace["intercept"])
-        atts_home = np.mean([x[home_team_id] for x in self.trace["atts"]])
-        atts_away = np.mean([x[away_team_id] for x in self.trace["atts"]])
-        defs_home = np.mean([x[home_team_id] for x in self.trace["defs"]])
-        defs_away = np.mean([x[away_team_id] for x in self.trace["defs"]])
+        # Calculate the expected goal rates.
+        # Note: This calculation now matches the revised hierarchical model:
+        # home_theta = exp(intercept + home advantage for home team + attack rating
+        # for home team + defense rating for away team)
+        # away_theta = exp(intercept + attack rating for away team + defense rating for home team)
+        home_theta = np.exp(
+            intercept + home[home_team_id] + atts[home_team_id] + defs[away_team_id]
+        )
+        away_theta = np.exp(intercept + atts[away_team_id] + defs[home_team_id])
 
-        # calculate theta
-        home_theta = np.exp(intercept + home + atts_home - defs_away)
-        away_theta = np.exp(intercept + atts_away - defs_home)
-
-        # return the average per team
         return home_theta, away_theta
 
     def hierarchical_bayes(
@@ -69,31 +73,38 @@ class Bayesian(ProtoPoisson):
         away_team: np.ndarray,
     ):
         with pm.Model():
-            # Home advantage
+            # Use pm.Data for the observed data and covariates
+            goals_home_data = pm.Data("goals_home", goals_home_obs)
+            goals_away_data = pm.Data("goals_away", goals_away_obs)
+            home_team_data = pm.Data("home_team", home_team)
+            away_team_data = pm.Data("away_team", away_team)
 
-            grp_att = pm.Categorical("grp_att", p=[0.5, 0.5], shape=self.n_teams)
-            grp_def = pm.Categorical("grp_def", p=[0.5, 0.5], shape=self.n_teams)
             # Home advantage and intercept
-            home = pm.Normal("home", mu=0, sigma=1)
+            home = pm.Normal("home", mu=0, sigma=1, shape=self.n_teams)
             intercept = pm.Normal("intercept", mu=3, sigma=1)
-            # Group-level priors
-            sigma_att = pm.Gamma("sigma_att", alpha=0.1, beta=0.1, shape=2)
-            sigma_def = pm.Gamma("sigma_def", alpha=0.1, beta=0.1, shape=2)
 
-            # Team-specific attack and defense effects
-            attack = pm.Normal("attack", mu=0, sigma=sigma_att[grp_att], shape=self.n_teams)
-            defense = pm.Normal("defense", mu=0, sigma=sigma_def[grp_def], shape=self.n_teams)
+            # Attack ratings with non-centered parameterization
+            tau_att = pm.HalfNormal("tau_att", sigma=2)
+            raw_atts = pm.Normal("raw_atts", mu=0, sigma=1, shape=self.n_teams)
+            atts_uncentered = raw_atts * tau_att
+            atts = pm.Deterministic("atts", atts_uncentered - pm.math.mean(atts_uncentered))
+            # Defence ratings with non-centered parameterization
+            tau_def = pm.HalfNormal("tau_def", sigma=2)
+            raw_defs = pm.Normal("raw_defs", mu=0, sigma=1, shape=self.n_teams)
+            defs_uncentered = raw_defs * tau_def
+            defs = pm.Deterministic("defs", defs_uncentered - pm.math.mean(defs_uncentered))
 
-            # Sum-zero constraints
-            atts = pm.Deterministic("atts", attack - pt.mean(attack))
-            defs = pm.Deterministic("defs", defense - pt.mean(defense))
+            # Calculate theta for home and away
+            home_theta = pm.math.exp(
+                intercept + home[home_team_data] + atts[home_team_data] + defs[away_team_data]
+            )
+            away_theta = pm.math.exp(intercept + atts[away_team_data] + defs[home_team_data])
 
-            # Calculate theta
-            home_theta = pt.exp(intercept + home + atts[home_team] - defs[away_team])
-            away_theta = pt.exp(intercept + atts[away_team] - defs[home_team])
-
-            # Goal expectation
-            pm.Poisson("home_goals", mu=home_theta, observed=goals_home_obs)
-            pm.Poisson("away_goals", mu=away_theta, observed=goals_away_obs)
-
-            return pm.sample(3000, tune=2000, chains=4, cores=6, return_inferencedata=False)
+            # Goal likelihood
+            pm.Poisson("home_goals", mu=home_theta, observed=goals_home_data)
+            pm.Poisson("away_goals", mu=away_theta, observed=goals_away_data)
+            # Sample with improved settings
+            trace = pm.sample(
+                2000, tune=500, cores=6, target_accept=0.95, return_inferencedata=True
+            )
+        return trace

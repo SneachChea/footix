@@ -51,7 +51,7 @@ def realKelly(
     penalty_weight: float = 1000.0,
     device: Literal["cpu", "cuda", "mps"] = "cpu",
     early_stopping: bool = True,
-    tolerance: int = 5
+    tolerance: int = 5,
 ) -> None:
     """Compute the real Kelly criterion using a GPU accelerated gradient-based optimizer
     (PyTorch).
@@ -62,7 +62,8 @@ def realKelly(
         max_multiple (int, optional): Maximum number of selections to combine. Defaults to 1.
         num_iterations (int, optional): Number of iterations for gradient descent.
         learning_rate (float, optional): Learning rate for the optimizer.
-        penalty_weight (float, optional): Weight for the penalty term enforcing the bankroll constraint.
+        penalty_weight (float, optional): Weight for the penalty term enforcing the bankroll
+        constraint.
         device (str, optional): Device to run the computations on ("cuda" or "cpu").
 
     Returns:
@@ -129,14 +130,14 @@ def realKelly(
 
             # Penalty to enforce the bankroll constraint (if total_stake exceeds bankroll)
             constraint_violation = torch.clamp(total_stake - bankroll_t, min=0.0)
-            penalty = penalty_weight * (constraint_violation ** 2)
+            penalty = penalty_weight * (constraint_violation**2)
 
             loss = objective + penalty
 
             loss.backward()
             optimizer.step()
             # Clamp stakes to be non-negative
-            pbar.set_postfix(loss=f"{loss.item():.5f}", stake = f"{total_stake.item():.2f}")
+            pbar.set_postfix(loss=f"{loss.item():.5f}", stake=f"{total_stake.item():.2f}")
             pbar.update(1)
 
             with torch.no_grad():
@@ -149,10 +150,11 @@ def realKelly(
                             counter += 1
             old_loss = loss
 
-
     runtime = time.time() - start_time
     print(
-        f"\n{datetime.now().replace(microsecond=0)} - Optimization finished. Runtime --- {round(runtime, 3)} seconds ---\n"
+        f"\n{datetime.now().replace(microsecond=0)}"
+        f"- Optimization finished. Runtime --- "
+        f"{round(runtime, 3)} seconds ---\n"
     )
     final_objective = loss.item()
     print(f"Objective: {round(final_objective, 5)}")
@@ -163,12 +165,18 @@ def realKelly(
     sum_stake = 0
     stakes_final = stakes.detach().cpu().numpy()
     for index_bet, bet in enumerate(bets):
-        bet_strings = [selections[index_sel]["name"] for index_sel, sel in enumerate(bet) if sel == 1]
+        bet_strings = [
+            selections[index_sel]["name"] for index_sel, sel in enumerate(bet) if sel == 1
+        ]
         stake_value = stakes_final[index_bet]
         if stake_value >= 0.50:
-            print(f"{' / '.join(bet_strings)} @ {round(book_odds[index_bet], 3)} - € {int(round(stake_value, 0))}")
+            print(
+                f"{' / '.join(bet_strings)} @ {round(book_odds[index_bet], 3)}"
+                f"- € {int(round(stake_value, 0))}"
+                )
             sum_stake += stake_value
     print(f"Bankroll used: {sum_stake:.2f} €")
+
 
 @decorators.verify_required_column(column_names={"1", "2", "N"})
 def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> list[dict]:
@@ -194,6 +202,7 @@ def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> list[dict]:
                     }
                 )
     return selections
+
 
 def _fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str) -> str:
     """Convert an index to a result string.
@@ -296,7 +305,8 @@ def compute_stacks(
         stakes (list[float]): The amount of money placed on each bet.
         bankroll (float): The initial amount of money available.
         combinations (list[list[int]]): A list of combinations of bet indices.
-        winning_bets (dict[int, list[int]]): A dictionary where keys are bet indices and values are lists of combination indices that win.
+        winning_bets (dict[int, list[int]]): A dictionary where keys are bet indices and
+        values are lists of combination indices that win.
         book_odds (list[float]): The odds provided by the bookmaker for each bet.
         probs (list[float]): The probabilities of each combination occurring.
         eps (float, optional): A small value to avoid log(0). Defaults to 1e-9.
