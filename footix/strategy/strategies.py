@@ -173,7 +173,7 @@ def realKelly(
             print(
                 f"{' / '.join(bet_strings)} @ {round(book_odds[index_bet], 3)}"
                 f"- € {int(round(stake_value, 0))}"
-                )
+            )
             sum_stake += stake_value
     print(f"Bankroll used: {sum_stake:.2f} €")
 
