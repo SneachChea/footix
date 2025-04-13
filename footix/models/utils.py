@@ -1,6 +1,12 @@
 import numpy as np
 import pandas as pd
 
+import torch
+import numpy as np
+from typing import Union, Tuple
+import scipy.stats as stats
+
+
 import footix.utils.decorators as decorators
 
 
@@ -31,7 +37,7 @@ def compute_goals_home_vectors(
 
 @decorators.verify_required_column(column_names=["AwayTeam", "FTAG"])
 def compute_goals_away_vectors(
-    data: pd.DataFrame, /, map_teams: dict, nbr_team: int
+    data: pd.DataFrame, /, map_teams: dict[str, int], nbr_team: int
 ) -> tuple[np.ndarray, np.ndarray]:
     x = np.zeros(len(data))
     tau_away = np.zeros((len(data), nbr_team))
@@ -40,3 +46,41 @@ def compute_goals_away_vectors(
         x[i] = row["FTAG"]
         tau_away[i, j] = 1
     return x, tau_away
+
+
+def to_torch_tensor(*arrays: np.ndarray, dtype: torch.dtype = torch.float32) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
+    """
+    Convert numpy arrays to torch tensors.
+    
+    Args:
+        *arrays: Variable number of numpy arrays to convert
+        dtype: Target tensor dtype (default: torch.float32)
+    
+    Returns:
+        Single tensor if one array is provided, tuple of tensors if multiple arrays
+    
+    Examples:
+        >>> x = np.array([1, 2, 3])
+        >>> tensor_x = to_tensor(x)
+        
+        >>> x = np.array([1, 2, 3])
+        >>> y = np.array([4, 5, 6]) 
+        >>> tensor_x, tensor_y = to_tensor(x, y)
+    """
+    tensors = tuple(torch.from_numpy(arr).type(dtype) for arr in arrays)
+    return tensors[0] if len(tensors) == 1 else tensors
+
+
+def poisson_proba(lambda_param: float, k: int) -> np.ndarray:
+    """Calculate the probability of achieving upto k goals given a lambda parameter.
+
+    Parameters:     lambda_param (float): The expected number of goals.     k (int): The number of
+    goals to achieve.
+
+    Returns:     np.ndarray: An array containing the probabilities of achieving each possible
+    number               of goals from 0 to n_goals, inclusive.
+
+    """
+    poisson = stats.poisson(mu=lambda_param)
+    k_list = np.arange(k)
+    return poisson.pmf(k=k_list)  # type:ignore

@@ -136,7 +136,6 @@ def realKelly(
 
             loss.backward()
             optimizer.step()
-            # Clamp stakes to be non-negative
             pbar.set_postfix(loss=f"{loss.item():.5f}", stake=f"{total_stake.item():.2f}")
             pbar.update(1)
 
