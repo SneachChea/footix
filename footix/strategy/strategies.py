@@ -176,15 +176,8 @@ def realKelly(
         if stake_value >= 0.50:
             bet_string = " / ".join(bet_strings)
             odd = round(book_odds[index_bet], 3)
-            print(
-                f"{bet_string} @ {odd}"
-                f"- € {int(round(stake_value, 0))}"
-            )
-            results.append({
-                "match": bet_string,
-                "odd": odd,
-                "stake": int(round(stake_value, 0))
-            })
+            print(f"{bet_string} @ {odd}" f"- € {int(round(stake_value, 0))}")
+            results.append({"match": bet_string, "odd": odd, "stake": int(round(stake_value, 0))})
             sum_stake += stake_value
     print(f"Bankroll used: {sum_stake:.2f} €")
     return results

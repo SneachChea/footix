@@ -46,22 +46,24 @@ def compute_goals_away_vectors(
     return x, tau_away
 
 
-def to_torch_tensor(*arrays: np.ndarray, dtype: torch.dtype = torch.float32) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
+def to_torch_tensor(
+    *arrays: np.ndarray, dtype: torch.dtype = torch.float32
+) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
     """Convert numpy arrays to torch tensors.
 
     Args:
         *arrays: Variable number of numpy arrays to convert
         dtype: Target tensor dtype (default: torch.float32)
-    
+
     Returns:
         Single tensor if one array is provided, tuple of tensors if multiple arrays
-    
+
     Examples:
         >>> x = np.array([1, 2, 3])
         >>> tensor_x = to_tensor(x)
-        
+
         >>> x = np.array([1, 2, 3])
-        >>> y = np.array([4, 5, 6]) 
+        >>> y = np.array([4, 5, 6])
         >>> tensor_x, tensor_y = to_tensor(x, y)
 
     """

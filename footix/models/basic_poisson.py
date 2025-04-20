@@ -98,6 +98,3 @@ def basic_poisson_likelihood(
     mus = np.exp(log_mus)
     log = lambdas + mus - goals_home * log_lamdas - goals_away * log_mus
     return np.sum(log)
-
-
-

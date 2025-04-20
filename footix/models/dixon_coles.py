@@ -1,9 +1,6 @@
 import logging
 
-import numpy as np
 import pandas as pd
-import scipy.optimize as optimize
-import scipy.stats as stats
 import torch
 import torch.nn as nn
 from tqdm.auto import tqdm
@@ -15,16 +12,16 @@ from footix.utils.decorators import verify_required_column
 
 logger = logging.getLogger(name=__name__)
 
+
 # TODO update the loss function to include the correlation network
 class NeuralDixonColes(ProtoPoisson):
     def __init__(self, n_teams: int, n_goals: int) -> None:
         self.n_teams = n_teams
         self.n_goals = n_goals
-        self.gamma = nn.Parameter(torch.tensor(0.3)) # Home advantage
-        self.alphas = nn.Parameter(torch.randn(n_teams)) # Attack strength
-        self.betas = nn.Parameter(torch.randn(n_teams)) # Defense strength
-        self.correlation = CorrectionNetwork(hidden_dim=16) # Correlation network
-
+        self.gamma = nn.Parameter(torch.tensor(0.3))  # Home advantage
+        self.alphas = nn.Parameter(torch.randn(n_teams))  # Attack strength
+        self.betas = nn.Parameter(torch.randn(n_teams))  # Defense strength
+        self.correlation = CorrectionNetwork(hidden_dim=16)  # Correlation network
 
     @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
     def fit(self, X_train: pd.DataFrame) -> None:
@@ -37,21 +34,24 @@ class NeuralDixonColes(ProtoPoisson):
             X_train, map_teams=self.dict_teams, nbr_team=self.n_teams
         )
         # convertion to tensor
-        goals_home, mask_home, goals_away, mask_away = model_utils.to_torch_tensor(goals_home, mask_home, goals_away, mask_away)
-        optimizer = torch.optim.AdamW([self.gamma, self.alphas, self.betas] + list(self.correlation.parameters()), lr=0.01)
+        goals_home, mask_home, goals_away, mask_away = model_utils.to_torch_tensor(
+            goals_home, mask_home, goals_away, mask_away
+        )
+        optimizer = torch.optim.AdamW(
+            [self.gamma, self.alphas, self.betas] + list(self.correlation.parameters()), lr=0.01
+        )
 
         with tqdm(total=3_000) as pbar:
             for epoch in range(3_000):
                 optimizer.zero_grad()
                 loss = self.dixon_coles_likelihood(goals_home, goals_away, mask_home, mask_away)
-                penalty =  self.alphas - torch.mean(self.alphas)
+                penalty = self.alphas - torch.mean(self.alphas)
                 penalty += torch.mean(self.betas) - self.betas
                 loss += torch.sum(penalty)
                 loss.backward()
                 optimizer.step()
-                pbar.set_postfix(loss = f"{loss.item():.5f}")
+                pbar.set_postfix(loss=f"{loss.item():.5f}")
                 pbar.update(1)
-
 
     def print_parameters(self) -> None:
         str_gamma = f"Gamma = {self.gamma}\n"
@@ -76,7 +76,7 @@ class NeuralDixonColes(ProtoPoisson):
         return score_matrix.GoalMatrix(
             home_probs=model_utils.poisson_proba(lambda_param=lamb, k=self.n_goals),
             away_probs=model_utils.poisson_proba(lambda_param=mu, k=self.n_goals),
-            correlation_matrix=rho_correction
+            correlation_matrix=rho_correction,
         )
 
     def mapping_team_index(self, teams: pd.Series) -> dict[str, int]:
@@ -92,27 +92,25 @@ class NeuralDixonColes(ProtoPoisson):
         if len(self.dict_teams) != self.n_teams:
             raise ValueError(f"Expecting {self.n_teams} teams, only got {len(self.dict_teams)}.")
 
-
-    def dixon_coles_likelihood(self,
+    def dixon_coles_likelihood(
+        self,
         goals_home: torch.Tensor,
         goals_away: torch.Tensor,
         basis_home: torch.Tensor,
         basis_away: torch.Tensor,
     ) -> torch.Tensor:
-        log_lamdas = torch.matmul(basis_home, self.alphas) + torch.matmul(basis_away, self.betas) + self.gamma
+        log_lamdas = (
+            torch.matmul(basis_home, self.alphas)
+            + torch.matmul(basis_away, self.betas)
+            + self.gamma
+        )
         log_mus = torch.matmul(basis_away, self.alphas) + torch.matmul(basis_home, self.betas)
         lambdas = torch.exp(log_lamdas)
         mus = torch.exp(log_mus)
         corr = self.correlation(torch.stack([goals_home, goals_away], dim=1))
-        log = (
-            lambdas
-            + mus
-            - goals_home * log_lamdas
-            - goals_away * log_mus
-            - corr
-        )
+        log = lambdas + mus - goals_home * log_lamdas - goals_away * log_mus - corr
         return torch.mean(log)
-    
+
     def compute_correlation_matrix(self) -> torch.Tensor:
         n = self.n_goals
         matrix = torch.zeros((n, n))
@@ -124,18 +122,13 @@ class NeuralDixonColes(ProtoPoisson):
         return matrix
 
 
-
-
 # 1. Réseau de correction f(k,l; theta)
 class CorrectionNetwork(nn.Module):
     def __init__(self, hidden_dim=8):
         super(CorrectionNetwork, self).__init__()
         # Un réseau simple à 2 couches
-        self.net = nn.Sequential(
-            nn.Linear(2, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 1)
-        )
+        self.net = nn.Sequential(nn.Linear(2, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1))
+
     def forward(self, k_l):
         # k_l : tenseur de forme (N, 2) contenant [k, l] en float.
         return torch.tanh(self.net(k_l).squeeze(1))  # renvoie un tenseur de forme (N,)

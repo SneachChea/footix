@@ -15,3 +15,7 @@ html/
 *.swp
 *.bak
 *.tmp
+
+# data files
+*.csv
+*.json
