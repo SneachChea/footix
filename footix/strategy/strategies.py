@@ -52,7 +52,7 @@ def realKelly(
     device: Literal["cpu", "cuda", "mps"] = "cpu",
     early_stopping: bool = True,
     tolerance: int = 5,
-) -> None:
+) -> list[dict[str, Any]]:
     """Compute the real Kelly criterion using a GPU accelerated gradient-based optimizer
     (PyTorch).
 
@@ -63,12 +63,14 @@ def realKelly(
         num_iterations (int, optional): Number of iterations for gradient descent.
         learning_rate (float, optional): Learning rate for the optimizer.
         penalty_weight (float, optional): Weight for the penalty term enforcing the bankroll
-        constraint.
+            constraint.
         device (str, optional): Device to run the computations on ("cuda" or "cpu").
+        early_stopping (bool, optional): Whether to stop early if convergence is detected.
+        tolerance (int, optional): Tolerance for early stopping.
 
     Returns:
-        None
-
+        list[dict]: A dictionary containing, for each bet with non-negligible stake,
+              the bet string, the bet odd, and the stake.
     """
     start_time = time.time()
 
@@ -136,6 +138,7 @@ def realKelly(
 
             loss.backward()
             optimizer.step()
+            # Clamp stakes to be non-negative
             pbar.set_postfix(loss=f"{loss.item():.5f}", stake=f"{total_stake.item():.2f}")
             pbar.update(1)
 
@@ -160,7 +163,8 @@ def realKelly(
     ce = math.exp(-final_objective)
     print(f"Certainty Equivalent: {round(ce, 3)}\n")
 
-    # Display the bets with non-negligible stakes
+    # Collect and display the bets with non-negligible stakes
+    results = []
     sum_stake = 0
     stakes_final = stakes.detach().cpu().numpy()
     for index_bet, bet in enumerate(bets):
@@ -169,12 +173,20 @@ def realKelly(
         ]
         stake_value = stakes_final[index_bet]
         if stake_value >= 0.50:
+            bet_string = " / ".join(bet_strings)
+            odd = round(book_odds[index_bet], 3)
             print(
-                f"{' / '.join(bet_strings)} @ {round(book_odds[index_bet], 3)}"
+                f"{bet_string} @ {odd}"
                 f"- € {int(round(stake_value, 0))}"
             )
+            results.append({
+                "match": bet_string,
+                "odd": odd,
+                "stake": int(round(stake_value, 0))
+            })
             sum_stake += stake_value
     print(f"Bankroll used: {sum_stake:.2f} €")
+    return results
 
 
 @decorators.verify_required_column(column_names={"1", "2", "N"})
