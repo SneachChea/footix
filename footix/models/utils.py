@@ -1,11 +1,9 @@
+from typing import Tuple, Union
+
 import numpy as np
 import pandas as pd
-
-import torch
-import numpy as np
-from typing import Union, Tuple
 import scipy.stats as stats
-
+import torch
 
 import footix.utils.decorators as decorators
 
@@ -49,9 +47,8 @@ def compute_goals_away_vectors(
 
 
 def to_torch_tensor(*arrays: np.ndarray, dtype: torch.dtype = torch.float32) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
-    """
-    Convert numpy arrays to torch tensors.
-    
+    """Convert numpy arrays to torch tensors.
+
     Args:
         *arrays: Variable number of numpy arrays to convert
         dtype: Target tensor dtype (default: torch.float32)
@@ -66,6 +63,7 @@ def to_torch_tensor(*arrays: np.ndarray, dtype: torch.dtype = torch.float32) -> 
         >>> x = np.array([1, 2, 3])
         >>> y = np.array([4, 5, 6]) 
         >>> tensor_x, tensor_y = to_tensor(x, y)
+
     """
     tensors = tuple(torch.from_numpy(arr).type(dtype) for arr in arrays)
     return tensors[0] if len(tensors) == 1 else tensors

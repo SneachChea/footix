@@ -4,14 +4,14 @@ import numpy as np
 import pandas as pd
 import scipy.optimize as optimize
 import scipy.stats as stats
-from footix.models.protocol_model import ProtoPoisson
-from footix.utils.decorators import verify_required_column
-import footix.models.score_matrix as score_matrix
-import footix.models.utils as model_utils
 import torch
-import footix.models.utils as model_utils
 import torch.nn as nn
 from tqdm.auto import tqdm
+
+import footix.models.score_matrix as score_matrix
+import footix.models.utils as model_utils
+from footix.models.protocol_model import ProtoPoisson
+from footix.utils.decorators import verify_required_column
 
 logger = logging.getLogger(name=__name__)
 

@@ -71,6 +71,7 @@ def realKelly(
     Returns:
         list[dict]: A dictionary containing, for each bet with non-negligible stake,
               the bet string, the bet odd, and the stake.
+
     """
     start_time = time.time()
 
