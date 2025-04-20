@@ -3,7 +3,6 @@ import logging
 import numpy as np
 import pandas as pd
 import scipy.optimize as optimize
-import scipy.stats as stats
 
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
@@ -64,8 +63,8 @@ class BasicPoisson(ProtoPoisson):
         lamb = np.exp(self.alphas[i] + self.betas[j] + self.gamma)
         mu = np.exp(self.alphas[j] + self.betas[i])
         return score_matrix.GoalMatrix(
-            home_probs=poisson_proba(lambda_param=lamb, k=self.n_goals),
-            away_probs=poisson_proba(lambda_param=mu, k=self.n_goals),
+            home_probs=model_utils.poisson_proba(lambda_param=lamb, k=self.n_goals),
+            away_probs=model_utils.poisson_proba(lambda_param=mu, k=self.n_goals),
         )
 
     def mapping_team_index(self, teams: pd.Series) -> dict[str, int]:
@@ -99,18 +98,3 @@ def basic_poisson_likelihood(
     mus = np.exp(log_mus)
     log = lambdas + mus - goals_home * log_lamdas - goals_away * log_mus
     return np.sum(log)
-
-
-def poisson_proba(lambda_param: float, k: int) -> np.ndarray:
-    """Calculate the probability of achieving upto k goals given a lambda parameter.
-
-    Parameters:     lambda_param (float): The expected number of goals.     k (int): The number of
-    goals to achieve.
-
-    Returns:     np.ndarray: An array containing the probabilities of achieving each possible
-    number               of goals from 0 to n_goals, inclusive.
-
-    """
-    poisson = stats.poisson(mu=lambda_param)
-    k_list = np.arange(k)
-    return poisson.pmf(k=k_list)  # type:ignore

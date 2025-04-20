@@ -5,7 +5,7 @@ import numpy as np
 import footix.models.basic_poisson as model_poisson
 import footix.models.dixon_coles as dixon_coles
 
-T = TypeVar("T", model_poisson.BasicPoisson, dixon_coles.DixonColes)
+T = TypeVar("T", model_poisson.BasicPoisson, dixon_coles.NeuralDixonColes)
 
 EPS: Final[float] = 1e-5
 
