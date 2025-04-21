@@ -12,16 +12,16 @@ from footix.utils.decorators import verify_required_column
 
 logger = logging.getLogger(name=__name__)
 
-
 # TODO update the loss function to include the correlation network
 class NeuralDixonColes(ProtoPoisson):
     def __init__(self, n_teams: int, n_goals: int) -> None:
         self.n_teams = n_teams
         self.n_goals = n_goals
-        self.gamma = nn.Parameter(torch.tensor(0.3))  # Home advantage
-        self.alphas = nn.Parameter(torch.randn(n_teams))  # Attack strength
-        self.betas = nn.Parameter(torch.randn(n_teams))  # Defense strength
-        self.correlation = CorrectionNetwork(hidden_dim=16)  # Correlation network
+        self.gamma = nn.Parameter(torch.tensor(0.3)) # Home advantage
+        self.alphas = nn.Parameter(torch.randn(n_teams)) # Attack strength
+        self.betas = nn.Parameter(torch.randn(n_teams)) # Defense strength
+        self.correlation = CorrectionNetwork(hidden_dim=16) # Correlation network
+
 
     @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
     def fit(self, X_train: pd.DataFrame) -> None:
