@@ -44,20 +44,12 @@ class Bayesian(ProtoPoisson):
         return goals_matrix
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
-        # Extract posterior means from the InferenceData object.
-        # This assumes that self.trace is the InferenceData returned by
-        # pm.sample(..., return_inferencedata=True)
         posterior = self.trace.posterior
         home = posterior["home"].mean(dim=["chain", "draw"]).values
         intercept = posterior["intercept"].mean(dim=["chain", "draw"]).values
         atts = posterior["atts"].mean(dim=["chain", "draw"]).values
         defs = posterior["defs"].mean(dim=["chain", "draw"]).values
 
-        # Calculate the expected goal rates.
-        # Note: This calculation now matches the revised hierarchical model:
-        # home_theta = exp(intercept + home advantage for home team + attack rating
-        # for home team + defense rating for away team)
-        # away_theta = exp(intercept + attack rating for away team + defense rating for home team)
         home_theta = np.exp(
             intercept + home[home_team_id] + atts[home_team_id] + defs[away_team_id]
         )

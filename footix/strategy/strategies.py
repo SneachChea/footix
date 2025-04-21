@@ -3,7 +3,7 @@ import math
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,7 @@ from torch.optim import Adam
 from tqdm.auto import tqdm
 
 import footix.utils.decorators as decorators
+from footix.strategy.bets import Bet
 
 
 @decorators.verify_required_column(
@@ -43,7 +44,7 @@ def classic_kelly(input_df: pd.DataFrame, bankroll: float) -> None:
 
 
 def realKelly(
-    selections: list[dict[str, Any]],
+    selections: list[Bet],
     bankroll: float,
     max_multiple: int = 1,
     num_iterations: int = 1000,
@@ -52,7 +53,7 @@ def realKelly(
     device: Literal["cpu", "cuda", "mps"] = "cpu",
     early_stopping: bool = True,
     tolerance: int = 5,
-) -> list[dict[str, Any]]:
+) -> list[Bet]:
     """Compute the real Kelly criterion using a GPU accelerated gradient-based optimizer
     (PyTorch).
 
@@ -169,22 +170,25 @@ def realKelly(
     sum_stake = 0
     stakes_final = stakes.detach().cpu().numpy()
     for index_bet, bet in enumerate(bets):
-        bet_strings = [
-            selections[index_sel]["name"] for index_sel, sel in enumerate(bet) if sel == 1
-        ]
+        bet_index = [index_sel for index_sel, sel in enumerate(bet) if sel == 1]
         stake_value = stakes_final[index_bet]
         if stake_value >= 0.50:
-            bet_string = " / ".join(bet_strings)
-            odd = round(book_odds[index_bet], 3)
-            print(f"{bet_string} @ {odd}" f"- € {int(round(stake_value, 0))}")
-            results.append({"match": bet_string, "odd": odd, "stake": int(round(stake_value, 0))})
+            if len(bet_index) == 1:
+                tmp_bet = selections[index_bet]
+            else:
+                tmp_bet = Bet.combine_many([selections[idx] for idx in bet_index])
+            tmp_bet.stake = stake_value
+            print(f"{tmp_bet}")
+            results.append(tmp_bet)
             sum_stake += stake_value
     print(f"Bankroll used: {sum_stake:.2f} €")
     return results
 
 
-@decorators.verify_required_column(column_names={"1", "2", "N"})
-def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> list[dict]:
+@decorators.verify_required_column(column_names={"home_team", "away_team", "H", "D", "A"})
+def simple_select_bets(
+    odds_bookie: pd.DataFrame, probas: np.ndarray, one_bet_game: bool = True
+) -> list[Bet]:
     """
     Select bets profitable in the sense p > 1./o
     Args:
@@ -192,20 +196,39 @@ def selectBets(odds_bookie: pd.DataFrame, probas: np.ndarray) -> list[dict]:
         probas (np.ndarray): probability from the custom model. Size (len(matchs), 3)
 
     Returns:
-        List[Dict]: a list of selected bets with the syntax adapted to realKelly
+        List[Bet]: a list of selected bets with the syntax adapted to realKelly
     """
+    match_outcomes = ["H", "D", "A"]
     selections = []
     for idx, rows in odds_bookie.iterrows():
-        odd_object = rows[["1", "N", "2"]].to_numpy()
+        odd_list = rows[match_outcomes].to_numpy()
+        tmp_list_game = []
         for i in range(3):
-            if probas[idx, i] > 1.0 / odd_object[i]:
-                selections.append(
-                    {
-                        "name": _fromIdx2Res(i, rows["Home team"], rows["Away team"]),
-                        "odds_book": odd_object[i],
-                        "probability": probas[idx, i],
-                    }
+            if not one_bet_game:
+                if probas[idx, i] > 1.0 / odd_list[i]:
+                    selections.append(
+                        Bet(
+                            match_id=f"{rows['home_team']} - {rows['away_team']}",
+                            market=match_outcomes[i],
+                            odds=odd_list[i],
+                            edge_mean=probas[idx, i] * (odd_list[i] - 1) + (probas[idx, i] - 1),
+                            prob_mean=probas[idx, i],
+                        )
+                    )
+            else:
+                tmp_list_game.append(probas[idx, i] * (odd_list[i] - 1) + (probas[idx, i] - 1))
+        if one_bet_game:
+            idx_arg = np.argmax(tmp_list_game)
+            selections.append(
+                Bet(
+                    match_id=f"{rows['home_team']} - {rows['away_team']}",
+                    market=match_outcomes[idx_arg],
+                    odds=odd_list[idx_arg],
+                    edge_mean=probas[idx, idx_arg] * (odd_list[i] - 1)
+                    + (probas[idx, idx_arg] - 1),
+                    prob_mean=probas[idx, idx_arg],
                 )
+            )
     return selections
 
 
@@ -229,16 +252,13 @@ def _fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str) -> str:
         return f"Victoire à l'extérieur de {AwayTeam} contre {HomeTeam}"
 
 
-def generate_combinations(selections: list[dict[str, Any]]) -> tuple[list[list[int]], list[float]]:
+def generate_combinations(selections: list[Bet]) -> tuple[list[list[int]], list[float]]:
     """Generate a matrix of all possible combinations of selections and their corresponding
     probabilities.
 
     Args:
-        selections (list[dict[str, Any]]):
-            A list of dictionaries representing the selectable options,
-            where each dictionary contains
-            - 'probability': The probability associated with selecting that option.
-
+        selections (list[Bet]):
+            A list of Bet object representing the selectable options,
     Returns:
         tuple[list[list[int]], list[float]]: A tuple containing two lists:
             1. A list of lists, where each sublist represents a combination of selections (0 or 1),
@@ -253,19 +273,15 @@ def generate_combinations(selections: list[dict[str, Any]]) -> tuple[list[list[i
         for subset in itertools.combinations(selections, c):
             combination = [1 if selection in subset else 0 for selection in selections]
             prob = 1.0
-            for selection in selections:
-                prob *= (
-                    selection["probability"]
-                    if selection in subset
-                    else 1 - selection["probability"]
-                )
+            for bet in selections:
+                prob *= bet.prob_mean if bet in subset else 1 - bet.prob_mean
             combinations.append(combination)
             probs.append(prob)
     return combinations, probs
 
 
 def generate_bets_combination(
-    selections: list[dict], max_multiple: int
+    selections: list[Bet], max_multiple: int
 ) -> tuple[list[list[int]], list[float]]:
     """Generates all possible bets based on selections and a maximum multiple.
 
@@ -288,7 +304,7 @@ def generate_bets_combination(
             bet = [1 if selection in subset else 0 for selection in selections]
             prod = 1.00
             for selection in subset:
-                prod *= selection["odds_bookie"]
+                prod *= selection.odds
             bets.append(bet)
             book_odds.append(prod)
 
