@@ -186,34 +186,55 @@ def realKelly(
 
 
 def bayesian_kelly(
-    list_bet: list[Bet],  # shape (J,)   : cotes décimales du bookmaker
-    lambda_samples: dict[
-        str, tuple[np.ndarray, np.ndarray]
-    ],  # shape (K, J) : échantillon posterior des probabilités
-    bankroll: float = 100,  # capital initial (1 = 100 %)
-    summary: Literal["mean", "quantile"] = "quantile",  # "mean" ou "quantile"
-    alpha: float = 0.3,  # si summary=="quantile"
-    global_fraction: float = 0.5,  # λ (½‑Kelly global)
-    per_bet_cap: float = 0.90,  # plafond f_j max
+    list_bet: list[Bet],
+    lambda_samples: dict[str, tuple[np.ndarray, np.ndarray]],
+    bankroll: float = 100,
+    summary: Literal["mean", "quantile"] = "quantile",
+    alpha: float = 0.3,
+    fraction_kelly: float = 0.5,
+    per_bet_cap: float = 0.90,
 ):
-    """Renvoie les fractions de bankroll à miser sur chacun des J matchs.
+    """Compute the optimal bet sizes using a Bayesian Kelly criterion.
 
-    Les négatives sont tronquées à 0 (on ignore les edges négatifs).
+    This function uses Monte Carlo samples of the scoring intensities (lambda samples)
+    to estimate the posterior probabilities of match outcomes via a Skellam model.
+    It then computes the Kelly fraction for each bet based on either the mean or a given quantile
+    of the computed fractions. A fraction of the Kelly stake is applied along with per-bet
+    capping.
+
+    Args:
+        list_bet (list[Bet]): List of bet objects for which to compute the stake.
+        lambda_samples (dict[str, tuple[np.ndarray, np.ndarray]]): Mapping of match IDs to a tuple
+            of numpy arrays representing the lambda samples for home and away teams.
+        bankroll (float, optional): Total available bankroll. Defaults to 100.
+        summary (Literal["mean", "quantile"], optional): Method to summarize the Kelly fraction
+            computation. If 'mean', the average is used; if 'quantile', the quantile specified
+            by alpha is used.
+            Defaults to "quantile".
+        alpha (float, optional): Quantile level used if summary is "quantile". Defaults to 0.3.
+        fraction_kelly (float, optional): Proportion of the calculated Kelly stake to bet.
+                Defaults to 0.5.
+        per_bet_cap (float, optional): Maximum allowed fraction of the bankroll to wager
+        on a single bet. Defaults to 0.90.
+
+    Raises:
+        ValueError: If the summary parameter is not 'mean' or 'quantile'.
+
+    Returns:
+        list[Bet]: List of bet objects with the calculated stake assigned.
 
     """
     mapping_match = {"H": 0, "D": 1, "A": 2}
     bets_w_stake = []
     for bet in list_bet:
-        # (b)  Kelly instantané pour chaque tirage
         lambda_h, lambda_a = lambda_samples[bet.match_id]
         probas = strat_utils._skellam_post_probs(lh=lambda_h, la=lambda_a)
         p_samples = probas[mapping_match[bet.market]]
         X = bet.odds - 1.0  # gain unitaire si victoire
         f_kelly = (p_samples * bet.odds - (1 - p_samples)) / X  # shape (K, J)
 
-        f_kelly = np.clip(f_kelly, 0.0, None)  # on ne short pas
+        f_kelly = np.clip(f_kelly, 0.0, None)
 
-        # (c)  Résumé prudent
         if summary == "mean":
             f_base = f_kelly.mean(axis=0)
         elif summary == "quantile":
@@ -221,13 +242,10 @@ def bayesian_kelly(
         else:
             raise ValueError("summary must be 'mean' or 'quantile'")
 
-        # (d)  Application du facteur global λ
-        f = global_fraction * f_base
+        f = fraction_kelly * f_base
 
-        # (e)  Contraintes pratiques
         f = np.minimum(f, per_bet_cap)  # plafond par match
 
-        # Mise absolue si bankroll différent de 1
         stake = bankroll * f
         if stake > 0.0:
             tmp_bet = bet
@@ -246,35 +264,61 @@ def bayesian_kelly(
 
 
 def kelly_shrinkage(
-    list_bet,
-    lambda_samples,
-    per_bet_cap=0.10,
-    bankroll_cap=0.30,
-    bankroll=100,
-    lambda_global=0.25,  # <- ¼-Kelly by default
+    list_bet: list[Bet],
+    lambda_samples: dict[str, tuple[np.ndarray, np.ndarray]],
+    per_bet_cap: float = 0.10,
+    bankroll_cap: float = 0.30,
+    bankroll: float = 100,
+    fraction_kelly: float = 0.25,
 ):
+    """Compute bet sizes using a shrinkage-adjusted Kelly criterion.
+
+    This function calculates the bet stake by applying a shrinkage correction to the classic Kelly
+    criterion.
+    For each bet, the posterior probability is estimated using a Skellam model with lambda samples
+    and its mean and variance are computed. A shrinkage factor is derived from these statistics
+    and is used to adjust the full Kelly fraction. The computed fraction is then capped per bet
+    and scaled by the available bankroll.
+    An overall bankroll cap is also enforced if the sum of bet fractions exceeds a
+    predefined threshold.
+
+    Args:
+        list_bet (list[Bet]): List of bet objects to evaluate.
+        lambda_samples (dict[str, tuple[np.ndarray, np.ndarray]]):
+                                                Dictionary mapping match IDs to tuples of
+            numpy arrays containing lambda samples for the home and away teams.
+        per_bet_cap (float, optional): Maximum fraction of the bankroll allowed on a single bet.
+        Defaults to 0.10.
+        bankroll_cap (float, optional): Maximum allowed total fraction of the bankroll across
+        all bets. Defaults to 0.30.
+        bankroll (float, optional): Total available bankroll. Defaults to 100.
+        fraction_kelly (float, optional): Fraction of the shrinkage-adjusted Kelly stake to wager.
+        Defaults to 0.25.
+
+    Returns:
+        list[Bet]: List of bet objects with their stake updated according to the
+        shrinkage-adjusted Kelly criterion.
+
+    """
     mapping_match = {"H": 0, "D": 1, "A": 2}
     bets_w_stake = []
 
     for bet in list_bet:
-        λh, λa = lambda_samples[bet.match_id]
-        probs = strat_utils._skellam_post_probs(λh, λa)  # shape (K,3) or (3,)
+        lamb_h, lamb_a = lambda_samples[bet.match_id]
+        probs = strat_utils._skellam_post_probs(lamb_h, lamb_a)  # shape (K,3) or (3,)
         p = probs[mapping_match[bet.market]]
 
-        # --- posterior mean & variance across samples -------------
         mu = p.mean(0)  # scalar for that market
         var = p.var(0, ddof=1)
 
-        # guard against var=0                                   ← prevents s=1 always
         if var == 0:
             var = 1e-9
 
         shrink = mu * (1 - mu) / (mu * (1 - mu) + var)  # s ∈ (0,1]
 
-        # --- fractional-Kelly ------------------------------------
         b = bet.odds - 1.0
         full = (mu * bet.odds - (1 - mu)) / b  # f⋆
-        f = lambda_global * shrink * full  # λ-Kelly with shrink
+        f = fraction_kelly * shrink * full  # λ-Kelly with shrink
 
         f = np.clip(f, 0.0, per_bet_cap)  # single-bet cap
         # bankroll-wide cap (if you really need it)
@@ -285,7 +329,6 @@ def kelly_shrinkage(
             bet.stake = int(round(stake))
             bets_w_stake.append(bet)
 
-    # optional: rescale all stakes here if Σf > bankroll_cap
     total_fraction = sum(b.stake for b in bets_w_stake) / bankroll
     if total_fraction > bankroll_cap:
         scale = bankroll_cap / total_fraction

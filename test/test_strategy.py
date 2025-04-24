@@ -1,7 +1,7 @@
 import pytest
 
-from footix.strategy.bets import Bet
 from footix.strategy._utils import generate_combinations
+from footix.strategy.bets import Bet
 
 
 def test_generate_combinations():
