@@ -1,4 +1,3 @@
-import itertools
 import math
 import time
 from collections import defaultdict
@@ -11,6 +10,7 @@ import torch
 from torch.optim import Adam
 from tqdm.auto import tqdm
 
+import footix.strategy._utils as strat_utils
 import footix.utils.decorators as decorators
 from footix.strategy.bets import Bet
 
@@ -80,8 +80,8 @@ def realKelly(
         raise ValueError(f"Error: max_multiple must not exceed {len(selections)}")
 
     # Generate combinations and bets (this part runs on CPU)
-    combinations, probs = generate_combinations(selections)
-    bets, book_odds = generate_bets_combination(selections, max_multiple)
+    combinations, probs = strat_utils.generate_combinations(selections)
+    bets, book_odds = strat_utils.generate_bets_combination(selections, max_multiple)
 
     # Build winning_bets mapping
     winning_bets: dict[int, list[int]] = defaultdict(list)
@@ -177,7 +177,7 @@ def realKelly(
                 tmp_bet = selections[index_bet]
             else:
                 tmp_bet = Bet.combine_many([selections[idx] for idx in bet_index])
-            tmp_bet.stake = stake_value
+            tmp_bet.stake = int(round(stake_value, 0))
             print(f"{tmp_bet}")
             results.append(tmp_bet)
             sum_stake += stake_value
@@ -185,161 +185,118 @@ def realKelly(
     return results
 
 
-@decorators.verify_required_column(column_names={"home_team", "away_team", "H", "D", "A"})
-def simple_select_bets(
-    odds_bookie: pd.DataFrame, probas: np.ndarray, one_bet_game: bool = True
-) -> list[Bet]:
-    """
-    Select bets profitable in the sense p > 1./o
-    Args:
-        odds_bookie (pd.DataFrame): odds from fdj scrapper
-        probas (np.ndarray): probability from the custom model. Size (len(matchs), 3)
-
-    Returns:
-        List[Bet]: a list of selected bets with the syntax adapted to realKelly
-    """
-    match_outcomes = ["H", "D", "A"]
-    selections = []
-    for idx, rows in odds_bookie.iterrows():
-        odd_list = rows[match_outcomes].to_numpy()
-        tmp_list_game = []
-        for i in range(3):
-            if not one_bet_game:
-                if probas[idx, i] > 1.0 / odd_list[i]:
-                    selections.append(
-                        Bet(
-                            match_id=f"{rows['home_team']} - {rows['away_team']}",
-                            market=match_outcomes[i],
-                            odds=odd_list[i],
-                            edge_mean=probas[idx, i] * (odd_list[i] - 1) + (probas[idx, i] - 1),
-                            prob_mean=probas[idx, i],
-                        )
-                    )
-            else:
-                tmp_list_game.append(probas[idx, i] * (odd_list[i] - 1) + (probas[idx, i] - 1))
-        if one_bet_game:
-            idx_arg = np.argmax(tmp_list_game)
-            selections.append(
-                Bet(
-                    match_id=f"{rows['home_team']} - {rows['away_team']}",
-                    market=match_outcomes[idx_arg],
-                    odds=odd_list[idx_arg],
-                    edge_mean=probas[idx, idx_arg] * (odd_list[i] - 1)
-                    + (probas[idx, idx_arg] - 1),
-                    prob_mean=probas[idx, idx_arg],
-                )
-            )
-    return selections
-
-
-def _fromIdx2Res(index: int, HomeTeam: str, AwayTeam: str) -> str:
-    """Convert an index to a result string.
-
-    Args:
-        index (int): Index of the result.
-        HomeTeam (str): Name of the home team.
-        AwayTeam (str): Name of the away team.
-
-    Returns:
-        str: A string describing the result
-
-    """
-    if index == 0:
-        return f"Victoire à domicile de {HomeTeam} contre {AwayTeam}"
-    elif index == 1:
-        return f"Match nul ({HomeTeam} vs {AwayTeam})"
-    else:
-        return f"Victoire à l'extérieur de {AwayTeam} contre {HomeTeam}"
-
-
-def generate_combinations(selections: list[Bet]) -> tuple[list[list[int]], list[float]]:
-    """Generate a matrix of all possible combinations of selections and their corresponding
-    probabilities.
-
-    Args:
-        selections (list[Bet]):
-            A list of Bet object representing the selectable options,
-    Returns:
-        tuple[list[list[int]], list[float]]: A tuple containing two lists:
-            1. A list of lists, where each sublist represents a combination of selections (0 or 1),
-            indicating which options are selected in that combination.
-            2. A list of probabilities corresponding to each combination.
-
-    """
-    combinations = []
-    probs = []
-
-    for c in range(len(selections) + 1):
-        for subset in itertools.combinations(selections, c):
-            combination = [1 if selection in subset else 0 for selection in selections]
-            prob = 1.0
-            for bet in selections:
-                prob *= bet.prob_mean if bet in subset else 1 - bet.prob_mean
-            combinations.append(combination)
-            probs.append(prob)
-    return combinations, probs
-
-
-def generate_bets_combination(
-    selections: list[Bet], max_multiple: int
-) -> tuple[list[list[int]], list[float]]:
-    """Generates all possible bets based on selections and a maximum multiple.
-
-    Args:
-        selections (list[dict]): A list of dictionaries, where each dictionary contains selection
-        information, including the "odds_book" key for the odds in the book.
-        max_multiple (int): The maximum number of selections that can be combined in a strategy.
-
-    Returns:
-        tuple[list[list[int]], list[float]]: The first list contains all possible bets, where each
-            bet is represented as a list of 1s and 0s indicating the selection. The second list
-            contains the product of odds for each combination, representing the book odds.
-
-    """
-    bets = []
-    book_odds = []
-
-    for multiple in range(1, max_multiple + 1):
-        for subset in itertools.combinations(selections, multiple):
-            bet = [1 if selection in subset else 0 for selection in selections]
-            prod = 1.00
-            for selection in subset:
-                prod *= selection.odds
-            bets.append(bet)
-            book_odds.append(prod)
-
-    return bets, book_odds
-
-
-def compute_stacks(
-    stakes: list[float],
-    bankroll: float,
-    combinations: list[list[int]],
-    winning_bets: dict[int, list[int]],
-    book_odds: list[float],
-    probs,
-    eps: float = 1e-9,
+def bayesian_kelly(
+    list_bet: list[Bet],  # shape (J,)   : cotes décimales du bookmaker
+    lambda_samples: dict[
+        str, tuple[np.ndarray, np.ndarray]
+    ],  # shape (K, J) : échantillon posterior des probabilités
+    bankroll: float = 100,  # capital initial (1 = 100 %)
+    summary: Literal["mean", "quantile"] = "quantile",  # "mean" ou "quantile"
+    alpha: float = 0.3,  # si summary=="quantile"
+    global_fraction: float = 0.5,  # λ (½‑Kelly global)
+    per_bet_cap: float = 0.90,  # plafond f_j max
 ):
-    """Compute the expected bankroll after placing bets.
+    """Renvoie les fractions de bankroll à miser sur chacun des J matchs.
 
-    Args:
-        stakes (list[float]): The amount of money placed on each bet.
-        bankroll (float): The initial amount of money available.
-        combinations (list[list[int]]): A list of combinations of bet indices.
-        winning_bets (dict[int, list[int]]): A dictionary where keys are bet indices and
-        values are lists of combination indices that win.
-        book_odds (list[float]): The odds provided by the bookmaker for each bet.
-        probs (list[float]): The probabilities of each combination occurring.
-        eps (float, optional): A small value to avoid log(0). Defaults to 1e-9.
-
-    Returns:
-        float: The negative sum of the expected log bankrolls.
+    Les négatives sont tronquées à 0 (on ignore les edges négatifs).
 
     """
+    mapping_match = {"H": 0, "D": 1, "A": 2}
+    bets_w_stake = []
+    for bet in list_bet:
+        # (b)  Kelly instantané pour chaque tirage
+        lambda_h, lambda_a = lambda_samples[bet.match_id]
+        probas = strat_utils._skellam_post_probs(lh=lambda_h, la=lambda_a)
+        p_samples = probas[mapping_match[bet.market]]
+        X = bet.odds - 1.0  # gain unitaire si victoire
+        f_kelly = (p_samples * bet.odds - (1 - p_samples)) / X  # shape (K, J)
 
-    end_bankrolls = np.array([bankroll - np.sum(stakes)] * len(combinations), dtype=float)
-    for index_bet, comb_indices in winning_bets.items():
-        for index in comb_indices:
-            end_bankrolls[index] += stakes[index_bet] * book_odds[index_bet]
-    # Avoid log(0) by adding a small epsilon.
-    return -np.sum([p * math.log(max(e, eps)) for p, e in zip(probs, end_bankrolls)])
+        f_kelly = np.clip(f_kelly, 0.0, None)  # on ne short pas
+
+        # (c)  Résumé prudent
+        if summary == "mean":
+            f_base = f_kelly.mean(axis=0)
+        elif summary == "quantile":
+            f_base = np.quantile(f_kelly, alpha, axis=0)
+        else:
+            raise ValueError("summary must be 'mean' or 'quantile'")
+
+        # (d)  Application du facteur global λ
+        f = global_fraction * f_base
+
+        # (e)  Contraintes pratiques
+        f = np.minimum(f, per_bet_cap)  # plafond par match
+
+        # Mise absolue si bankroll différent de 1
+        stake = bankroll * f
+        if stake > 0.0:
+            tmp_bet = bet
+            tmp_bet.stake = int(round(stake, 0))
+            bets_w_stake.append(tmp_bet)
+
+    sum_stake = 0
+    possible_return = 0
+    for bet in bets_w_stake:
+        print(f"{bet}")
+        sum_stake += bet.stake
+        possible_return += bet.odds * bet.stake
+    print(f"Bankroll used: {sum_stake:.2f} €")
+    print(f"Possible return: {possible_return:.2f} €")
+    return bets_w_stake
+
+
+def kelly_shrinkage(
+    list_bet,
+    lambda_samples,
+    per_bet_cap=0.10,
+    bankroll_cap=0.30,
+    bankroll=100,
+    lambda_global=0.25,  # <- ¼-Kelly by default
+):
+    mapping_match = {"H": 0, "D": 1, "A": 2}
+    bets_w_stake = []
+
+    for bet in list_bet:
+        λh, λa = lambda_samples[bet.match_id]
+        probs = strat_utils._skellam_post_probs(λh, λa)  # shape (K,3) or (3,)
+        p = probs[mapping_match[bet.market]]
+
+        # --- posterior mean & variance across samples -------------
+        mu = p.mean(0)  # scalar for that market
+        var = p.var(0, ddof=1)
+
+        # guard against var=0                                   ← prevents s=1 always
+        if var == 0:
+            var = 1e-9
+
+        shrink = mu * (1 - mu) / (mu * (1 - mu) + var)  # s ∈ (0,1]
+
+        # --- fractional-Kelly ------------------------------------
+        b = bet.odds - 1.0
+        full = (mu * bet.odds - (1 - mu)) / b  # f⋆
+        f = lambda_global * shrink * full  # λ-Kelly with shrink
+
+        f = np.clip(f, 0.0, per_bet_cap)  # single-bet cap
+        # bankroll-wide cap (if you really need it)
+        # (collect f’s, rescale once outside the loop for clarity)
+
+        stake = bankroll * f
+        if stake > 0:
+            bet.stake = int(round(stake))
+            bets_w_stake.append(bet)
+
+    # optional: rescale all stakes here if Σf > bankroll_cap
+    total_fraction = sum(b.stake for b in bets_w_stake) / bankroll
+    if total_fraction > bankroll_cap:
+        scale = bankroll_cap / total_fraction
+        for bet in bets_w_stake:
+            bet.stake = int(round(bet.stake * scale))
+    sum_stake = 0
+    possible_return = 0
+    for bet in bets_w_stake:
+        print(f"{bet}")
+        sum_stake += bet.stake
+        possible_return += bet.odds * bet.stake
+    print(f"Bankroll used: {sum_stake:.2f} €")
+    print(f"Possible return: {possible_return:.2f} €")
+    return bets_w_stake

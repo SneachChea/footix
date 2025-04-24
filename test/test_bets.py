@@ -70,3 +70,11 @@ def test_combine_many():
 def test_combine_empty_raises():
     with pytest.raises(ValueError):
         Bet.combine_many([])
+
+
+def test_bet_equality():
+    bet1 = Bet("m1", "H", 2.9, 0.1, 0.5)
+    bet2 = Bet("m1", "H", 3.9, 0.2, 0.1)
+    bet3 = Bet("m1", "D", 3.9, 0.2, 0.1)
+    assert bet1 == bet2
+    assert not bet1 == bet3

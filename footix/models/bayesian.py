@@ -57,6 +57,39 @@ class Bayesian(ProtoPoisson):
 
         return home_theta, away_theta
 
+    def get_samples(self, home_team: str, away_team: str) -> tuple[np.ndarray, np.ndarray]:
+        """Generates posterior predictive samples for the specified home and away teams based on
+        the model.
+
+            home_team (str): The name of the home team.
+            away_team (str): The name of the away team.
+
+            tuple[np.ndarray, np.ndarray]:
+                A tuple containing two one-dimensional numpy arrays:
+                    - The first array represents the sampled lambda values for the home team.
+                    - The second array represents the sampled lambda values for the away team.
+        Notes:
+            This function transforms the team names into their corresponding indices, retrieves
+            the posterior samples for model parameters from the trace, computes the expected
+            goal rates (lambda values) for both teams, and flattens the arrays to provide a
+            simplified output.
+
+        """
+
+        team_id = self.label.transform([home_team, away_team])
+        posterior = self.trace.posterior
+        home_team_id = team_id[0]
+        away_team_id = team_id[1]
+        home = posterior["home"].values
+        intercept = posterior["intercept"].values
+        atts = posterior["atts"].values
+        defs = posterior["defs"].values
+        lambda_h = np.exp(
+            intercept + home[..., home_team_id] + atts[..., home_team_id] + defs[..., away_team_id]
+        )
+        lambda_a = np.exp(intercept + atts[..., away_team_id] + defs[..., home_team_id])
+        return lambda_h.flatten(), lambda_a.flatten()
+
     def hierarchical_bayes(
         self,
         goals_home_obs: np.ndarray,
