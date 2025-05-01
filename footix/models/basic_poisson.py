@@ -6,7 +6,7 @@ import scipy.optimize as optimize
 
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
-from footix.models.protocol_model import ProtoPoisson
+from footix.utils.typing import ProtoPoisson
 from footix.utils.decorators import verify_required_column
 
 logger = logging.getLogger(name=__name__)

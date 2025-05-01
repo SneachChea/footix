@@ -16,6 +16,8 @@ pytensor = "^2.11.2"
 torch = "^2.6.0"
 requests = "^2.32.3"
 networkx = "^3.4.2"
+jax = "^0.6.0"
+numpyro = "^0.18.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.1"

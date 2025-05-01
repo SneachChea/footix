@@ -315,7 +315,6 @@ def kelly_shrinkage(
             var = 1e-9
 
         shrink = mu * (1 - mu) / (mu * (1 - mu) + var)  # s ∈ (0,1]
-
         b = bet.odds - 1.0
         full = (mu * bet.odds - (1 - mu)) / b  # f⋆
         f = fraction_kelly * shrink * full  # λ-Kelly with shrink

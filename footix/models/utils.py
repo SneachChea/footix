@@ -148,3 +148,24 @@ def implicit_intensities(
         results[i] = best_t
 
     return results
+
+@decorators.verify_required_column(column_names=["Date", "Time"])
+def process_game_week_index(df: pd.DataFrame) -> np.ndarray:
+    """
+    Convert date column to datetime, sort values and calculate game-week indices.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing at least 'Date' and 'Time' columns.
+
+    Returns:
+        tuple[pd.DataFrame, np.ndarray]: The updated DataFrame and an array of week indices.
+    """
+    df["Date"] = pd.to_datetime(df["Date"], dayfirst=True)
+    df = df.sort_values(["Date", "Time"])
+
+    # --- game-week index ---------------------------------------------------------
+    df["gw_anchor"] = df["Date"].dt.to_period("W-MON").dt.start_time
+    df["week_idx"] = df["gw_anchor"].factorize()[0].astype("int32")
+    week_idx = df["week_idx"].to_numpy()
+
+    return week_idx

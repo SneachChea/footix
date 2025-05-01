@@ -6,7 +6,7 @@ import footix.metrics as metrics
 
 
 def test_entropy():
-    res = metrics.entropy(probas=[1.0 / 3, 1.0 / 3, 1.0 / 3], outcome_idx=0)
+    res = metrics.incertity(probas=[1.0 / 3, 1.0 / 3, 1.0 / 3], outcome_idx=0)
     assert np.isclose(res, 1.0)
 
 

@@ -1,11 +1,9 @@
 import numpy as np
 
-import footix.utils.decorators as decorators
 from footix.strategy._utils import _skellam_post_probs
 from footix.strategy.bets import Bet, OddsInput
 
 
-@decorators.verify_required_column(column_names={"home_team", "away_team", "H", "D", "A"})
 def simple_select_bets(
     odds_input: list[OddsInput],
     probas: np.ndarray,
@@ -133,7 +131,7 @@ def select_matches_posterior(
         candidate_bets = []
         for market, p_samples in zip(("H", "D", "A"), (p_home, p_draw, p_away)):
             o = odd.odd_dict[market]
-            edge_samples = p_samples * (o - 1) - (1 - p_samples)
+            edge_samples = p_samples * (o - 1.) - (1. - p_samples)
 
             mu_edge = edge_samples.mean()
             std_edge = edge_samples.std(ddof=1)

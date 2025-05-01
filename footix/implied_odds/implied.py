@@ -1,6 +1,6 @@
 import operator
 from typing import cast
-
+from footix.utils.typing import ArrayLikeF
 import numpy as np
 from scipy import optimize
 
@@ -8,7 +8,7 @@ from scipy import optimize
 # https://github.com/martineastwood/penaltyblog/tree/master
 
 
-def _assert_odds(odds: list[float] | np.ndarray, axis: None | int = None) -> None:
+def _assert_odds(odds: ArrayLikeF, axis: None | int = None) -> None:
     if (not isinstance(odds, list)) and (not isinstance(odds, np.ndarray)):
         raise TypeError("Odds must be a list or an numpy array.")
     if isinstance(odds, list):
@@ -24,7 +24,7 @@ def _assert_odds(odds: list[float] | np.ndarray, axis: None | int = None) -> Non
 
 
 def multiplicative(
-    odds: list[float] | np.ndarray, axis: int = -1
+    odds: ArrayLikeF, axis: int = -1
 ) -> tuple[np.ndarray, float | np.ndarray]:
     """Multiplicative way to normalize the odds. Work for multidimensionnal array.
 
@@ -44,7 +44,7 @@ def multiplicative(
     return 1.0 / (normalization * odds), margin
 
 
-def power(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
+def power(odds: ArrayLikeF) -> tuple[np.ndarray, float]:
     """From penaltyblog package. The power method computes the implied probabilities by solving
     for the power coefficient that normalizes the inverse of the odds to sum to 1.0.
 
@@ -67,7 +67,7 @@ def power(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
     return normalized, margin
 
 
-def shin(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
+def shin(odds: ArrayLikeF) -> tuple[np.ndarray, float]:
     """Computes the implied probabilities via Shin's method (1992, 1993).
 
     Args:
@@ -107,7 +107,6 @@ def _shin(z_param: float, inv_odds: np.ndarray) -> np.ndarray:
 
     Returns:
         np.ndarray: The implied probabilities for each outcome.
-
     """
     normalized = np.sum(inv_odds)
     implied = (
