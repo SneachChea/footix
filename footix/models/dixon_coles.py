@@ -7,8 +7,8 @@ from tqdm.auto import tqdm
 
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
-from footix.utils.typing import ProtoPoisson
 from footix.utils.decorators import verify_required_column
+from footix.utils.typing import ProtoPoisson
 
 logger = logging.getLogger(name=__name__)
 

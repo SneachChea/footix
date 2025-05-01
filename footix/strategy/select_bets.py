@@ -131,7 +131,7 @@ def select_matches_posterior(
         candidate_bets = []
         for market, p_samples in zip(("H", "D", "A"), (p_home, p_draw, p_away)):
             o = odd.odd_dict[market]
-            edge_samples = p_samples * (o - 1.) - (1. - p_samples)
+            edge_samples = p_samples * (o - 1.0) - (1.0 - p_samples)
 
             mu_edge = edge_samples.mean()
             std_edge = edge_samples.std(ddof=1)

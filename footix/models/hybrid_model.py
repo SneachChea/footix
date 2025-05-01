@@ -7,10 +7,10 @@ import scipy.stats as stats
 from sklearn import preprocessing
 
 from footix.implied_odds import shin
-from footix.utils.typing import ProtoBayes
 from footix.models.score_matrix import GoalMatrix
 from footix.models.utils import implicit_intensities
 from footix.utils.decorators import verify_required_column
+from footix.utils.typing import ProtoBayes
 
 
 class MixtureBayesian(ProtoBayes):
@@ -197,6 +197,11 @@ class MixtureBayesian(ProtoBayes):
             pm.Poisson("away_goals", mu=rate_away, observed=goals_away_data)
 
             trace = pm.sample(
-                2000, tune=500, target_accept=0.95, return_inferencedata=True, cores=6
-            ,nuts_sampler="numpyro")
+                2000,
+                tune=500,
+                target_accept=0.95,
+                return_inferencedata=True,
+                cores=6,
+                nuts_sampler="numpyro",
+            )
             return trace

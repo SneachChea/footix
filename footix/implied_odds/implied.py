@@ -1,8 +1,10 @@
 import operator
 from typing import cast
-from footix.utils.typing import ArrayLikeF
+
 import numpy as np
 from scipy import optimize
+
+from footix.utils.typing import ArrayLikeF
 
 # Most of those functions are inspired by the awesome package penaltyblog
 # https://github.com/martineastwood/penaltyblog/tree/master
@@ -23,9 +25,7 @@ def _assert_odds(odds: ArrayLikeF, axis: None | int = None) -> None:
         raise ValueError("All odds must be greater then 1.")
 
 
-def multiplicative(
-    odds: ArrayLikeF, axis: int = -1
-) -> tuple[np.ndarray, float | np.ndarray]:
+def multiplicative(odds: ArrayLikeF, axis: int = -1) -> tuple[np.ndarray, float | np.ndarray]:
     """Multiplicative way to normalize the odds. Work for multidimensionnal array.
 
     Args:
@@ -107,6 +107,7 @@ def _shin(z_param: float, inv_odds: np.ndarray) -> np.ndarray:
 
     Returns:
         np.ndarray: The implied probabilities for each outcome.
+
     """
     normalized = np.sum(inv_odds)
     implied = (

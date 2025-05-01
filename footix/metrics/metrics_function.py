@@ -1,5 +1,7 @@
 import numpy as np
+
 from footix.utils.typing import ArrayLikeF
+
 
 def incertity(probas: ArrayLikeF, outcome_idx: int) -> float:
     """Compute the entropy (or incertity) metric.
@@ -58,9 +60,7 @@ def zscore(
 
     _eps = 1e-5
 
-    def _monteCarl(
-        probas: ArrayLikeF, n_iter: int, seed: int | None
-    ) -> tuple[float, float]:
+    def _monteCarl(probas: ArrayLikeF, n_iter: int, seed: int | None) -> tuple[float, float]:
         outcomes = [0, 1, 2]
         rps_stats = np.zeros(n_iter)
         rng = np.random.default_rng(seed=seed)
