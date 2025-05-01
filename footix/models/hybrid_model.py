@@ -20,20 +20,20 @@ class MixtureBayesian(ProtoBayes):
         self.label = preprocessing.LabelEncoder()
 
     @verify_required_column(
-        column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG", "B365H", "B365D", "B365A"}
+        column_names={"home_team", "away_team", "ftr", "fthg", "ftag", "b365h", "b365d", "b365a"}
     )
     def fit(self, X_train: pd.DataFrame):
         x_train_cop = copy(X_train)
-        self.label.fit(X_train["HomeTeam"])  # type: ignore
-        x_train_cop["HomeTeamId"] = self.label.transform(X_train["HomeTeam"])
-        x_train_cop["AwayTeamId"] = self.label.transform(X_train["AwayTeam"])
+        self.label.fit(X_train["home_team"])  # type: ignore
+        x_train_cop["home_team_id"] = self.label.transform(X_train["home_team"])
+        x_train_cop["away_team_id"] = self.label.transform(X_train["away_team"])
 
-        goals_home_obs = x_train_cop["FTHG"].to_numpy()
-        goals_away_obs = x_train_cop["FTAG"].to_numpy()
-        home_team = x_train_cop["HomeTeamId"].to_numpy()
-        away_team = x_train_cop["AwayTeamId"].to_numpy()
+        goals_home_obs = x_train_cop["fthg"].to_numpy()
+        goals_away_obs = x_train_cop["ftag"].to_numpy()
+        home_team = x_train_cop["home_team_id"].to_numpy()
+        away_team = x_train_cop["away_team_id"].to_numpy()
 
-        tmp_list_odds = x_train_cop[["B365H", "B365D", "B365A"]].to_numpy()
+        tmp_list_odds = x_train_cop[["b365h", "b365d", "b365a"]].to_numpy()
         proba_shin_array = self.compute_implied_odds(list_odds=tmp_list_odds)
         thetas_intensities = implicit_intensities(proba_from_odds=proba_shin_array, max_iter=1000)
 

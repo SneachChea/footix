@@ -1,15 +1,18 @@
 # Mapping of the different competitions to their respective slugs
-MAPPING_COMPETITIONS: dict[str, str] = {
-    "ligue1": "F1",
-    "ligue2": "F2",
-    "premierleague": "E0",
-    "championship": "E1",
-    "bundesliga": "D1",
-    "bundesliga2": "D2",
-    "seriea": "I1",
-    "serieb": "I2",
-    "laliga": "SP1",
-    "laliga2": "SP2",
+import re
+from typing import Any
+
+MAPPING_COMPETITIONS: dict[str, dict[str, Any]] = {
+    "FRA Ligue 1": {"footballdata": {"slug": "F1"}, "understat": {"slug": "Ligue_1"}},
+    "FRA Ligue 2": {"footballdata": {"slug": "F2"}},
+    "ENG Premier League": {"footballdata": {"slug": "E0"}, "understat":{"slug":"EPL"}},
+    "ENG Championship": {"footballdata": {"slug": "E1"}},
+    "DEU Bundesliga 1": {"footballdata": {"slug": "D1"}, "understat":{"slug":"Bundesliga"}},
+    "DEU Bundesliga 2": {"footballdata": {"slug": "D2"}},
+    "ITA Serie A": {"footballdata": {"slug": "I1"}, "understat": {"slug" : "Serie_A"}},
+    "ITA Serie B": {"footballdata": {"slug": "I2"}},
+    "SPA La Liga": {"footballdata": {"slug": "SP1"}, "understat":{"slug": "La_Liga"}},
+    "SPA La Liga 2": {"footballdata": {"slug": "SP2"}},
 }
 
 
@@ -30,3 +33,21 @@ def process_string(input_string):
     lower_string = input_string.lower()
     no_space_string = lower_string.replace(" ", "")
     return no_space_string
+
+def to_snake_case(name: str)->str:
+    """
+    Convert the string name into a snake case string.
+    Shamelessly copied from:
+    https://stackoverflow.com/questions/1175208/
+    elegant-python-function-to-convert-camelcase-to-snake-case
+
+    Args:
+        name (str): the name to convert
+
+    Returns:
+        str: the name in snake case
+    """
+    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    name = re.sub("__([A-Z])", r"_\1", name)
+    name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name)
+    return name.lower()

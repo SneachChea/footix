@@ -2,39 +2,34 @@ import pathlib
 
 import pandas as pd
 import requests
+import io
 
 import footix.data_io.utils_scrapper as utils_scrapper
+from footix.data_io.base_scrapper import Scraper
 
-
-class ScrapFootballData:
+class ScrapFootballData(Scraper):
     base_url: str = "https://www.football-data.co.uk/mmz4281/"
-
+    scraper_name = "footballdata"
     def __init__(
-        self, competition: str, season: str, path: str, force_reload: bool = False
+        self, competition: str, season: str, path: str, force_reload: bool = False, mapping_teams:dict[str, str] |None= None
     ) -> None:
-        self.competition = utils_scrapper.process_string(competition)
-        slug = utils_scrapper.MAPPING_COMPETITIONS[self.competition]
+        super().__init__(path=path, mapping_teams=mapping_teams)
+        self._check_competitions(competition_name=competition)
+        self.competition = competition
+        slug = utils_scrapper.MAPPING_COMPETITIONS[self.competition]["footballdata"]["slug"]
         self.season = _process_season(season)
         self.path = self.manage_path(path)
         self.force_reload = force_reload
         self.infered_url = self.base_url + self.season + "/" + slug + ".csv"
         self.df = self.load()
+        self.sanitize_columns()
 
-    @staticmethod
-    def manage_path(path: str) -> pathlib.Path:
-        tmp_pth = pathlib.Path(path)
-        if tmp_pth.is_file():
-            raise ValueError("Path should be a directory")
-        if tmp_pth.exists():
-            return tmp_pth
-        else:
-            tmp_pth.mkdir(parents=True, exist_ok=True)
-        return tmp_pth
+
 
     def download(self):
-        response = requests.get(self.infered_url)
-        with open(self.path / (self.competition + "_" + self.season + ".csv"), "wb") as file:
-            file.write(response.content)
+        response = self.get(self.infered_url)
+        df = pd.read_csv(io.StringIO(response), encoding='utf-8').sort_index().pipe(self.replace_name_team, columns=["home_team", "away_team"])
+        df.to_csv(self.path / (self.competition + "_" + self.season + ".csv"), index=False, encoding="utf-8")
 
     def load(self) -> pd.DataFrame:
         if self._check_if_file_exist() and not self.force_reload:
@@ -44,7 +39,10 @@ class ScrapFootballData:
             df = pd.read_csv(self.path / (self.competition + "_" + self.season + ".csv"))
         return df
 
-    def get_data(self):
+    def sanitize_columns(self):
+        self.df.columns = [utils_scrapper.to_snake_case(x) for x in self.df.columns]
+
+    def get_fixtures(self)->pd.DataFrame:
         return self.df
 
     def _check_if_file_exist(self) -> bool:

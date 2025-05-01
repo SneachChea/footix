@@ -1,5 +1,4 @@
 from typing import Final, TypeVar
-
 import numpy as np
 
 import footix.models.basic_poisson as model_poisson
