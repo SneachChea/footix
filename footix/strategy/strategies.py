@@ -44,7 +44,7 @@ def classic_kelly(input_df: pd.DataFrame, bankroll: float) -> None:
 
 
 def realKelly(
-    selections: list[Bet],
+    list_bets: list[Bet],
     bankroll: float,
     max_multiple: int = 1,
     num_iterations: int = 1000,
@@ -58,7 +58,7 @@ def realKelly(
     (PyTorch).
 
     Args:
-        selections (list[dict[str, Any]]): List of betting selections.
+        list_bets (list[dict[str, Any]]): List of bets.
         bankroll (float): Total bankroll available.
         max_multiple (int, optional): Maximum number of selections to combine. Defaults to 1.
         num_iterations (int, optional): Number of iterations for gradient descent.
@@ -76,12 +76,12 @@ def realKelly(
     """
     start_time = time.time()
 
-    if max_multiple > len(selections):
-        raise ValueError(f"Error: max_multiple must not exceed {len(selections)}")
+    if max_multiple > len(list_bets):
+        raise ValueError(f"Error: max_multiple must not exceed {len(list_bets)}")
 
     # Generate combinations and bets (this part runs on CPU)
-    combinations, probs = strat_utils.generate_combinations(selections)
-    bets, book_odds = strat_utils.generate_bets_combination(selections, max_multiple)
+    combinations, probs = strat_utils.generate_combinations(list_bets)
+    bets, book_odds = strat_utils.generate_bets_combination(list_bets, max_multiple)
 
     # Build winning_bets mapping
     winning_bets: dict[int, list[int]] = defaultdict(list)
@@ -174,9 +174,9 @@ def realKelly(
         stake_value = stakes_final[index_bet]
         if stake_value >= 0.50:
             if len(bet_index) == 1:
-                tmp_bet = selections[index_bet]
+                tmp_bet = list_bets[index_bet]
             else:
-                tmp_bet = Bet.combine_many([selections[idx] for idx in bet_index])
+                tmp_bet = Bet.combine_many([list_bets[idx] for idx in bet_index])
             tmp_bet.stake = int(round(stake_value, 0))
             print(f"{tmp_bet}")
             results.append(tmp_bet)
@@ -186,7 +186,7 @@ def realKelly(
 
 
 def bayesian_kelly(
-    list_bet: list[Bet],
+    list_bets: list[Bet],
     lambda_samples: dict[str, tuple[np.ndarray, np.ndarray]],
     bankroll: float = 100,
     summary: Literal["mean", "quantile"] = "quantile",
@@ -203,7 +203,7 @@ def bayesian_kelly(
     capping.
 
     Args:
-        list_bet (list[Bet]): List of bet objects for which to compute the stake.
+        list_bets (list[Bet]): List of bet objects for which to compute the stake.
         lambda_samples (dict[str, tuple[np.ndarray, np.ndarray]]): Mapping of match IDs to a tuple
             of numpy arrays representing the lambda samples for home and away teams.
         bankroll (float, optional): Total available bankroll. Defaults to 100.
@@ -226,7 +226,7 @@ def bayesian_kelly(
     """
     mapping_match = {"H": 0, "D": 1, "A": 2}
     bets_w_stake = []
-    for bet in list_bet:
+    for bet in list_bets:
         lambda_h, lambda_a = lambda_samples[bet.match_id]
         probas = strat_utils._skellam_post_probs(lh=lambda_h, la=lambda_a)
         p_samples = probas[mapping_match[bet.market]]
@@ -264,7 +264,7 @@ def bayesian_kelly(
 
 
 def kelly_shrinkage(
-    list_bet: list[Bet],
+    list_bets: list[Bet],
     lambda_samples: dict[str, tuple[np.ndarray, np.ndarray]],
     per_bet_cap: float = 0.10,
     bankroll_cap: float = 0.30,
@@ -283,7 +283,7 @@ def kelly_shrinkage(
     predefined threshold.
 
     Args:
-        list_bet (list[Bet]): List of bet objects to evaluate.
+        list_bets (list[Bet]): List of bet objects to evaluate.
         lambda_samples (dict[str, tuple[np.ndarray, np.ndarray]]):
                                                 Dictionary mapping match IDs to tuples of
             numpy arrays containing lambda samples for the home and away teams.
@@ -303,7 +303,7 @@ def kelly_shrinkage(
     mapping_match = {"H": 0, "D": 1, "A": 2}
     bets_w_stake = []
 
-    for bet in list_bet:
+    for bet in list_bets:
         lamb_h, lamb_a = lambda_samples[bet.match_id]
         probs = strat_utils._skellam_post_probs(lamb_h, lamb_a)  # shape (K,3) or (3,)
         p = probs[mapping_match[bet.market]]
@@ -342,3 +342,133 @@ def kelly_shrinkage(
     print(f"Bankroll used: {sum_stake:.2f} €")
     print(f"Possible return: {possible_return:.2f} €")
     return bets_w_stake
+
+
+def kelly_portfolio_torch(
+    list_bets: list[Bet],
+    lambda_samples: dict[str, tuple[np.ndarray, np.ndarray]],
+    *,
+    per_bet_cap: float = 0.10,
+    bankroll_cap: float = 0.30,
+    bankroll: float = 100.0,
+    fraction_kelly: float = 0.25,
+    iters: int = 5000,
+    lr: float = 0.003,
+    tol: float = 1e-8,
+    verbose: bool = False,
+):
+    """Compute optimal bet sizes using a shrinkage-adjusted Kelly criterion with gradient-based
+    optimization in PyTorch.
+
+    This function calculates bet stakes by applying a shrinkage correction to
+    the classic Kelly criterion. It uses gradient ascent to optimize the
+    portfolio allocation while respecting per-bet and total bankroll constraints.
+
+    Args:
+        list_bets (list[Bet]): List of bet objects to evaluate.
+        lambda_samples (dict[str, tuple[np.ndarray, np.ndarray]]): Dictionary mapping
+            match IDs to tuples of numpy arrays containing lambda samples for the
+            home and away teams.
+        per_bet_cap (float, optional): Maximum fraction of the bankroll allowed on
+            a single bet. Defaults to 0.10.
+        bankroll_cap (float, optional): Maximum allowed total fraction of the bankroll
+            across all bets. Defaults to 0.30.
+        bankroll (float, optional): Total available bankroll. Defaults to 100.0.
+        fraction_kelly (float, optional): Fraction of the shrinkage-adjusted Kelly stake
+            to wager. Defaults to 0.25.
+        iters (int, optional): Maximum number of iterations for gradient ascent.
+            Defaults to 5000.
+        lr (float, optional): Learning rate for the optimizer. Defaults to 0.003.
+        tol (float, optional): Tolerance for early stopping. If the objective value
+            falls below this threshold, the optimization stops. Defaults to 1e-8.
+        verbose (bool, optional): If True, prints detailed information about the
+            bankroll usage and possible returns. Defaults to False.
+
+    Returns:
+        list[Bet]: List of bet objects with their stake updated according to the
+        shrinkage-adjusted Kelly criterion.
+
+    Notes:
+        - The shrinkage factor is derived from the mean and variance of the posterior
+          probabilities, ensuring more robust stake calculations.
+        - The optimization respects both per-bet and total bankroll constraints,
+          projecting the solution back into the feasible region when necessary.
+        - The function uses PyTorch for efficient gradient-based optimization.
+
+    Example:
+        >>> bets = [Bet(match_id="match1", market="H", odds=2.5), ...]
+        >>> lambda_samples = {"match1": (np.array([...]), np.array([...]))}
+        >>> optimized_bets = kelly_portfolio_torch(
+                bets, lambda_samples, bankroll=100, verbose=True
+            )
+        >>> for bet in optimized_bets:
+        >>>     print(bet)
+
+    """
+
+    mapping = {"H": 0, "D": 1, "A": 2}
+    ps, bs = [], []
+
+    for bet in list_bets:
+        lam_h, lam_a = lambda_samples[bet.match_id]
+        probs = strat_utils._skellam_post_probs(lam_h, lam_a)
+        p = probs[mapping[bet.market]]
+
+        mu, var = p.mean(), p.var(ddof=1)
+        var = max(var, 1e-9)  # guard against zero variance
+        shrink = mu * (1 - mu) / (mu * (1 - mu) + var)
+
+        ps.append(mu * shrink)
+        bs.append(bet.odds - 1.0)
+
+    p = torch.as_tensor(ps, dtype=torch.float64)
+    b = torch.as_tensor(bs, dtype=torch.float64)
+    n = len(list_bets)
+
+    f = torch.full((n,), bankroll_cap / n, dtype=torch.float64, requires_grad=True)
+
+    opt = torch.optim.Adam([f], lr=lr)
+
+    for _ in tqdm(range(iters)):
+        # ----- projection to box [0, per_bet_cap] ------------------
+        with torch.no_grad():
+            f.clamp_(0.0, per_bet_cap)
+            tot = f.sum()
+            if tot > bankroll_cap:
+                f.mul_(bankroll_cap / tot)
+
+        # ----- objective (negated because we *minimise*) -----------
+        opt.zero_grad()
+        # log(1 + f b) and log(1 − f) are safe: caps ensure 0 < f < 1
+        gain = torch.log1p(f * b)
+        loss = torch.log1p(-f)
+        neg_E = -(fraction_kelly * (p * gain + (1 - p) * loss).sum())
+
+        neg_E.backward()
+        opt.step()
+
+        if neg_E.item() < tol:  # tiny objective  ⇒ done
+            break
+
+    with torch.no_grad():
+        f.clamp_(0.0, per_bet_cap)
+        tot = f.sum()
+        if tot > bankroll_cap:
+            f.mul_(bankroll_cap / tot)
+
+    stakes = torch.round(bankroll * f).to(dtype=torch.int64).cpu().numpy()
+
+    chosen = []
+    for bet, stake in zip(list_bets, stakes):
+        if stake > 0:
+            bet.stake = int(stake)
+            chosen.append(bet)
+
+    if verbose:
+        used = sum(b.stake for b in chosen)
+        retmax = sum(b.stake * b.odds for b in chosen)
+        print(f"Bankroll used: {used:.2f} €  •  Possible return: {retmax:.2f} €")
+        for b in chosen:
+            print(b)
+
+    return chosen
