@@ -103,8 +103,10 @@ class XGBayesian(ProtoBayes):
 
         """
         rng: np.random.Generator = (
-            np.random.default_rng() if kwargs.get("rng") is None else kwargs.get("rng")
-        )  # type:ignore
+            np.random.default_rng()
+            if kwargs.get("rng") is None
+            else kwargs.get("rng")  # type:ignore
+        )
         if rng is not None and not isinstance(rng, np.random.Generator):
             raise TypeError(f"'rng' must be a numpy.random.Generator or None, got {type(rng)}")
 
