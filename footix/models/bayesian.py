@@ -1,4 +1,6 @@
+import warnings
 from copy import copy
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -17,7 +19,7 @@ class Bayesian(ProtoBayes):
         self.n_goals = n_goals
         self.label = preprocessing.LabelEncoder()
 
-    @verify_required_column(column_names={"home_team", "away_team", "ftr", "fthg", "ftag"})
+    @verify_required_column(column_names={"home_team", "away_team", "fthg", "ftag"})
     def fit(self, X_train: pd.DataFrame):
         x_train_cop = copy(X_train)
         self.label.fit(X_train["home_team"])  # type: ignore
@@ -30,7 +32,11 @@ class Bayesian(ProtoBayes):
         away_team = x_train_cop["away_team_id"].to_numpy()
         self.trace = self.hierarchical_bayes(goals_home_obs, goals_away_obs, home_team, away_team)
 
-    def predict(self, home_team: str, away_team: str) -> GoalMatrix:
+    def predict(self, home_team: str, away_team: str, **kwargs: Any) -> GoalMatrix:
+        if kwargs:
+            warnings.warn(
+                f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}", stacklevel=2
+            )
         team_id = self.label.transform([home_team, away_team])
 
         home_goal_expectation, away_goal_expectation = self.goal_expectation(
@@ -57,7 +63,9 @@ class Bayesian(ProtoBayes):
 
         return home_theta, away_theta
 
-    def get_samples(self, home_team: str, away_team: str) -> tuple[np.ndarray, np.ndarray]:
+    def get_samples(
+        self, home_team: str, away_team: str, **kwargs: Any
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Generates posterior predictive samples for the specified home and away teams based on
         the model.
 
@@ -75,6 +83,10 @@ class Bayesian(ProtoBayes):
             simplified output.
 
         """
+        if kwargs:
+            warnings.warn(
+                f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}", stacklevel=2
+            )
 
         team_id = self.label.transform([home_team, away_team])
         posterior = self.trace.posterior
@@ -131,10 +143,11 @@ class Bayesian(ProtoBayes):
             # Sample with improved settings
             trace = pm.sample(
                 2000,
-                tune=500,
+                tune=1000,
                 cores=6,
                 target_accept=0.95,
                 return_inferencedata=True,
                 nuts_sampler="numpyro",
+                init="adapt_diag_grad",
             )
         return trace

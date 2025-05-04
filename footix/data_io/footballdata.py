@@ -1,17 +1,54 @@
-import pathlib
+import io
 
 import pandas as pd
-import requests
-import io
 
 import footix.data_io.utils_scrapper as utils_scrapper
 from footix.data_io.base_scrapper import Scraper
 
+
 class ScrapFootballData(Scraper):
+    """Scraper for downloading and processing football match data from football-data.co.uk.
+
+    This class handles the retrieval, local storage, and preprocessing of football match data
+    for a given competition and season. It supports automatic downloading, file management,
+    column sanitization, and team name mapping.
+
+    Args:
+        competition (str): The competition code (e.g., 'E0' for Premier League).
+        season (str): The season string (e.g., '2020/2021', '2020-2021', or '2021').
+        path (str): Directory path to store the downloaded CSV files.
+        force_reload (bool, optional): If True, forces re-download of data even if file exists.
+        mapping_teams (dict[str, str] | None, optional): Optional mapping for team name
+        normalization.
+
+    Attributes:
+        base_url (str): Base URL for football-data.co.uk.
+        scraper_name (str): Name identifier for the scraper.
+        competition (str): Competition code.
+        season (str): Processed season string.
+        path (Path): Path object for data storage.
+        force_reload (bool): Whether to force data reload.
+        infered_url (str): Constructed URL for the CSV file.
+        df (pd.DataFrame): Loaded and processed match data.
+
+    Methods:
+        download(): Downloads and saves the competition data as a CSV file.
+        load() -> pd.DataFrame: Loads the data from file or downloads if not present.
+        sanitize_columns(): Converts DataFrame columns to snake_case.
+        get_fixtures() -> pd.DataFrame: Returns the processed match data.
+
+    """
+
     base_url: str = "https://www.football-data.co.uk/mmz4281/"
     scraper_name = "footballdata"
+
     def __init__(
-        self, competition: str, season: str, path: str, force_reload: bool = False, mapping_teams:dict[str, str] |None= None
+        self,
+        competition: str,
+        season: str,
+        path: str,
+        force_reload: bool = False,
+        mapping_teams: dict[str, str] | None = None,
     ) -> None:
         super().__init__(path=path, mapping_teams=mapping_teams)
         self._check_competitions(competition_name=competition)
@@ -23,13 +60,20 @@ class ScrapFootballData(Scraper):
         self.infered_url = self.base_url + self.season + "/" + slug + ".csv"
         self.df = self.load()
         self.sanitize_columns()
-
-
+        self.df = utils_scrapper.add_mathc_id(self.df)
 
     def download(self):
         response = self.get(self.infered_url)
-        df = pd.read_csv(io.StringIO(response), encoding='utf-8').sort_index().pipe(self.replace_name_team, columns=["home_team", "away_team"])
-        df.to_csv(self.path / (self.competition + "_" + self.season + ".csv"), index=False, encoding="utf-8")
+        df = (
+            pd.read_csv(io.StringIO(response), encoding="utf-8")
+            .sort_index()
+            .pipe(self.replace_name_team, columns=["home_team", "away_team"])
+        )
+        df.to_csv(
+            self.path / (self.competition + "_" + self.season + ".csv"),
+            index=False,
+            encoding="utf-8",
+        )
 
     def load(self) -> pd.DataFrame:
         if self._check_if_file_exist() and not self.force_reload:
@@ -42,7 +86,7 @@ class ScrapFootballData(Scraper):
     def sanitize_columns(self):
         self.df.columns = [utils_scrapper.to_snake_case(x) for x in self.df.columns]
 
-    def get_fixtures(self)->pd.DataFrame:
+    def get_fixtures(self) -> pd.DataFrame:
         return self.df
 
     def _check_if_file_exist(self) -> bool:

@@ -144,7 +144,7 @@ def implicit_intensities(
             for t2 in lg:
                 err = np.sum(residual([t1, t2]) ** 2)
                 if err < best_err:
-                    best_err, best_t = err, (t1, t2)
+                    best_err, best_t = err, (t1, t2)  # type: ignore
         results[i] = best_t
 
     return results

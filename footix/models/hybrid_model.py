@@ -1,4 +1,5 @@
 from copy import copy
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -20,7 +21,16 @@ class MixtureBayesian(ProtoBayes):
         self.label = preprocessing.LabelEncoder()
 
     @verify_required_column(
-        column_names={"home_team", "away_team", "ftr", "fthg", "ftag", "b365h", "b365d", "b365a"}
+        column_names={
+            "home_team",
+            "away_team",
+            "ftr",
+            "fthg",
+            "ftag",
+            "b365_h",
+            "b365_d",
+            "b365_a",
+        }
     )
     def fit(self, X_train: pd.DataFrame):
         x_train_cop = copy(X_train)
@@ -33,7 +43,7 @@ class MixtureBayesian(ProtoBayes):
         home_team = x_train_cop["home_team_id"].to_numpy()
         away_team = x_train_cop["away_team_id"].to_numpy()
 
-        tmp_list_odds = x_train_cop[["b365h", "b365d", "b365a"]].to_numpy()
+        tmp_list_odds = x_train_cop[["b365_h", "b365_d", "b365_a"]].to_numpy()
         proba_shin_array = self.compute_implied_odds(list_odds=tmp_list_odds)
         thetas_intensities = implicit_intensities(proba_from_odds=proba_shin_array, max_iter=1000)
 
@@ -66,7 +76,10 @@ class MixtureBayesian(ProtoBayes):
             tmp_proba.append(tmp_shin)
         return np.asarray(tmp_proba)
 
-    def predict(self, home_team: str, away_team: str, bookmaker_odds: list[float]) -> GoalMatrix:
+    def predict(self, home_team: str, away_team: str, **kwargs: Any) -> GoalMatrix:
+        bookmaker_odds: list[float] | None = kwargs.get("bookmaker_odds")  # type: ignore
+        if bookmaker_odds is None:
+            raise ValueError("bookmaker_odds is not defined")
         team_id = self.label.transform([home_team, away_team])
 
         home_goal_expectation, away_goal_expectation = self.goal_expectation(
@@ -103,7 +116,7 @@ class MixtureBayesian(ProtoBayes):
         return home_theta, away_theta
 
     def get_samples(
-        self, home_team: str, away_team: str, bookmaker_odds: list[float]
+        self, home_team: str, away_team: str, **kwargs: Any
     ) -> tuple[np.ndarray, np.ndarray]:
         """Generates posterior predictive samples for the specified home and away teams based on
         the model.
@@ -122,7 +135,9 @@ class MixtureBayesian(ProtoBayes):
             simplified output.
 
         """
-
+        bookmaker_odds: list[float] | None = kwargs.get("bookmaker_odds")  # type: ignore
+        if bookmaker_odds is None:
+            raise ValueError("bookmaker_odds is not defined")
         team_id = self.label.transform([home_team, away_team])
         proba_shin, _ = shin(bookmaker_odds)
         proba_shin = np.asarray([proba_shin])

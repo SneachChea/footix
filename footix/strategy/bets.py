@@ -13,7 +13,7 @@ class Bet:
         prob_mean (float): Estimated probability of the event occurring based on the model.
         edge_std (Optional[float]): Standard deviation of the edge estimate.
         prob_edge_pos (Optional[float]): Probability that the edge is positive (i.e., a value bet).
-        stake (Optional[float]): The stake of the bet (if selected)
+        stake (float): The stake of the bet. By default stake = 0.
 
     """
 
@@ -24,7 +24,7 @@ class Bet:
     prob_mean: float
     edge_std: float | None = None
     prob_edge_pos: float | None = None
-    stake: float | None = None
+    stake: float = 0.0
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -78,7 +78,6 @@ class Bet:
             prob_mean=combined_prob,
             edge_std=None,
             prob_edge_pos=None,
-            stake=None,
         )
 
     def __add__(self, other: "Bet") -> "Bet":
@@ -103,8 +102,10 @@ class Bet:
             return NotImplemented
         return self + other
 
-    def __eq__(self, bet: "Bet") -> bool:
-        if (self.match_id == bet.match_id) and (self.market == bet.market):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Bet):
+            raise NotImplementedError("== method works only for Bet objects.")
+        if (self.match_id == other.match_id) and (self.market == other.market):
             return True
         return False
 

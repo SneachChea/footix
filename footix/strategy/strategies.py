@@ -249,11 +249,11 @@ def bayesian_kelly(
         stake = bankroll * f
         if stake > 0.0:
             tmp_bet = bet
-            tmp_bet.stake = int(round(stake, 0))
+            tmp_bet.stake = float(round(stake, 0))
             bets_w_stake.append(tmp_bet)
 
-    sum_stake = 0
-    possible_return = 0
+    sum_stake = 0.0
+    possible_return = 0.0
     for bet in bets_w_stake:
         print(f"{bet}")
         sum_stake += bet.stake
@@ -332,9 +332,9 @@ def kelly_shrinkage(
     if total_fraction > bankroll_cap:
         scale = bankroll_cap / total_fraction
         for bet in bets_w_stake:
-            bet.stake = int(round(bet.stake * scale))
-    sum_stake = 0
-    possible_return = 0
+            bet.stake = float(round(bet.stake * scale))
+    sum_stake = 0.0
+    possible_return = 0.0
     for bet in bets_w_stake:
         print(f"{bet}")
         sum_stake += bet.stake
@@ -421,7 +421,7 @@ def kelly_portfolio_torch(
         ps.append(mu * shrink)
         bs.append(bet.odds - 1.0)
 
-    p = torch.as_tensor(ps, dtype=torch.float64)
+    p_tensor = torch.as_tensor(ps, dtype=torch.float64)
     b = torch.as_tensor(bs, dtype=torch.float64)
     n = len(list_bets)
 
@@ -442,7 +442,7 @@ def kelly_portfolio_torch(
         # log(1 + f b) and log(1 − f) are safe: caps ensure 0 < f < 1
         gain = torch.log1p(f * b)
         loss = torch.log1p(-f)
-        neg_E = -(fraction_kelly * (p * gain + (1 - p) * loss).sum())
+        neg_E = -(fraction_kelly * (p_tensor * gain + (1 - p_tensor) * loss).sum())
 
         neg_E.backward()
         opt.step()
@@ -458,17 +458,17 @@ def kelly_portfolio_torch(
 
     stakes = torch.round(bankroll * f).to(dtype=torch.int64).cpu().numpy()
 
-    chosen = []
+    chosen: list[Bet] = []
     for bet, stake in zip(list_bets, stakes):
-        if stake > 0:
-            bet.stake = int(stake)
+        if stake > 0.0:
+            bet.stake = float(stake)
             chosen.append(bet)
 
     if verbose:
         used = sum(b.stake for b in chosen)
         retmax = sum(b.stake * b.odds for b in chosen)
         print(f"Bankroll used: {used:.2f} €  •  Possible return: {retmax:.2f} €")
-        for b in chosen:
+        for b in chosen:  # type:ignore
             print(b)
 
     return chosen

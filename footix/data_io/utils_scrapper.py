@@ -2,16 +2,20 @@
 import re
 from typing import Any
 
+import pandas as pd
+
+from footix.utils.decorators import verify_required_column
+
 MAPPING_COMPETITIONS: dict[str, dict[str, Any]] = {
     "FRA Ligue 1": {"footballdata": {"slug": "F1"}, "understat": {"slug": "Ligue_1"}},
     "FRA Ligue 2": {"footballdata": {"slug": "F2"}},
-    "ENG Premier League": {"footballdata": {"slug": "E0"}, "understat":{"slug":"EPL"}},
+    "ENG Premier League": {"footballdata": {"slug": "E0"}, "understat": {"slug": "EPL"}},
     "ENG Championship": {"footballdata": {"slug": "E1"}},
-    "DEU Bundesliga 1": {"footballdata": {"slug": "D1"}, "understat":{"slug":"Bundesliga"}},
+    "DEU Bundesliga 1": {"footballdata": {"slug": "D1"}, "understat": {"slug": "Bundesliga"}},
     "DEU Bundesliga 2": {"footballdata": {"slug": "D2"}},
-    "ITA Serie A": {"footballdata": {"slug": "I1"}, "understat": {"slug" : "Serie_A"}},
+    "ITA Serie A": {"footballdata": {"slug": "I1"}, "understat": {"slug": "Serie_A"}},
     "ITA Serie B": {"footballdata": {"slug": "I2"}},
-    "SPA La Liga": {"footballdata": {"slug": "SP1"}, "understat":{"slug": "La_Liga"}},
+    "SPA La Liga": {"footballdata": {"slug": "SP1"}, "understat": {"slug": "La_Liga"}},
     "SPA La Liga 2": {"footballdata": {"slug": "SP2"}},
 }
 
@@ -34,7 +38,8 @@ def process_string(input_string):
     no_space_string = lower_string.replace(" ", "")
     return no_space_string
 
-def to_snake_case(name: str)->str:
+
+def to_snake_case(name: str) -> str:
     """
     Convert the string name into a snake case string.
     Shamelessly copied from:
@@ -51,3 +56,10 @@ def to_snake_case(name: str)->str:
     name = re.sub("__([A-Z])", r"_\1", name)
     name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name)
     return name.lower()
+
+
+@verify_required_column(["home_team", "away_team", "date"])
+def add_mathc_id(df: pd.DataFrame) -> pd.DataFrame:
+    tmp_df = df.copy()
+    tmp_df["match_id"] = tmp_df["home_team"] + " - " + tmp_df["away_team"] + " - " + tmp_df["date"]
+    return tmp_df

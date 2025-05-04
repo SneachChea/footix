@@ -1,15 +1,16 @@
-from footix.data_io.utils_scrapper import MAPPING_COMPETITIONS
+import pathlib
+
 import pandas as pd
 import requests
-import pathlib
+
+from footix.data_io.utils_scrapper import MAPPING_COMPETITIONS
 
 
 class Scraper:
-
-    base_url : str = ""
+    base_url: str = ""
     scraper_name: str | None = None
 
-    def __init__(self, path: str,  mapping_teams: dict[str, str] | None) -> None:
+    def __init__(self, path: str, mapping_teams: dict[str, str] | None) -> None:
         self.mapping_teams = mapping_teams
         self.headers = {
             "User-Agent": (
@@ -20,12 +21,10 @@ class Scraper:
         }
         self.path = self.manage_path(path=path)
 
-
     def _check_competitions(self, competition_name: str):
         list_comp = self.competitions()
         if competition_name not in list_comp:
             raise ValueError(f"{competition_name} not available for scraper {self.scraper_name}")
-
 
     @classmethod
     def competitions(cls) -> list[str]:
@@ -45,7 +44,7 @@ class Scraper:
         return tmp_df
 
     def get(self, url: str) -> str:
-            return requests.get(url, headers=self.headers).content.decode("utf-8-sig")
+        return requests.get(url, headers=self.headers).content.decode("utf-8-sig")
 
     @staticmethod
     def manage_path(path: str) -> pathlib.Path:
