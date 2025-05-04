@@ -12,7 +12,7 @@ def test_bet_creation():
     assert bet.prob_mean == 0.55
     assert bet.edge_std is None
     assert bet.prob_edge_pos is None
-    assert bet.stake is None
+    assert bet.stake == 0.0
 
 
 def test_to_dict():
