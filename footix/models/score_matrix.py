@@ -82,3 +82,29 @@ class GoalMatrix:
         ax.set_xlabel("Away team")
         ax.set_ylabel("Home team")
         plt.show()
+
+    def asian_handicap_results(self, handicap: float) -> tuple[float, float, float]:
+        """Calculate the probabilities for a home win, draw, and away win after applying an Asian
+        handicap. The handicap is added to the home team's goal count.
+
+        Args:
+            handicap (float): The handicap to be applied to the home team's score.
+        Returns:
+            tuple[float, float, float]: home_win, draw, away_win probabilities.
+
+        """
+        home_win = 0.0
+        draw = 0.0
+        away_win = 0.0
+        n = len(self.home_probs)
+        tol = 1e-6  # tolerance for float equality
+        for i in range(n):
+            for j in range(n):
+                diff = (i + handicap) - j
+                if diff > tol:
+                    home_win += self.matrix_array[i, j]
+                elif diff < -tol:
+                    away_win += self.matrix_array[i, j]
+                else:
+                    draw += self.matrix_array[i, j]
+        return home_win, draw, away_win

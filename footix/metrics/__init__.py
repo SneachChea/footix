@@ -1,3 +1,3 @@
-from .metrics_function import entropy, rps, zscore
+from .metrics_function import incertity, rps, zscore
 
-__all__ = ["entropy", "rps", "zscore"]
+__all__ = ["incertity", "rps", "zscore"]

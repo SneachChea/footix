@@ -1,4 +1,4 @@
-from footix.data_io.data_scrapper import _process_season
+from footix.data_io.footballdata import _process_season
 
 
 def test_process_season():

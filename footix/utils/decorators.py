@@ -1,3 +1,4 @@
+from functools import wraps
 from typing import Callable, ParamSpec, TypeVar
 
 import pandas as pd
@@ -13,6 +14,7 @@ def verify_required_column(column_names: ITERABLE_IN_STR) -> Callable:
     columns in column_names are presents."""
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             if len(args) > 0 and isinstance(args[0], pd.DataFrame):
                 df = args[0]

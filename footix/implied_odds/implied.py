@@ -4,11 +4,13 @@ from typing import cast
 import numpy as np
 from scipy import optimize
 
+from footix.utils.typing import ArrayLikeF
+
 # Most of those functions are inspired by the awesome package penaltyblog
 # https://github.com/martineastwood/penaltyblog/tree/master
 
 
-def _assert_odds(odds: list[float] | np.ndarray, axis: None | int = None) -> None:
+def _assert_odds(odds: ArrayLikeF, axis: None | int = None) -> None:
     if (not isinstance(odds, list)) and (not isinstance(odds, np.ndarray)):
         raise TypeError("Odds must be a list or an numpy array.")
     if isinstance(odds, list):
@@ -23,9 +25,7 @@ def _assert_odds(odds: list[float] | np.ndarray, axis: None | int = None) -> Non
         raise ValueError("All odds must be greater then 1.")
 
 
-def multiplicative(
-    odds: list[float] | np.ndarray, axis: int = -1
-) -> tuple[np.ndarray, float | np.ndarray]:
+def multiplicative(odds: ArrayLikeF, axis: int = -1) -> tuple[np.ndarray, float | np.ndarray]:
     """Multiplicative way to normalize the odds. Work for multidimensionnal array.
 
     Args:
@@ -44,7 +44,7 @@ def multiplicative(
     return 1.0 / (normalization * odds), margin
 
 
-def power(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
+def power(odds: ArrayLikeF) -> tuple[np.ndarray, float]:
     """From penaltyblog package. The power method computes the implied probabilities by solving
     for the power coefficient that normalizes the inverse of the odds to sum to 1.0.
 
@@ -67,11 +67,17 @@ def power(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
     return normalized, margin
 
 
-def shin(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
-    """Computes the implied probabilities via the Shin (1992, 1993) method.
+def shin(odds: ArrayLikeF) -> tuple[np.ndarray, float]:
+    """Computes the implied probabilities via Shin's method (1992, 1993).
 
     Args:
-        odds : (list or np.ndarray): list of odds
+        odds (list or np.ndarray): An array of size 3 containing the odds for Home victory, draw,
+                                   or Away victory, respectively.
+
+    Returns:
+        tuple:
+            - np.ndarray: The implied probabilities for each outcome.
+            - float: The margin.
 
     """
     _assert_odds(odds)
@@ -92,7 +98,17 @@ def shin(odds: list[float] | np.ndarray) -> tuple[np.ndarray, float]:
 
 
 def _shin(z_param: float, inv_odds: np.ndarray) -> np.ndarray:
-    """Compute the implied probability using Shin's method."""
+    """Computes the implied probabilities using Shin's method.
+
+    Args:
+        z_param (float): The Shin adjustment parameter.
+        inv_odds (np.ndarray): An array of size 3 containing the inverse odds for Home victory,
+                               draw, or Away victory, respectively.
+
+    Returns:
+        np.ndarray: The implied probabilities for each outcome.
+
+    """
     normalized = np.sum(inv_odds)
     implied = (
         np.sqrt(z_param**2 + 4 * (1 - z_param) * inv_odds**2 / normalized) - z_param

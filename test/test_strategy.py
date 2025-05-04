@@ -1,13 +1,14 @@
 import pytest
 
-from footix.strategy.strategies import generate_combinations
+from footix.strategy._utils import generate_combinations
+from footix.strategy.bets import Bet
 
 
 def test_generate_combinations():
     # Cas de test : deux sélections avec probabilités
     selections = [
-        {"name": "A", "probability": 0.6},
-        {"name": "B", "probability": 0.3},
+        Bet(match_id="A", market="H", odds=42, prob_mean=0.6, edge_mean=0.5),
+        Bet(match_id="B", market="A", odds=42, prob_mean=0.3, edge_mean=0.5),
     ]
     expected_combinations = [
         [0, 0],  # No event

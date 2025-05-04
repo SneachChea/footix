@@ -6,8 +6,8 @@ import scipy.optimize as optimize
 
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
-from footix.models.protocol_model import ProtoPoisson
 from footix.utils.decorators import verify_required_column
+from footix.utils.typing import ProtoPoisson
 
 logger = logging.getLogger(name=__name__)
 
@@ -17,10 +17,10 @@ class BasicPoisson(ProtoPoisson):
         self.n_teams = n_teams
         self.n_goals = n_goals
 
-    @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
+    @verify_required_column(column_names={"home_team", "away_team", "ftr", "fthg", "ftag"})
     def fit(self, X_train: pd.DataFrame) -> None:
-        self.dict_teams = self.mapping_team_index(X_train["HomeTeam"])
-        self._sanity_check(X_train["AwayTeam"])
+        self.dict_teams = self.mapping_team_index(X_train["home_team"])
+        self._sanity_check(X_train["away_team"])
         goals_home, basis_home = model_utils.compute_goals_home_vectors(
             X_train, map_teams=self.dict_teams, nbr_team=self.n_teams
         )

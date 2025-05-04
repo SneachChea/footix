@@ -1,4 +1,6 @@
+import warnings
 from copy import copy
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -6,31 +8,35 @@ import pymc as pm
 import scipy.stats as stats
 from sklearn import preprocessing
 
-from footix.models.protocol_model import ProtoPoisson
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
+from footix.utils.typing import ProtoBayes
 
 
-class Bayesian(ProtoPoisson):
+class Bayesian(ProtoBayes):
     def __init__(self, n_teams: int, n_goals: int):
         self.n_teams = n_teams
         self.n_goals = n_goals
         self.label = preprocessing.LabelEncoder()
 
-    @verify_required_column(column_names={"HomeTeam", "AwayTeam", "FTR", "FTHG", "FTAG"})
+    @verify_required_column(column_names={"home_team", "away_team", "fthg", "ftag"})
     def fit(self, X_train: pd.DataFrame):
         x_train_cop = copy(X_train)
-        self.label.fit(X_train["HomeTeam"])  # type: ignore
-        x_train_cop["HomeTeamId"] = self.label.transform(X_train["HomeTeam"])
-        x_train_cop["AwayTeamId"] = self.label.transform(X_train["AwayTeam"])
+        self.label.fit(X_train["home_team"])  # type: ignore
+        x_train_cop["home_team_id"] = self.label.transform(X_train["home_team"])
+        x_train_cop["away_team_id"] = self.label.transform(X_train["away_team"])
 
-        goals_home_obs = x_train_cop["FTHG"].to_numpy()
-        goals_away_obs = x_train_cop["FTAG"].to_numpy()
-        home_team = x_train_cop["HomeTeamId"].to_numpy()
-        away_team = x_train_cop["AwayTeamId"].to_numpy()
+        goals_home_obs = x_train_cop["fthg"].to_numpy()
+        goals_away_obs = x_train_cop["ftag"].to_numpy()
+        home_team = x_train_cop["home_team_id"].to_numpy()
+        away_team = x_train_cop["away_team_id"].to_numpy()
         self.trace = self.hierarchical_bayes(goals_home_obs, goals_away_obs, home_team, away_team)
 
-    def predict(self, home_team: str, away_team: str) -> GoalMatrix:
+    def predict(self, home_team: str, away_team: str, **kwargs: Any) -> GoalMatrix:
+        if kwargs:
+            warnings.warn(
+                f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}", stacklevel=2
+            )
         team_id = self.label.transform([home_team, away_team])
 
         home_goal_expectation, away_goal_expectation = self.goal_expectation(
@@ -44,26 +50,57 @@ class Bayesian(ProtoPoisson):
         return goals_matrix
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
-        # Extract posterior means from the InferenceData object.
-        # This assumes that self.trace is the InferenceData returned by
-        # pm.sample(..., return_inferencedata=True)
         posterior = self.trace.posterior
         home = posterior["home"].mean(dim=["chain", "draw"]).values
         intercept = posterior["intercept"].mean(dim=["chain", "draw"]).values
         atts = posterior["atts"].mean(dim=["chain", "draw"]).values
         defs = posterior["defs"].mean(dim=["chain", "draw"]).values
 
-        # Calculate the expected goal rates.
-        # Note: This calculation now matches the revised hierarchical model:
-        # home_theta = exp(intercept + home advantage for home team + attack rating
-        # for home team + defense rating for away team)
-        # away_theta = exp(intercept + attack rating for away team + defense rating for home team)
         home_theta = np.exp(
             intercept + home[home_team_id] + atts[home_team_id] + defs[away_team_id]
         )
         away_theta = np.exp(intercept + atts[away_team_id] + defs[home_team_id])
 
         return home_theta, away_theta
+
+    def get_samples(
+        self, home_team: str, away_team: str, **kwargs: Any
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Generates posterior predictive samples for the specified home and away teams based on
+        the model.
+
+            home_team (str): The name of the home team.
+            away_team (str): The name of the away team.
+
+            tuple[np.ndarray, np.ndarray]:
+                A tuple containing two one-dimensional numpy arrays:
+                    - The first array represents the sampled lambda values for the home team.
+                    - The second array represents the sampled lambda values for the away team.
+        Notes:
+            This function transforms the team names into their corresponding indices, retrieves
+            the posterior samples for model parameters from the trace, computes the expected
+            goal rates (lambda values) for both teams, and flattens the arrays to provide a
+            simplified output.
+
+        """
+        if kwargs:
+            warnings.warn(
+                f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}", stacklevel=2
+            )
+
+        team_id = self.label.transform([home_team, away_team])
+        posterior = self.trace.posterior
+        home_team_id = team_id[0]
+        away_team_id = team_id[1]
+        home = posterior["home"].values
+        intercept = posterior["intercept"].values
+        atts = posterior["atts"].values
+        defs = posterior["defs"].values
+        lambda_h = np.exp(
+            intercept + home[..., home_team_id] + atts[..., home_team_id] + defs[..., away_team_id]
+        )
+        lambda_a = np.exp(intercept + atts[..., away_team_id] + defs[..., home_team_id])
+        return lambda_h.flatten(), lambda_a.flatten()
 
     def hierarchical_bayes(
         self,
@@ -105,6 +142,12 @@ class Bayesian(ProtoPoisson):
             pm.Poisson("away_goals", mu=away_theta, observed=goals_away_data)
             # Sample with improved settings
             trace = pm.sample(
-                2000, tune=500, cores=6, target_accept=0.95, return_inferencedata=True
+                2000,
+                tune=1000,
+                cores=6,
+                target_accept=0.95,
+                return_inferencedata=True,
+                nuts_sampler="numpyro",
+                init="adapt_diag_grad",
             )
         return trace
