@@ -66,9 +66,10 @@ class XGBayesian(ProtoBayes):
         # ---------- latent‑xG layer: use their conditional means ----------
         intercept_xg = posterior["intercept_xg"].mean(("chain", "draw")).item()
         home_xg = posterior["home_xg"].mean(("chain", "draw")).values
+        #away_xg = posterior["away_xg"].mean(("chain", "draw")).values
 
         theta_h = np.exp(intercept_xg + home_xg[home_team_id])  # mean latent xG for home team
-        theta_a = np.exp(intercept_xg)
+        theta_a = np.exp(intercept_xg)# + away_xg[away_team_id])
 
         home_theta = np.exp(
             intercept
@@ -130,7 +131,7 @@ class XGBayesian(ProtoBayes):
         kappa = posterior["kappa"].values  # (c,d)
         intercept_xg = posterior["intercept_xg"].values  # (c,d)
         theta_h = np.exp(intercept_xg + posterior["home_xg"].values[..., home_team_id])  # (c,d)
-        theta_a = np.exp(intercept_xg)  # (c,d)
+        theta_a = np.exp(intercept_xg ) #+ posterior["away_xg"].values[..., away_team_id])  # (c,d)
 
         # ---------- draw latent xG from Gamma(κ, scale=κ/θ) ----------------
         scale_h = kappa / theta_h
@@ -173,10 +174,11 @@ class XGBayesian(ProtoBayes):
             # Layer A: latent xG predictions
             intercept_xg = pm.Normal("intercept_xg", mu=2, sigma=1)
             home_xg = pm.Normal("home_xg", mu=0, sigma=0.5, shape=self.n_teams)
+            #away_xg = pm.Normal("away_xg", mu=0, sigma=0.5, shape=self.n_teams)
             theta_h = pm.Deterministic(
                 "theta_h", pm.math.exp(intercept_xg + home_xg[home_team_data])
             )
-            theta_a = pm.Deterministic("theta_a", pm.math.exp(intercept_xg))
+            theta_a = pm.Deterministic("theta_a", pm.math.exp(intercept_xg ))
             kappa = pm.HalfNormal("kappa", 2)  # Gamma shape for xG totals
             latent_xgh = pm.Gamma("latent_xgh", kappa, kappa / theta_h, observed=xg_home_data)
             latent_xga = pm.Gamma("latent_xga", kappa, kappa / theta_a, observed=xg_away_data)

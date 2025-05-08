@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 
 @dataclass
@@ -20,11 +20,15 @@ class Bet:
     match_id: str
     market: str
     odds: float
-    edge_mean: float
     prob_mean: float
     edge_std: float | None = None
     prob_edge_pos: float | None = None
     stake: float = 0.0
+    edge_mean: float = field(init=False)
+
+    def __post_init__(self):
+        self.edge_mean = self.prob_mean*(self.odds-1) - (1. - self.prob_mean)
+
 
     def to_dict(self) -> dict:
         return asdict(self)
