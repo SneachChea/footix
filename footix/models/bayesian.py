@@ -41,9 +41,7 @@ class Bayesian(ProtoBayes):
         home_id, away_id = self.label.transform([home_team, away_team])
 
         # now also grab alpha
-        home_mu, away_mu, alpha = self.goal_expectation(
-            home_team_id=home_id, away_team_id=away_id
-        )
+        home_mu, away_mu, alpha = self.goal_expectation(home_team_id=home_id, away_team_id=away_id)
 
         # scipy's nbinom uses (n, p) where
         #   mean = n * (1−p) / p   →   p = n / (n + μ)
@@ -69,17 +67,8 @@ class Bayesian(ProtoBayes):
         alpha = posterior["alpha_NB"].mean(dim=["chain", "draw"]).values
 
         # linear predictors → expected counts
-        home_mu = np.exp(
-            intercept
-            + home[home_team_id]
-            + atts[home_team_id]
-            + defs[away_team_id]
-        )
-        away_mu = np.exp(
-            intercept
-            + atts[away_team_id]
-            + defs[home_team_id]
-        )
+        home_mu = np.exp(intercept + home[home_team_id] + atts[home_team_id] + defs[away_team_id])
+        away_mu = np.exp(intercept + atts[away_team_id] + defs[home_team_id])
 
         # return both expectations and the dispersion α
         return home_mu, away_mu, alpha
@@ -117,7 +106,6 @@ class Bayesian(ProtoBayes):
         intercept = posterior["intercept"].values
         atts = posterior["atts"].values
         defs = posterior["defs"].values
-        alpha = posterior["alpha_NB"].values
         lambda_h = np.exp(
             intercept + home[..., home_team_id] + atts[..., home_team_id] + defs[..., away_team_id]
         )
@@ -152,7 +140,7 @@ class Bayesian(ProtoBayes):
             raw_defs = pm.Normal("raw_defs", mu=0, sigma=1, shape=self.n_teams)
             defs_uncentered = raw_defs * tau_def
             defs = pm.Deterministic("defs", defs_uncentered - pm.math.mean(defs_uncentered))
-            alpha = pm.HalfCauchy("alpha_NB", 2.0)          # dispersion (α → 0 recovers Poisson)
+            alpha = pm.HalfCauchy("alpha_NB", 2.0)  # dispersion (α → 0 recovers Poisson)
 
             # Calculate theta for home and away
             home_theta = pm.math.exp(
@@ -162,7 +150,7 @@ class Bayesian(ProtoBayes):
             pm.NegativeBinomial(
                 "home_goals",
                 mu=home_theta,
-                alpha=alpha,                                # NB parameterisation: (μ, α)
+                alpha=alpha,  # NB parameterisation: (μ, α)
                 observed=goals_home_data,
             )
             pm.NegativeBinomial(
@@ -173,8 +161,8 @@ class Bayesian(ProtoBayes):
             )
 
             # Goal likelihood
-            #pm.Poisson("home_goals", mu=home_theta, observed=goals_home_data)
-            #pm.Poisson("away_goals", mu=away_theta, observed=goals_away_data)
+            # pm.Poisson("home_goals", mu=home_theta, observed=goals_home_data)
+            # pm.Poisson("away_goals", mu=away_theta, observed=goals_away_data)
             # Sample with improved settings
             trace = pm.sample(
                 2000,

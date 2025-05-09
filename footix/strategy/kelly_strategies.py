@@ -5,34 +5,33 @@ from datetime import datetime
 from typing import Literal
 
 import numpy as np
-import pandas as pd
 import torch
 from torch.optim import Adam
 from tqdm.auto import tqdm
 
 import footix.strategy._utils as strat_utils
-import footix.utils.decorators as decorators
 from footix.strategy.bets import Bet
 
 
 def classic_kelly(list_bets: list[Bet], bankroll: float) -> list[Bet]:
     """Compute bet stakes based on the classic Kelly criterion.
 
-    This function calculates the stake for each bet in the input list using the traditional Kelly 
-    formula. For each bet, it determines the Kelly fraction as the ratio of the estimated edge 
-    (i.e., the advantage) over the net odds (odds - 1). Negative Kelly fractions are set to zero, 
+    This function calculates the stake for each bet in the input list using the traditional Kelly
+    formula. For each bet, it determines the Kelly fraction as the ratio of the estimated edge
+    (i.e., the advantage) over the net odds (odds - 1). Negative Kelly fractions are set to zero,
     ensuring no bet is made when the edge is unfavorable. The final stake for each bet is computed
     by multiplying the Kelly fraction by the available bankroll.
 
     Args:
-        list_bets (list[Bet]): A list of Bet objects. Each Bet must have an 'odds' attribute 
-                                representing the betting odds and an 'edge_mean' attribute 
+        list_bets (list[Bet]): A list of Bet objects. Each Bet must have an 'odds' attribute
+                                representing the betting odds and an 'edge_mean' attribute
                                 indicating the estimated edge.
         bankroll (float): The total available bankroll to allocate across the bets.
 
     Returns:
         list[Bet]: The list of Bet objects with their 'stake' attribute updated according to
                     the Kelly criterion.
+
     """
 
     for b in list_bets:
@@ -41,7 +40,6 @@ def classic_kelly(list_bets: list[Bet], bankroll: float) -> list[Bet]:
         kelly_val = edge / (odd - 1.0)
         b.stake = bankroll * max(kelly_val, 0)
     return list_bets
-
 
 
 def realKelly(

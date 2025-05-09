@@ -1,22 +1,24 @@
+import math
+
 import pytest
 
 from footix.strategy.bets import Bet
 
 
 def test_bet_creation():
-    bet = Bet("match1", "H", 2.0, 0.10, 0.55)
+    bet = Bet("match1", "H", 2.0, 0.55)
     assert bet.match_id == "match1"
     assert bet.market == "H"
     assert bet.odds == 2.0
-    assert bet.edge_mean == 0.10
     assert bet.prob_mean == 0.55
+    assert math.isclose(bet.edge_mean, 0.1)
     assert bet.edge_std is None
     assert bet.prob_edge_pos is None
     assert bet.stake == 0.0
 
 
 def test_to_dict():
-    bet = Bet("match1", "D", 3.5, 0.20, 0.40, edge_std=0.05, stake=100)
+    bet = Bet("match1", "D", 3.5, 0.40, edge_std=0.05, stake=100)
     d = bet.to_dict()
     assert d["match_id"] == "match1"
     assert d["market"] == "D"
@@ -34,8 +36,8 @@ def test_str_and_repr():
 
 
 def test_add_operator():
-    b1 = Bet("m1", "H", 2.0, 0.1, 0.5)
-    b2 = Bet("m2", "A", 1.5, 0.08, 0.6)
+    b1 = Bet("m1", "H", 2.0, 0.5)
+    b2 = Bet("m2", "A", 1.5, 0.6)
     combined = b1 + b2
     assert combined.match_id == "m1 + m2"
     assert combined.market == "H + A"
@@ -45,26 +47,26 @@ def test_add_operator():
 
 
 def test_iadd_operator():
-    b1 = Bet("m1", "H", 2.0, 0.1, 0.5)
-    b2 = Bet("m2", "D", 2.0, 0.2, 0.4)
+    b1 = Bet("m1", "H", 2.0, 0.5)
+    b2 = Bet("m2", "D", 2.0, 0.4)
     b1 += b2
     assert b1.match_id == "m1 + m2"
     assert b1.market == "H + D"
-    assert abs(b1.odds - 4.0) < 1e-6
-    assert abs(b1.prob_mean - 0.2) < 1e-6
+    assert math.isclose(b1.odds, 4.0)
+    assert math.isclose(b1.prob_mean, 0.2)
 
 
 def test_combine_many():
     bets = [
-        Bet("m1", "H", 2.0, 0.1, 0.5),
-        Bet("m2", "D", 2.0, 0.1, 0.5),
-        Bet("m3", "A", 2.0, 0.1, 0.5),
+        Bet("m1", "H", 2.0, 0.5),
+        Bet("m2", "D", 2.0, 0.5),
+        Bet("m3", "A", 2.0, 0.5),
     ]
     combined = Bet.combine_many(bets)
     assert combined.match_id == "m1 + m2 + m3"
     assert combined.market == "H + D + A"
-    assert abs(combined.odds - 8.0) < 1e-6
-    assert abs(combined.prob_mean - 0.125) < 1e-6
+    assert math.isclose(combined.odds, 8.0)
+    assert math.isclose(combined.prob_mean, 0.125)
 
 
 def test_combine_empty_raises():
@@ -73,8 +75,8 @@ def test_combine_empty_raises():
 
 
 def test_bet_equality():
-    bet1 = Bet("m1", "H", 2.9, 0.1, 0.5)
-    bet2 = Bet("m1", "H", 3.9, 0.2, 0.1)
-    bet3 = Bet("m1", "D", 3.9, 0.2, 0.1)
+    bet1 = Bet("m1", "H", 2.9, 0.5)
+    bet2 = Bet("m1", "H", 3.9, 0.1)
+    bet3 = Bet("m1", "D", 3.9, 0.1)
     assert bet1 == bet2
     assert not bet1 == bet3
