@@ -5,15 +5,24 @@ from typing import Any
 
 import pandas as pd
 from lxml import html
-
+from urllib.parse import urljoin
+import numpy as np
+from functools import lru_cache
 import footix.data_io.utils_scrapper as utils_scrapper
 from footix.data_io.base_scrapper import Scraper
 
 
+class ShotDataNotFound(RuntimeError):
+    """Raised when the expected shotsData <script> block is not present."""
+
+
+class FixtureDataNotFound(RuntimeError):
+    """Raised when the fixture data are not present."""
+
 class ScrapUnderstat(Scraper):
     """
     Scraper for downloading and processing football match data from understat.com.
-    This class function is heavily inspired from its counterpart from penalty blog:
+    This class function is heavily inspired/copied from its counterpart from penalty blog:
     https://github.com/martineastwood/penaltyblog
 
     This class retrieves, parses, and processes football match data for a given competition
@@ -57,14 +66,15 @@ class ScrapUnderstat(Scraper):
         self.season = self._process_season(season)
         self.force_reload = force_reload
         self.slug = utils_scrapper.MAPPING_COMPETITIONS[competition]["understat"]["slug"]
+        self.competition = competition
 
     @staticmethod
     def sanitize_columns(df: pd.DataFrame):
         df.columns = [utils_scrapper.to_snake_case(x) for x in df.columns]
 
+    @lru_cache(maxsize=256)
     def get_fixtures(self):
-        implied_url = self.base_url + "league/" + self.slug + "/" + self.season
-
+        implied_url = urljoin(self.base_url, f"league/{self.slug}/{self.season}")
         content = self.get(implied_url)
         tree = html.fromstring(content)
         events = None
@@ -80,7 +90,7 @@ class ScrapUnderstat(Scraper):
                 break
 
         if events is None:
-            raise ValueError("Error: no data found")
+            raise FixtureDataNotFound
 
         fixtures = list()
         for e in events:
@@ -107,7 +117,7 @@ class ScrapUnderstat(Scraper):
             .sort_index()
         )
 
-        def get_date(date: str) -> str:
+        def _get_date(date: str) -> str:
             dt = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
             return dt.strftime("%d/%m/%Y")
 
@@ -122,10 +132,59 @@ class ScrapUnderstat(Scraper):
 
         self.sanitize_columns(df)
         df["ftr"] = df.apply(get_ftr, axis=1)
-        df["date"] = df["datetime"].apply(get_date)
+        df["date"] = df["datetime"].apply(_get_date)
         df = utils_scrapper.add_mathc_id(df)
         return df
 
     def _process_season(self, season: str) -> str:
         clean_season = season.replace(" ", "-").replace("/", "-").split("-")
         return clean_season[0]
+
+    @lru_cache(maxsize=256)
+    def get_shots(self, understat_id: str) -> pd.DataFrame:
+        url = urljoin(self.base_url, f"match/{understat_id}")
+        content = self.get(url)
+        tree = html.fromstring(content)
+        events = None
+
+        for s in tree.cssselect("script"):
+            if "shotsData" in s.text:
+                script = s.text
+                script = " ".join(script.split())
+                script = str(script.encode(), "unicode-escape")
+                script = re.match(
+                    r"var shotsData = JSON\.parse\('(?P<json>.*?)'\)", script
+                )
+                if script is not None:
+                    script = script.group("json")
+                events = json.loads(script)
+                break
+
+        if events is None:
+            raise ShotDataNotFound
+
+        shots = list()
+        shots.extend(events["h"])
+        shots.extend(events["a"])
+
+        col_renames = {
+            "h_team": "home_team",
+            "a_team": "away_team",
+            "h_goals": "goals_home",
+            "a_goals": "goals_away",
+            "match_id": "understat_id"
+        }
+
+        df = (
+            pd.DataFrame(shots)
+            .rename(columns=col_renames)
+            .assign(season=self.season)
+            .assign(competition=self.competition)
+            .assign(date=lambda x: pd.to_datetime(x["date"]).dt.strftime("%d-%m-%Y"))
+            .pipe(self.replace_name_team, columns=["home_team", "away_team"])
+            .sort_index()
+        )
+        df['h_a'] = np.where(df['h_a'] == 'h', df['home_team'], df['away_team'])
+        df = utils_scrapper.add_mathc_id(df)
+        self.sanitize_columns(df)
+        return df

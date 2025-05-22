@@ -53,7 +53,7 @@ def realKelly(
     early_stopping: bool = True,
     tolerance: int = 5,
 ) -> list[Bet]:
-    """Compute the real Kelly criterion using a GPU accelerated gradient-based optimizer
+    """Compute the Kelly criterion using a GPU accelerated gradient-based optimizer
     (PyTorch).
 
     Args:

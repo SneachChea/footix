@@ -5,7 +5,6 @@ import pandas as pd
 import footix.data_io.utils_scrapper as utils_scrapper
 from footix.data_io.base_scrapper import Scraper
 
-
 class ScrapFootballData(Scraper):
     """Scraper for downloading and processing football match data from football-data.co.uk.
 
@@ -61,6 +60,7 @@ class ScrapFootballData(Scraper):
         self.df = self.load()
         self.sanitize_columns()
         self.df = utils_scrapper.add_mathc_id(self.df)
+
 
     def download(self):
         response = self.get(self.infered_url)

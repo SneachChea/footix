@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="img/footix_logo.png" alt="Footix Logo" width="200">
+    <img src="img/logo_footix.png" alt="Footix Logo" width="200">
 </div>
 
 # Footix

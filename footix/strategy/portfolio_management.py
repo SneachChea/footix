@@ -34,7 +34,7 @@ def optimise_portfolio(
     bankroll: float,
     max_fraction: float = 0.30,
     alpha: float = 0.05,
-    gamma: float | None = None,  # <-- new; if None choose rule-of-thumb
+    gamma: float | None = None,
 ):
     """Optimizes the portfolio by allocating stakes to bets to maximize expected return while
     incorporating an entropy bonus and ensuring risk constraints are met.
@@ -95,7 +95,7 @@ def optimise_portfolio(
     chance_constraint = NonlinearConstraint(chance_fun, 0.0, np.inf)
 
     # ── bounds and initial guess ──────────────────────────────────────────
-    bounds = Bounds(lb=np.zeros(n), ub=np.full(n, stake_cap))
+    bounds = Bounds(lb=np.zeros(n), ub=np.full(n, stake_cap)) #type:ignore
     x0 = np.full(n, stake_cap / n + 1e-9)
 
     res = minimize(
@@ -118,14 +118,14 @@ def optimise_portfolio(
 def optimise_portfolio_torch(
     list_bets: list[Bet],
     bankroll: float,
-    max_fraction: float = 0.30,  # bankroll you are *willing* to deploy
-    alpha: float = 0.05,  # P(total profit < 0) ≤ α
-    gamma: float | None = None,  # entropy weight (None → rule-of-thumb)
-    lr: float = 5e-2,  # Adam learning rate
-    iters: int = 5_000,  # optimisation steps
-    penalty_lambda: float = 1_000.0,  # strength of chance-constraint penalty
+    max_fraction: float = 0.30,
+    alpha: float = 0.05,
+    gamma: float | None = None,
+    lr: float = 5e-2,
+    iters: int = 5_000,
+    penalty_lambda: float = 1_000.0,
     verbose: bool = False,
-    device: str = "cpu",  # put "cuda" if you have a GPU
+    device: str = "cpu",
 ):
     """Optimizes the portfolio using a gradient-based approach implemented with PyTorch. This
     function should have the same behavior as `optimize_portfolio`. It allocates stakes to a list
