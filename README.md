@@ -18,6 +18,6 @@ Footix is a powerful toolbox designed for beating bookmakers. It provides a suit
 You can install Footix using pip:
 
 ```bash
-pip install footix
+pip install pyfootix
 ````
 
