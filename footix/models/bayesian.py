@@ -10,10 +10,9 @@ from sklearn import preprocessing
 
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
-from footix.utils.typing import ProtoBayes
 
 
-class Bayesian(ProtoBayes):
+class Bayesian:
     def __init__(self, n_teams: int, n_goals: int):
         self.n_teams = n_teams
         self.n_goals = n_goals
@@ -37,31 +36,41 @@ class Bayesian(ProtoBayes):
             warnings.warn(
                 f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}", stacklevel=2
             )
-        team_id = self.label.transform([home_team, away_team])
+        # map team name → integer id
+        home_id, away_id = self.label.transform([home_team, away_team])
 
-        home_goal_expectation, away_goal_expectation = self.goal_expectation(
-            home_team_id=team_id[0], away_team_id=team_id[1]
-        )
+        # now also grab alpha
+        home_mu, away_mu, alpha = self.goal_expectation(home_team_id=home_id, away_team_id=away_id)
 
-        home_probs = stats.poisson.pmf(range(self.n_goals), home_goal_expectation)
-        away_probs = stats.poisson.pmf(range(self.n_goals), away_goal_expectation)
+        # scipy's nbinom uses (n, p) where
+        #   mean = n * (1−p) / p   →   p = n / (n + μ)
+        r_home = alpha
+        p_home = r_home / (r_home + home_mu)
+        r_away = alpha
+        p_away = r_away / (r_away + away_mu)
 
-        goals_matrix = GoalMatrix(home_probs, away_probs)
-        return goals_matrix
+        ks = np.arange(self.n_goals)
+        home_probs = stats.nbinom.pmf(ks, r_home, p_home)
+        away_probs = stats.nbinom.pmf(ks, r_away, p_away)
+
+        return GoalMatrix(home_probs, away_probs)
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
         posterior = self.trace.posterior
+
+        # posterior means
         home = posterior["home"].mean(dim=["chain", "draw"]).values
         intercept = posterior["intercept"].mean(dim=["chain", "draw"]).values
         atts = posterior["atts"].mean(dim=["chain", "draw"]).values
         defs = posterior["defs"].mean(dim=["chain", "draw"]).values
+        alpha = posterior["alpha_NB"].mean(dim=["chain", "draw"]).values
 
-        home_theta = np.exp(
-            intercept + home[home_team_id] + atts[home_team_id] + defs[away_team_id]
-        )
-        away_theta = np.exp(intercept + atts[away_team_id] + defs[home_team_id])
+        # linear predictors → expected counts
+        home_mu = np.exp(intercept + home[home_team_id] + atts[home_team_id] + defs[away_team_id])
+        away_mu = np.exp(intercept + atts[away_team_id] + defs[home_team_id])
 
-        return home_theta, away_theta
+        # return both expectations and the dispersion α
+        return home_mu, away_mu, alpha
 
     def get_samples(
         self, home_team: str, away_team: str, **kwargs: Any
@@ -130,16 +139,29 @@ class Bayesian(ProtoBayes):
             raw_defs = pm.Normal("raw_defs", mu=0, sigma=1, shape=self.n_teams)
             defs_uncentered = raw_defs * tau_def
             defs = pm.Deterministic("defs", defs_uncentered - pm.math.mean(defs_uncentered))
+            alpha = pm.HalfCauchy("alpha_NB", 2.0)  # dispersion (α → 0 recovers Poisson)
 
             # Calculate theta for home and away
             home_theta = pm.math.exp(
                 intercept + home[home_team_data] + atts[home_team_data] + defs[away_team_data]
             )
             away_theta = pm.math.exp(intercept + atts[away_team_data] + defs[home_team_data])
+            pm.NegativeBinomial(
+                "home_goals",
+                mu=home_theta,
+                alpha=alpha,  # NB parameterisation: (μ, α)
+                observed=goals_home_data,
+            )
+            pm.NegativeBinomial(
+                "away_goals",
+                mu=away_theta,
+                alpha=alpha,
+                observed=goals_away_data,
+            )
 
             # Goal likelihood
-            pm.Poisson("home_goals", mu=home_theta, observed=goals_home_data)
-            pm.Poisson("away_goals", mu=away_theta, observed=goals_away_data)
+            # pm.Poisson("home_goals", mu=home_theta, observed=goals_home_data)
+            # pm.Poisson("away_goals", mu=away_theta, observed=goals_away_data)
             # Sample with improved settings
             trace = pm.sample(
                 2000,

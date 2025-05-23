@@ -7,12 +7,11 @@ import scipy.optimize as optimize
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
 from footix.utils.decorators import verify_required_column
-from footix.utils.typing import ProtoPoisson
 
 logger = logging.getLogger(name=__name__)
 
 
-class BasicPoisson(ProtoPoisson):
+class BasicPoisson:
     def __init__(self, n_teams: int, n_goals: int) -> None:
         self.n_teams = n_teams
         self.n_goals = n_goals

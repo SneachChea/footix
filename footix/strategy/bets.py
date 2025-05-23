@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 
 @dataclass
@@ -20,11 +20,14 @@ class Bet:
     match_id: str
     market: str
     odds: float
-    edge_mean: float
     prob_mean: float
     edge_std: float | None = None
     prob_edge_pos: float | None = None
     stake: float = 0.0
+    edge_mean: float = field(init=False)
+
+    def __post_init__(self):
+        self.edge_mean = self.prob_mean * (self.odds - 1) - (1.0 - self.prob_mean)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -68,13 +71,10 @@ class Bet:
             match_ids.append(bet.match_id)
             markets.append(bet.market)
 
-        combined_edge = combined_prob * (combined_odds - 1) - (1 - combined_prob)
-
         return cls(
             match_id=" + ".join(match_ids),
             market=" + ".join(markets),
             odds=combined_odds,
-            edge_mean=combined_edge,
             prob_mean=combined_prob,
             edge_std=None,
             prob_edge_pos=None,
@@ -103,6 +103,15 @@ class Bet:
         return self + other
 
     def __eq__(self, other: object) -> bool:
+        """Determines if two Bet objects are equal. other (object): The object to compare with the
+        current Bet instance.
+
+        NotImplementedError: If the `other` object is not an instance of Bet.
+
+        bool: True if the `match_id` and `market` attributes of both Bet objects are equal,
+              False otherwise.
+
+        """
         if not isinstance(other, Bet):
             raise NotImplementedError("== method works only for Bet objects.")
         if (self.match_id == other.match_id) and (self.market == other.market):
@@ -112,12 +121,36 @@ class Bet:
 
 @dataclass
 class OddsInput:
+    """Represents the input odds for a match.
+
+    Attributes:
+        home_team (str): Name of the home team.
+        away_team (str): Name of the away team.
+        odds (list[float]): Decimal odds in the format [H, D, A], where:
+            - H: Odds for the home team to win.
+            - D: Odds for a draw.
+            - A: Odds for the away team to win.
+
+    """
+
     home_team: str
     away_team: str
-    odds: list[float]  # in the format [H, D, A]
+    odds: list[float]
 
     @property
     def odd_dict(self) -> dict[str, float]:
+        """Returns a dictionary mapping the outcomes of a match to their respective odds.
+
+        The dictionary contains the following keys:
+        - "H": Home team win odds
+        - "D": Draw odds
+        - "A": Away team win odds
+
+        Returns:
+            dict[str, float]: A dictionary where the keys are the outcomes ("H", "D", "A")
+            and the values are the corresponding odds as floats.
+
+        """
         return {"H": self.odds[0], "D": self.odds[1], "A": self.odds[2]}
 
     @property

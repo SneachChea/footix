@@ -19,8 +19,8 @@ def test_rps():
 
 def test_zscore():
     zscore, mu, sigma = metrics.zscore(
-        probas=[0.5, 0.2, 0.3], rps_real=0.17, seed=42, n_iter=10_000
+        probas=[0.5, 0.2, 0.3], rps_observed=0.17, seed=42, n_iter=1_000_000
     )
-    assert math.isclose(zscore, -0.6455544163998762)
-    assert math.isclose(mu, 0.22884000000000002)
-    assert math.isclose(sigma, 0.09113646032187116)
+    assert math.isclose(zscore, -0.6547, rel_tol=1e-3)
+    assert math.isclose(mu, 0.23, rel_tol=1e-3)
+    assert math.isclose(sigma, 0.09165, rel_tol=1e-3)

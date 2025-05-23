@@ -8,13 +8,12 @@ from tqdm.auto import tqdm
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
 from footix.utils.decorators import verify_required_column
-from footix.utils.typing import ProtoPoisson
 
 logger = logging.getLogger(name=__name__)
 
 
 # TODO update the loss function to include the correlation network
-class NeuralDixonColes(ProtoPoisson):
+class NeuralDixonColes:
     def __init__(self, n_teams: int, n_goals: int) -> None:
         self.n_teams = n_teams
         self.n_goals = n_goals

@@ -5,42 +5,41 @@ from datetime import datetime
 from typing import Literal
 
 import numpy as np
-import pandas as pd
 import torch
 from torch.optim import Adam
 from tqdm.auto import tqdm
 
 import footix.strategy._utils as strat_utils
-import footix.utils.decorators as decorators
 from footix.strategy.bets import Bet
 
 
-@decorators.verify_required_column(
-    ["Home_Team", "Away_Team", "C_H", "C_D", "C_A", "P_H", "P_D", "P_A"]
-)
-def classic_kelly(input_df: pd.DataFrame, bankroll: float) -> None:
-    """Classic Kelly criterion function.
+def classic_kelly(list_bets: list[Bet], bankroll: float) -> list[Bet]:
+    """Compute bet stakes based on the classic Kelly criterion.
 
-    Parameters
-    ----------
-    input_df: pandas.DataFrame
-    bankroll: float
-        The current bankroll.
-    Returns
-    -------
-    None
-        Modifies the input DataFrame in place.
+    This function calculates the stake for each bet in the input list using the traditional Kelly
+    formula. For each bet, it determines the Kelly fraction as the ratio of the estimated edge
+    (i.e., the advantage) over the net odds (odds - 1). Negative Kelly fractions are set to zero,
+    ensuring no bet is made when the edge is unfavorable. The final stake for each bet is computed
+    by multiplying the Kelly fraction by the available bankroll.
+
+    Args:
+        list_bets (list[Bet]): A list of Bet objects. Each Bet must have an 'odds' attribute
+                                representing the betting odds and an 'edge_mean' attribute
+                                indicating the estimated edge.
+        bankroll (float): The total available bankroll to allocate across the bets.
+
+    Returns:
+        list[Bet]: The list of Bet objects with their 'stake' attribute updated according to
+                    the Kelly criterion.
 
     """
 
-    def _kelly_criterion(odds: pd.Series, probability: pd.Series, bankroll: float) -> pd.Series:
-        kelly = bankroll * (probability * (odds - 1.0) - 1.0 + probability) / (odds - 1.0)
-        kelly[kelly < 0.0] = 0.0
-        return kelly
-
-    input_df["Kelly_H"] = _kelly_criterion(input_df["C_H"], input_df["P_H"], bankroll)
-    input_df["Kelly_A"] = _kelly_criterion(input_df["C_A"], input_df["P_A"], bankroll)
-    input_df["Kelly_D"] = _kelly_criterion(input_df["C_D"], input_df["P_D"], bankroll)
+    for b in list_bets:
+        edge = b.edge_mean
+        odd = b.odds
+        kelly_val = edge / (odd - 1.0)
+        b.stake = bankroll * max(kelly_val, 0)
+    return list_bets
 
 
 def realKelly(
@@ -54,8 +53,7 @@ def realKelly(
     early_stopping: bool = True,
     tolerance: int = 5,
 ) -> list[Bet]:
-    """Compute the real Kelly criterion using a GPU accelerated gradient-based optimizer
-    (PyTorch).
+    """Compute the Kelly criterion using a GPU accelerated gradient-based optimizer (PyTorch).
 
     Args:
         list_bets (list[dict[str, Any]]): List of bets.

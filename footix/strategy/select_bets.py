@@ -41,7 +41,6 @@ def simple_select_bets(
                         odd,
                         outcomes=outcomes,
                         pick=best_idx,
-                        edge=edges[best_idx],
                         prob=probas[idx, best_idx],
                     )
                 )
@@ -53,7 +52,6 @@ def simple_select_bets(
                         odd,
                         outcomes=outcomes,
                         pick=int(pick),
-                        edge=edges[pick],
                         prob=probas[idx, pick],
                     )
                 )
@@ -65,7 +63,6 @@ def _build_bet(
     odd_input: OddsInput,
     outcomes: list[str],
     pick: int,
-    edge: float,
     prob: float,
 ) -> Bet:
     """Construct a Bet object from the row data and computed metrics.
@@ -86,7 +83,6 @@ def _build_bet(
         match_id=odd_input.match_id,
         market=outcomes[pick],
         odds=odd_input.odds[pick],
-        edge_mean=edge,
         prob_mean=prob,
     )
 
@@ -144,7 +140,6 @@ def select_matches_posterior(
                         match_id=odd.match_id,
                         market=market,
                         odds=o,
-                        edge_mean=mu_edge,
                         edge_std=std_edge,
                         prob_edge_pos=prob_pos,
                         prob_mean=p_mean,
@@ -158,3 +153,49 @@ def select_matches_posterior(
                 selected.extend(candidate_bets)
 
     return sorted(selected, key=lambda b: b.edge_mean, reverse=True)
+
+
+def select_bets_by_probability(
+    odds_input: list[OddsInput],
+    probas: np.ndarray,
+    prob_floor: float = 0.55,
+    single_bet_per_game: bool = True,
+) -> list[Bet]:
+    """Select bets based on the highest predicted probabilities.
+
+    For each match, outcomes with predicted probability greater than or equal to
+    prob_floor are considered. If single_bet_per_game is True, only the outcome with the
+    highest probability (if it meets the threshold) is selected per match.
+    Otherwise, every outcome meeting the threshold is selected.
+
+    Args:
+        odds_input (list[OddsInput]): List of odds input objects.
+        probas (np.ndarray): Array of shape (n_matches, 3) containing predicted probabilities.
+        prob_floor (float, optional): Minimum acceptable probability for a bet. Defaults to 0.55.
+        single_bet_per_game (bool, optional): If True, only the most probable bet per match is
+                                            selected. Defaults to True.
+
+    Returns:
+        list[Bet]: A list of Bet objects selected based on the highest probability.
+
+    """
+    outcomes = ["H", "D", "A"]
+    n_matches = len(odds_input)
+    if probas.shape != (n_matches, 3):
+        raise ValueError(f"probas must have shape ({n_matches}, 3), got {probas.shape}")
+
+    selections: list[Bet] = []
+    for idx, odd in enumerate(odds_input):
+        p = probas[idx]
+        if single_bet_per_game:
+            best_idx = int(np.argmax(p))
+            if p[best_idx] >= prob_floor:
+                selections.append(
+                    _build_bet(odd, outcomes=outcomes, pick=best_idx, prob=p[best_idx])
+                )
+        else:
+            # Add every outcome with predicted probability above or equal to the threshold.
+            for pick in np.where(p >= prob_floor)[0]:
+                selections.append(_build_bet(odd, outcomes=outcomes, pick=int(pick), prob=p[pick]))
+
+    return selections
