@@ -1,8 +1,9 @@
 [tool.poetry]
 name = "footix"
 version = "0.1.0"
-description = ""
-authors = ["Shaheen Acheche <neoshaheen@gmail.com>"]
+description = "Footix is a Python package for sports betting analysis and modeling, with a focus on football (soccer)."
+authors = ["sneachchea"]
+licence = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
