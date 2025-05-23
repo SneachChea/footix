@@ -5,6 +5,9 @@ description = "Footix is a Python package for sports betting analysis and modeli
 authors = ["sneachchea"]
 license = "MIT"
 readme = "README.md"
+packages = [
+    { include = "footix" }
+]
 
 [tool.poetry.dependencies]
 python = ">=3.11, <3.13"
