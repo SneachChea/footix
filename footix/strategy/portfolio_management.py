@@ -95,7 +95,7 @@ def optimise_portfolio(
     chance_constraint = NonlinearConstraint(chance_fun, 0.0, np.inf)
 
     # ── bounds and initial guess ──────────────────────────────────────────
-    bounds = Bounds(lb=np.zeros(n), ub=np.full(n, stake_cap)) #type:ignore
+    bounds = Bounds(lb=np.zeros(n), ub=np.full(n, stake_cap))  # type:ignore
     x0 = np.full(n, stake_cap / n + 1e-9)
 
     res = minimize(
@@ -218,7 +218,7 @@ def optimise_portfolio_torch(
         final_stakes = stakes_from_raw().cpu().numpy()
 
     for b, s in zip(list_bets, final_stakes):
-        b.stake = float(round(s, 0))
+        b.stake = float(s.round())
 
     # optional diagnostics
     if verbose:

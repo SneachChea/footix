@@ -10,10 +10,9 @@ from sklearn import preprocessing
 
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
-from footix.utils.typing import ProtoBayes
 
 
-class Bayesian(ProtoBayes):
+class Bayesian:
     def __init__(self, n_teams: int, n_goals: int):
         self.n_teams = n_teams
         self.n_goals = n_goals

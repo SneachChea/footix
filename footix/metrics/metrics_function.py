@@ -1,9 +1,13 @@
-import numpy as np
 from typing import NamedTuple, Optional
+
+import numpy as np
+
 from footix.utils.typing import ArrayLikeF
+
 
 class RPSResult(NamedTuple):
     """Named tuple for Ranked Probability Score statistics."""
+
     z_score: float
     mean: float
     std_dev: float
@@ -25,8 +29,7 @@ def incertity(probas: ArrayLikeF, outcome_idx: int) -> float:
 
 
 def rps(probas: ArrayLikeF, outcome_idx: int) -> float:
-    """
-    Compute the Ranked Probability Score (RPS) for a single categorical forecast.
+    """Compute the Ranked Probability Score (RPS) for a single categorical forecast.
 
     RPS measures the squared differences between cumulative forecast probabilities and
     the cumulative actual outcome. Lower scores indicate better forecasts.
@@ -40,6 +43,7 @@ def rps(probas: ArrayLikeF, outcome_idx: int) -> float:
 
     Raises:
         ValueError: If probabilities are invalid or outcome_idx is out of range.
+
     """
     probas_arr = np.asarray(probas, dtype=float)
     n_categories = probas_arr.size
@@ -65,14 +69,11 @@ def rps(probas: ArrayLikeF, outcome_idx: int) -> float:
     # Average over the first (n-1) categories
     return np.sum(squared_diffs) / (n_categories - 1)
 
+
 def zscore(
-    probas: ArrayLikeF,
-    rps_observed: float,
-    n_iter: int = 10_000,
-    seed: Optional[int] = None
+    probas: ArrayLikeF, rps_observed: float, n_iter: int = 10_000, seed: Optional[int] = None
 ) -> RPSResult:
-    """
-    Compute the z-score of an observed RPS against a Monte Carlo distribution.
+    """Compute the z-score of an observed RPS against a Monte Carlo distribution.
 
     This quantifies how many standard deviations the observed RPS is from the
     expected RPS if forecasts were perfect probabilistically.
@@ -85,6 +86,7 @@ def zscore(
 
     Returns:
         RPSResult: A tuple containing (z_score, mean_rps, std_rps).
+
     """
     rng = np.random.default_rng(seed)
     probas_arr = np.asarray(probas, dtype=float)
@@ -92,9 +94,9 @@ def zscore(
     if not np.all(probas_arr >= 0):
         raise ValueError("Probabilities must be non-negative.")
     total = probas_arr.sum()
-    if not np.isclose(total, 1.0):
-        probas_arr = probas_arr / total
-
+    if not np.isclose(total, 1.0, rtol=1e-12):
+        probas_arr = probas_arr / probas_arr.sum()
+        probas_arr = np.round(probas_arr, decimals=10)
     categories = np.arange(probas_arr.size)
     samples = rng.choice(categories, size=n_iter, p=probas_arr)
 
@@ -106,7 +108,7 @@ def zscore(
     cum_probas = np.cumsum(probas_arr)
     cum_outcome = np.cumsum(one_hot, axis=1)
     diffs = cum_probas - cum_outcome
-    rps_vals = np.sum(diffs ** 2, axis=1) / (probas_arr.size - 1)
+    rps_vals = np.sum(diffs**2, axis=1) / (probas_arr.size - 1)
 
     mean_rps = rps_vals.mean()
     std_rps = rps_vals.std(ddof=1)

@@ -1,13 +1,14 @@
 import json
 import re
 from datetime import datetime
+from functools import lru_cache
 from typing import Any
+from urllib.parse import urljoin
 
+import numpy as np
 import pandas as pd
 from lxml import html
-from urllib.parse import urljoin
-import numpy as np
-from functools import lru_cache
+
 import footix.data_io.utils_scrapper as utils_scrapper
 from footix.data_io.base_scrapper import Scraper
 
@@ -18,6 +19,7 @@ class ShotDataNotFound(RuntimeError):
 
 class FixtureDataNotFound(RuntimeError):
     """Raised when the fixture data are not present."""
+
 
 class ScrapUnderstat(Scraper):
     """
@@ -152,9 +154,7 @@ class ScrapUnderstat(Scraper):
                 script = s.text
                 script = " ".join(script.split())
                 script = str(script.encode(), "unicode-escape")
-                script = re.match(
-                    r"var shotsData = JSON\.parse\('(?P<json>.*?)'\)", script
-                )
+                script = re.match(r"var shotsData = JSON\.parse\('(?P<json>.*?)'\)", script)
                 if script is not None:
                     script = script.group("json")
                 events = json.loads(script)
@@ -172,7 +172,7 @@ class ScrapUnderstat(Scraper):
             "a_team": "away_team",
             "h_goals": "goals_home",
             "a_goals": "goals_away",
-            "match_id": "understat_id"
+            "match_id": "understat_id",
         }
 
         df = (
@@ -184,7 +184,7 @@ class ScrapUnderstat(Scraper):
             .pipe(self.replace_name_team, columns=["home_team", "away_team"])
             .sort_index()
         )
-        df['h_a'] = np.where(df['h_a'] == 'h', df['home_team'], df['away_team'])
+        df["h_a"] = np.where(df["h_a"] == "h", df["home_team"], df["away_team"])
         df = utils_scrapper.add_mathc_id(df)
         self.sanitize_columns(df)
         return df

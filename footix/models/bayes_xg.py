@@ -13,8 +13,7 @@ from footix.utils.decorators import verify_required_column
 from footix.utils.typing import ProtoBayes
 
 
-
-class XGBayesian(ProtoBayes):
+class XGBayesian:
     def __init__(self, n_teams: int, n_goals: int):
         self.n_teams = n_teams
         self.n_goals = n_goals
@@ -226,9 +225,6 @@ class XGBayesian(ProtoBayes):
         return trace
 
 
-
-
-
 class CorrelatedXGBayesian(ProtoBayes):
     def __init__(self, n_teams: int, n_goals: int):
         self.n_teams = n_teams
@@ -272,8 +268,7 @@ class CorrelatedXGBayesian(ProtoBayes):
         return goals_matrix
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
-        """
-        Return the posterior-mean expected goals (θ_home, θ_away) for one fixture.
+        """Return the posterior-mean expected goals (θ_home, θ_away) for one fixture.
 
         Parameters
         ----------
@@ -286,41 +281,39 @@ class CorrelatedXGBayesian(ProtoBayes):
         tuple[float, float]
             Posterior-mean of the Negative-Binomial means (λ) for
             home- and away-team goals.
+
         """
         posterior = self.trace.posterior
 
         # ───────────────── global effects ──────────────────
         home_adv = posterior["home_adv"].mean(("chain", "draw")).item()
-        mu_g     = posterior["mu_g"].mean(("chain", "draw")).item()     # or "mu_g"
-        mu_xg    = posterior["mu_xg"].mean(("chain", "draw")).item()    # or "mu_xg"
+        mu_g = posterior["mu_g"].mean(("chain", "draw")).item()  # or "mu_g"
+        mu_xg = posterior["mu_xg"].mean(("chain", "draw")).item()  # or "mu_xg"
 
         beta_home = posterior["beta_home"].mean(("chain", "draw")).item()
         beta_away = posterior["beta_away"].mean(("chain", "draw")).item()
 
         # ───────────────── team-level effects ──────────────
-        att_xg = posterior["att_xg"].mean(("chain", "draw")).values    # (teams,)
-        att_g  = posterior["att_g"].mean(("chain", "draw")).values
+        att_xg = posterior["att_xg"].mean(("chain", "draw")).values  # (teams,)
+        att_g = posterior["att_g"].mean(("chain", "draw")).values
         def_xg = posterior["def_xg"].mean(("chain", "draw")).values
-        def_g  = posterior["def_g"].mean(("chain", "draw")).values
+        def_g = posterior["def_g"].mean(("chain", "draw")).values
 
         # ───────────────── latent log-intensities ──────────
-        log_lambda_xg_home = (
-            mu_xg + home_adv
-            + att_xg[home_team_id] - def_xg[away_team_id]
-        )
-        log_lambda_xg_away = (
-            mu_xg
-            + att_xg[away_team_id] - def_xg[home_team_id]
-        )
+        log_lambda_xg_home = mu_xg + home_adv + att_xg[home_team_id] - def_xg[away_team_id]
+        log_lambda_xg_away = mu_xg + att_xg[away_team_id] - def_xg[home_team_id]
 
         log_lambda_g_home = (
-            mu_g + home_adv
-            + att_g[home_team_id] - def_g[away_team_id]
+            mu_g
+            + home_adv
+            + att_g[home_team_id]
+            - def_g[away_team_id]
             + beta_home * (log_lambda_xg_home - mu_xg)
         )
         log_lambda_g_away = (
             mu_g
-            + att_g[away_team_id] - def_g[home_team_id]
+            + att_g[away_team_id]
+            - def_g[home_team_id]
             + beta_away * (log_lambda_xg_away - mu_xg)
         )
 
@@ -338,22 +331,20 @@ class CorrelatedXGBayesian(ProtoBayes):
         xg_away_obs: np.ndarray,
         home_team: np.ndarray,
         away_team: np.ndarray,
-            ):
+    ):
+        """Correlated xG / finishing ability model with hierarchical team effects.
 
-        """
-        Correlated xG / finishing ability model with hierarchical team effects.
+        Finishing ability is tied to (log-)xG through β_home / β_away, while team-level attack &
+        defence vectors share an LKJ prior so that (xG, goals) traits can be correlated within
+        each team.
 
-        Finishing ability is tied to (log-)xG through β_home / β_away,
-        while team-level attack & defence vectors share an LKJ prior so
-        that (xG, goals) traits can be correlated within each team.
         """
 
         coords = dict(teams=np.arange(self.n_teams), fixture=np.arange(len(home_team)))
-        with pm.Model(coords=coords) as model:
-
+        with pm.Model(coords=coords):
             # ──────────────────────── global priors ─────────────────────────
             mu_xg = pm.Normal("mu_xg", 0.0, 1.0)
-            mu_g  = pm.Normal("mu_g",  0.0, 1.0)
+            mu_g = pm.Normal("mu_g", 0.0, 1.0)
             home_adv = pm.Normal("home_adv", 0.0, 0.5)
 
             # ─────────────── correlated attack / defence effects ────────────
@@ -368,39 +359,33 @@ class CorrelatedXGBayesian(ProtoBayes):
             att_raw = pm.Normal("att_raw", 0.0, 1.0, shape=(self.n_teams, 2))
             def_raw = pm.Normal("def_raw", 0.0, 1.0, shape=(self.n_teams, 2))
 
-            att     = pm.Deterministic("att",  att_raw @ chol_att.T)  # (teams, 2)
-            defense = pm.Deterministic("def",  def_raw @ chol_def.T)  # (teams, 2)
+            att = pm.Deterministic("att", att_raw @ chol_att.T)  # (teams, 2)
+            defense = pm.Deterministic("def", def_raw @ chol_def.T)  # (teams, 2)
 
             # Split the two traits so we can index them directly
             att_xg = pm.Deterministic("att_xg", att[:, 0])
-            att_g  = pm.Deterministic("att_g",  att[:, 1])
+            att_g = pm.Deterministic("att_g", att[:, 1])
             def_xg = pm.Deterministic("def_xg", defense[:, 0])
-            def_g  = pm.Deterministic("def_g",  defense[:, 1])
+            def_g = pm.Deterministic("def_g", defense[:, 1])
 
             # ───────────────── latent log-intensities per fixture ───────────
             idx_home = pm.Data("idx_home", home_team, dims="fixture")
             idx_away = pm.Data("idx_away", away_team, dims="fixture")
-            logλ_xg_home = (
-                mu_xg + home_adv
-                + att_xg[idx_home] - def_xg[idx_away]
-            )
-            logλ_xg_away = (
-                mu_xg
-                + att_xg[idx_away] - def_xg[idx_home]
-            )
+            logλ_xg_home = mu_xg + home_adv + att_xg[idx_home] - def_xg[idx_away]
+            logλ_xg_away = mu_xg + att_xg[idx_away] - def_xg[idx_home]
 
             beta_home = pm.Normal("beta_home", 0.0, 0.5)
             beta_away = pm.Normal("beta_away", 0.0, 0.5)
 
             logλ_g_home = (
-                mu_g + home_adv
-                + att_g[idx_home] - def_g[idx_away]
+                mu_g
+                + home_adv
+                + att_g[idx_home]
+                - def_g[idx_away]
                 + beta_home * (logλ_xg_home - mu_xg)
             )
             logλ_g_away = (
-                mu_g
-                + att_g[idx_away] - def_g[idx_home]
-                + beta_away * (logλ_xg_away - mu_xg)
+                mu_g + att_g[idx_away] - def_g[idx_home] + beta_away * (logλ_xg_away - mu_xg)
             )
 
             # ─────────────────────────── likelihoods ────────────────────────
