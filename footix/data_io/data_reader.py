@@ -3,6 +3,8 @@ from typing import Iterator, Protocol
 
 import pandas as pd
 
+from footix.utils.decorators import verify_required_column
+
 
 class DataProtocol(Protocol):
     def __len__(self) -> int:
@@ -47,11 +49,11 @@ class MatchupResult:
 
         """
         return MatchupResult(
-            home_team=dict_row["HomeTeam"],
-            away_team=dict_row["AwayTeam"],
-            result=dict_row["FTR"],
-            away_goals=dict_row["FTAG"],
-            home_goals=dict_row["FTHG"],
+            home_team=dict_row["home_team"],
+            away_team=dict_row["away_team"],
+            result=dict_row["ftr"],
+            away_goals=dict_row["ftag"],
+            home_goals=dict_row["fthg"],
         )
 
 
@@ -61,12 +63,12 @@ class EloDataReader(DataProtocol):
         # Better performances for iteration over rows
         self.data = self.df_data.to_dict(orient="index")
 
-    # TODO: Add a sanity check to verify if columns are presents in the df
+    @verify_required_column(["date", "home_team", "away_team", "fthg", "ftag", "ftr"])
     def _process_df(self, df_data: pd.DataFrame) -> pd.DataFrame:
         df = df_data.copy().reset_index(drop=True)
-        df = df[["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG", "FTR"]]
-        df["Date"] = pd.to_datetime(df["Date"], dayfirst=True)
-        df = df.sort_values(by="Date", ascending=True)
+        df = df[["date", "home_team", "away_team", "fthg", "ftag", "ftr"]]
+        df["date"] = pd.to_datetime(df["sate"], dayfirst=True)
+        df = df.sort_values(by="date", ascending=True)
         return df
 
     def __len__(self) -> int:

@@ -1,4 +1,4 @@
-from typing import Any, Protocol
+from typing import Any, NamedTuple, Protocol
 
 import numpy as np
 import pandas as pd
@@ -41,3 +41,19 @@ class ProtoBayes(Protocol):
         self, home_team: str, away_team: str, **kwargs: Any
     ) -> tuple[np.ndarray, np.ndarray]:
         ...
+
+
+class RPSResult(NamedTuple):
+    """Named tuple for Ranked Probability Score statistics."""
+
+    z_score: float
+    mean: float
+    std_dev: float
+
+
+class ProbaResult(NamedTuple):
+    """Named tuple for Probabilities."""
+
+    proba_home: float
+    proba_draw: float
+    proba_away: float

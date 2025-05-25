@@ -19,3 +19,5 @@ html/
 # data files
 *.csv
 *.json
+*.whl
+*.tar.gz

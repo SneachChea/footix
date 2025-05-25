@@ -2,22 +2,63 @@
     <img src="img/logo_footix.png" alt="Footix Logo" width="200">
 </div>
 
-# Footix
+# 🐓 Footix: Smart Sports Analysis & Prediction Toolkit
 
-Footix is a powerful toolbox designed for beating bookmakers. It provides a suite of tools and algorithms to help you analyze sports data, predict outcomes, and make informed betting decisions.
 
-## Features
+[Features](#-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Documentation](#-documentation)
 
-- **Data Analysis**: Import and analyze sports data from various sources.
-- **Prediction Models**: Use _machine learning_ models to predict the outcomes of sports events.
-- **Betting Strategies**: Implement and test various betting strategies.
-- **Visualization**: Visualize data and predictions with charts and graphs.
+## 🎮 Overview
 
-## Installation
+Footix is your intelligent companion for sports analysis and prediction. Leveraging advanced machine learning algorithms and comprehensive data analysis, it helps you make data-driven decisions in sports betting and analysis.
 
-You can install Footix using pip:
+## ✨ Features
+
+- 📊 **Advanced Data Analysis**
+  - Import data from multiple sports databases
+  - Clean and preprocess sports statistics
+  - Comprehensive historical data analysis
+
+- 🤖 **Smart Prediction Engine**
+  - Machine learning-powered outcome prediction
+
+- 💰 **Strategic Betting Tools**
+  - Risk assessment algorithms
+  - Bankroll management system
+  - Multiple betting strategy templates
+
+## 🚀 Installation
+
+Install Footix with pip:
 
 ```bash
 pip install pyfootix
-````
+```
+
+## 🎯 Quick Start
+
+```python
+from footix.models.bayesian import Bayesian
+from footix.data_io.footballdata import ScrapFootballData
+
+
+# Load match data (example: Ligue 1 fixtures)
+dataset = ScrapFootballData(competition="FRA Ligue 1", season="2024-2025", path ="./data", force_reload=True).get_fixtures()
+
+# Initialize and fit the Bayesian model
+model = Bayesian(n_teams=18, n_goals=20)
+model.fit(X_train=dataset)
+
+# Predict probabilities for a specific match
+probas = model.predict(home_team="Marseille", away_team="Lyon").return_probas()
+print(f"Home: {probas[0]:.2f}, Draw: {probas[1]:.2f}, Away: {probas[2]:.2f}")
+```
+
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
