@@ -153,6 +153,7 @@ class OddsInput:
         """
         return {"H": self.odds[0], "D": self.odds[1], "A": self.odds[2]}
 
+    #TODO: add date ? At least as optional
     @property
     def match_id(self) -> str:
         return f"{self.home_team} - {self.away_team}"
