@@ -116,3 +116,23 @@ class GoalMatrix:
         home_str = ", ".join(f"{x:.2f}" for x in self.home_goals_probs[:5])
         away_str = ", ".join(f"{x:.2f}" for x in self.away_goals_probs[:5])
         return f"Goal Matrix computed using [{home_str}, ...] and [{away_str}, ...]."
+    
+    def get_probable_score(self) -> tuple[int, int]:
+        """
+        Return the most probable score (home_goals, away_goals) based on the matrix_array.
+
+        Returns
+        -------
+        tuple of int
+            The (home_goals, away_goals) corresponding to the highest probability in matrix_array.
+
+        Examples
+        --------
+        >>> gm = GoalMatrix(home_goals_probs, away_goals_probs)
+        >>> gm.get_probable_score()
+        (2, 1)
+        """
+        # Find the indices of the maximum value in the probability matrix
+        idx = np.unravel_index(np.argmax(self.matrix_array), self.matrix_array.shape)
+        return idx  # (home_goals, away_goals)
+
