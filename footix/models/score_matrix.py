@@ -75,13 +75,12 @@ class GoalMatrix:
             raise TypeError("Probas should be longer than 4")
 
     def visualize(self) -> None:
+        tmp_small = self.matrix_array[:5, :5]
         _, ax = plt.subplots()
-        ax.matshow(self.matrix_array, cmap="coolwarm")
-        for i in range(len(self.home_goals_probs)):
-            for j in range(len(self.away_goals_probs)):
-                ax.text(
-                    j, i, round(self.matrix_array[i, j], 3), ha="center", va="center", color="w"
-                )
+        ax.matshow(tmp_small, cmap="coolwarm")
+        for i in range(len(tmp_small)):
+            for j in range(len(tmp_small)):
+                ax.text(j, i, round(tmp_small[i, j], 3), ha="center", va="center", color="w")
         ax.set_xlabel("Away team")
         ax.set_ylabel("Home team")
         plt.show()
@@ -116,10 +115,9 @@ class GoalMatrix:
         home_str = ", ".join(f"{x:.2f}" for x in self.home_goals_probs[:5])
         away_str = ", ".join(f"{x:.2f}" for x in self.away_goals_probs[:5])
         return f"Goal Matrix computed using [{home_str}, ...] and [{away_str}, ...]."
-    
+
     def get_probable_score(self) -> tuple[int, int]:
-        """
-        Return the most probable score (home_goals, away_goals) based on the matrix_array.
+        """Return the most probable score (home_goals, away_goals) based on the matrix_array.
 
         Returns
         -------
@@ -131,8 +129,8 @@ class GoalMatrix:
         >>> gm = GoalMatrix(home_goals_probs, away_goals_probs)
         >>> gm.get_probable_score()
         (2, 1)
+
         """
         # Find the indices of the maximum value in the probability matrix
         idx = np.unravel_index(np.argmax(self.matrix_array), self.matrix_array.shape)
         return idx  # (home_goals, away_goals)
-

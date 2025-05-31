@@ -2,7 +2,6 @@ from typing import Any, NamedTuple, Protocol
 
 import numpy as np
 
-
 ArrayLikeF = list[float] | np.ndarray
 
 
@@ -12,7 +11,6 @@ class ProtoModel(Protocol):
 
     def predict(self, HomeTeam: str, AwayTeam: str) -> Any:
         ...
-
 
 
 class RPSResult(NamedTuple):
