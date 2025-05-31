@@ -67,7 +67,7 @@ class EloDataReader(DataProtocol):
     def _process_df(self, df_data: pd.DataFrame) -> pd.DataFrame:
         df = df_data.copy().reset_index(drop=True)
         df = df[["date", "home_team", "away_team", "fthg", "ftag", "ftr"]]
-        df["date"] = pd.to_datetime(df["sate"], dayfirst=True)
+        df["date"] = pd.to_datetime(df["date"], dayfirst=True)
         df = df.sort_values(by="date", ascending=True)
         return df
 
@@ -76,7 +76,7 @@ class EloDataReader(DataProtocol):
 
     def unique_teams(self) -> list[str]:
         list_unique_team = list(
-            set(self.df_data["HomeTeam"].unique()).intersection(self.df_data["AwayTeam"].unique())
+            set(self.df_data["home_team"].unique()).intersection(self.df_data["away_team"].unique())
         )
         return sorted(list_unique_team)
 
