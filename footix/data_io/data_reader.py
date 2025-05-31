@@ -76,7 +76,9 @@ class EloDataReader(DataProtocol):
 
     def unique_teams(self) -> list[str]:
         list_unique_team = list(
-            set(self.df_data["home_team"].unique()).intersection(self.df_data["away_team"].unique())
+            set(self.df_data["home_team"].unique()).intersection(
+                self.df_data["away_team"].unique()
+            )
         )
         return sorted(list_unique_team)
 
