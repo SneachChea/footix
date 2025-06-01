@@ -1,5 +1,3 @@
-from typing import Literal
-
 import numpy as np
 import pandas as pd
 
@@ -71,7 +69,7 @@ class EloDavidson:
         return self.k0 * (1.0 + gamma) ** self.lamda
 
     @staticmethod
-    def correspondance_result(result: Literal["H", "D", "A"]) -> float:
+    def correspondance_result(result: str) -> float:
         if result not in ["D", "H", "A"]:
             raise ValueError("result must be 'H', 'D' or 'A'")
         if result == "D":

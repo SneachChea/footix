@@ -133,4 +133,4 @@ class GoalMatrix:
         """
         # Find the indices of the maximum value in the probability matrix
         idx = np.unravel_index(np.argmax(self.matrix_array), self.matrix_array.shape)
-        return idx  # (home_goals, away_goals)
+        return int(idx[0]), int(idx[1])  # (home_goals, away_goals)
