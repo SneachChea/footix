@@ -1,9 +1,6 @@
-from typing import Any, Protocol
+from typing import Any, NamedTuple, Protocol
 
 import numpy as np
-import pandas as pd
-
-import footix.models.score_matrix as score_matrix
 
 ArrayLikeF = list[float] | np.ndarray
 
@@ -16,28 +13,17 @@ class ProtoModel(Protocol):
         ...
 
 
-class ProtoPoisson(Protocol):
-    def __init__(self, n_teams: int, n_goals: int) -> None:
-        ...
+class RPSResult(NamedTuple):
+    """Named tuple for Ranked Probability Score statistics."""
 
-    def fit(self, X_train: pd.DataFrame) -> None:
-        ...
-
-    def predict(self, home_team: str, away_team: str) -> score_matrix.GoalMatrix:
-        ...
+    z_score: float
+    mean: float
+    std_dev: float
 
 
-class ProtoBayes(Protocol):
-    def __init__(self, n_teams: int, n_goals: int) -> None:
-        ...
+class ProbaResult(NamedTuple):
+    """Named tuple for Probabilities."""
 
-    def fit(self, X_train: pd.DataFrame) -> None:
-        ...
-
-    def predict(self, home_team: str, away_team: str, **kwargs: Any) -> score_matrix.GoalMatrix:
-        ...
-
-    def get_samples(
-        self, home_team: str, away_team: str, **kwargs: Any
-    ) -> tuple[np.ndarray, np.ndarray]:
-        ...
+    proba_home: float
+    proba_draw: float
+    proba_away: float

@@ -1,16 +1,6 @@
-from typing import NamedTuple, Optional
-
 import numpy as np
 
-from footix.utils.typing import ArrayLikeF
-
-
-class RPSResult(NamedTuple):
-    """Named tuple for Ranked Probability Score statistics."""
-
-    z_score: float
-    mean: float
-    std_dev: float
+from footix.utils.typing import ArrayLikeF, RPSResult
 
 
 def incertity(probas: ArrayLikeF, outcome_idx: int) -> float:
@@ -67,11 +57,11 @@ def rps(probas: ArrayLikeF, outcome_idx: int) -> float:
     squared_diffs = (cum_probas - cum_outcome) ** 2
 
     # Average over the first (n-1) categories
-    return np.sum(squared_diffs) / (n_categories - 1)
+    return np.sum(squared_diffs) / (n_categories - 1)  # type: ignore
 
 
 def zscore(
-    probas: ArrayLikeF, rps_observed: float, n_iter: int = 10_000, seed: Optional[int] = None
+    probas: ArrayLikeF, rps_observed: float, n_iter: int = 10_000, seed: int | None = None
 ) -> RPSResult:
     """Compute the z-score of an observed RPS against a Monte Carlo distribution.
 
@@ -82,7 +72,7 @@ def zscore(
         probas: Sequence of forecast probabilities for each category (must sum to 1).
         rps_observed: The observed RPS value to evaluate.
         n_iter: Number of Monte Carlo samples (default: 10000).
-        seed: Random seed for reproducibility.
+        seed (Optional[int]): Random seed for reproducibility.
 
     Returns:
         RPSResult: A tuple containing (z_score, mean_rps, std_rps).

@@ -62,8 +62,8 @@ class BasicPoisson:
         lamb = np.exp(self.alphas[i] + self.betas[j] + self.gamma)
         mu = np.exp(self.alphas[j] + self.betas[i])
         return score_matrix.GoalMatrix(
-            home_probs=model_utils.poisson_proba(lambda_param=lamb, k=self.n_goals),
-            away_probs=model_utils.poisson_proba(lambda_param=mu, k=self.n_goals),
+            home_goals_probs=model_utils.poisson_proba(lambda_param=lamb, k=self.n_goals),
+            away_goals_probs=model_utils.poisson_proba(lambda_param=mu, k=self.n_goals),
         )
 
     def mapping_team_index(self, teams: pd.Series) -> dict[str, int]:

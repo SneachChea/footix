@@ -73,8 +73,8 @@ class NeuralDixonColes:
         mu = torch.exp(self.alphas[j] + self.betas[i]).cpu().detach().item()
         rho_correction = self.compute_correlation_matrix().detach().cpu().numpy()
         return score_matrix.GoalMatrix(
-            home_probs=model_utils.poisson_proba(lambda_param=lamb, k=self.n_goals),
-            away_probs=model_utils.poisson_proba(lambda_param=mu, k=self.n_goals),
+            home_goals_probs=model_utils.poisson_proba(lambda_param=lamb, k=self.n_goals),
+            away_goals_probs=model_utils.poisson_proba(lambda_param=mu, k=self.n_goals),
             correlation_matrix=rho_correction,
         )
 

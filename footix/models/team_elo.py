@@ -1,4 +1,4 @@
-class team:
+class EloTeam:
     def __init__(self, name: str):
         self.name_ = name
         self.rank_ = 0.0
@@ -19,7 +19,7 @@ class team:
             print("Enter a valid rank, i.e. a float")
 
     def __str__(self):
-        return f"team {self.name}"
+        return f"team {self.name}-rank {self.rank}"
 
     def __repr__(self):
         return str(self)

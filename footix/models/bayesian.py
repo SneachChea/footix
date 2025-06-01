@@ -50,10 +50,10 @@ class Bayesian:
         p_away = r_away / (r_away + away_mu)
 
         ks = np.arange(self.n_goals)
-        home_probs = stats.nbinom.pmf(ks, r_home, p_home)
-        away_probs = stats.nbinom.pmf(ks, r_away, p_away)
+        home_goals_probs = stats.nbinom.pmf(ks, r_home, p_home)
+        away_goals_probs = stats.nbinom.pmf(ks, r_away, p_away)
 
-        return GoalMatrix(home_probs, away_probs)
+        return GoalMatrix(home_goals_probs, away_goals_probs)
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
         posterior = self.trace.posterior
