@@ -8,6 +8,7 @@ readme = "README.md"
 packages = [
     { include = "footix" }
 ]
+repository = "https://github.com/SneachChea/footix"
 
 [tool.poetry.dependencies]
 python = ">=3.11, <3.13"
