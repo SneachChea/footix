@@ -5,7 +5,7 @@
 # 🐓 Footix: Smart Sports Analysis & Prediction Toolkit
 
 
-[Features](#-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Documentation](#-documentation)
+[Features](#-features) • [Installation](#-installation) • [Quick Start](#-quick-start)
 
 ## 🎮 Overview
 

@@ -71,7 +71,7 @@ def to_torch_tensor(
 
 
 def poisson_proba(lambda_param: float, k: int) -> np.ndarray:
-    """Calculate the probability of achieving upto k goals given a lambda parameter.
+    """Calculate the probability of achieving up to k goals given a lambda parameter.
 
     Args:
         lambda_param (float): The expected number of goals.
