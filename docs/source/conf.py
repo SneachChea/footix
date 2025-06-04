@@ -20,7 +20,16 @@ release = "0.1.0"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ["sphinx.ext.autodoc", "sphinx.ext.napoleon"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.autodoc.typehints",
+    "sphinx.ext.autosectionlabel",
+]
+autosummary_generate = True
+autodoc_typehints = "description"
+autodoc_member_order = "bysource"
 
 templates_path = ["_templates"]
 exclude_patterns: list[str] = []

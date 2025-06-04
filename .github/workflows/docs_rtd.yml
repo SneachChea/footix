@@ -1,0 +1,40 @@
+name: Build and Upload Docs to ReadTheDocs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r docs/requirements.txt
+          pip install -e .
+
+      - name: Build documentation
+        run: |
+          sphinx-build -b html docs/source docs/_build/html
+
+      - name: Trigger ReadTheDocs build
+        env:
+          RTD_TOKEN: ${{ secrets.RTD_TOKEN }}
+          RTD_PROJECT: ${{ secrets.RTD_PROJECT }}
+        run: |
+          if [ -z "$RTD_TOKEN" ] || [ -z "$RTD_PROJECT" ]; then
+            echo "RTD credentials not provided" && exit 1
+          fi
+          curl -X POST -d "branches=main" \
+            -H "Authorization: Token $RTD_TOKEN" \
+            https://readthedocs.org/api/v3/projects/$RTD_PROJECT/versions/latest/builds/
+
