@@ -3,13 +3,12 @@
 pushd %~dp0
 
 REM Command file for Sphinx documentation
-REM Output is placed in docs\_build
 
 if "%SPHINXBUILD%" == "" (
 	set SPHINXBUILD=sphinx-build
 )
-set SOURCEDIR=docs\source
-set BUILDDIR=docs\_build
+set SOURCEDIR=.
+set BUILDDIR=_build
 
 %SPHINXBUILD% >NUL 2>NUL
 if errorlevel 9009 (
