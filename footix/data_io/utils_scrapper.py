@@ -59,7 +59,7 @@ def to_snake_case(name: str) -> str:
 
 
 @verify_required_column(["home_team", "away_team", "date"])
-def add_mathc_id(df: pd.DataFrame) -> pd.DataFrame:
+def add_match_id(df: pd.DataFrame) -> pd.DataFrame:
     tmp_df = df.copy()
     tmp_df["match_id"] = tmp_df["home_team"] + " - " + tmp_df["away_team"] + " - " + tmp_df["date"]
     return tmp_df

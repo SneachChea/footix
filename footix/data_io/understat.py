@@ -135,7 +135,7 @@ class ScrapUnderstat(Scraper):
         self.sanitize_columns(df)
         df["ftr"] = df.apply(get_ftr, axis=1)
         df["date"] = df["datetime"].apply(_get_date)
-        df = utils_scrapper.add_mathc_id(df)
+        df = utils_scrapper.add_match_id(df)
         return df
 
     def _process_season(self, season: str) -> str:
@@ -185,6 +185,6 @@ class ScrapUnderstat(Scraper):
             .sort_index()
         )
         df["h_a"] = np.where(df["h_a"] == "h", df["home_team"], df["away_team"])
-        df = utils_scrapper.add_mathc_id(df)
+        df = utils_scrapper.add_match_id(df)
         self.sanitize_columns(df)
         return df

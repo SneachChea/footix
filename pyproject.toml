@@ -8,6 +8,7 @@ readme = "README.md"
 packages = [
     { include = "footix" }
 ]
+repository = "https://github.com/SneachChea/footix"
 
 [tool.poetry.dependencies]
 python = ">=3.11, <3.13"
@@ -56,7 +57,7 @@ ignore_missing_imports = true
 [tool.taskipy.tasks]
 lint = "flake8 --max-line-length 99 --extend-ignore=E203 ."
 test = "pytest -v"
-type = "mypy ."
+type = "mypy footix/ test/"
 format-isort = "isort ."
 format-black = "black ."
 docformat = "docformatter -r -i --blank footix"

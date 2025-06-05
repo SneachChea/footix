@@ -9,69 +9,77 @@ footix.models.basic\_poisson module
 
 .. automodule:: footix.models.basic_poisson
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
+
+footix.models.bayes\_xg module
+------------------------------
+
+.. automodule:: footix.models.bayes_xg
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
 footix.models.bayesian module
 -----------------------------
 
 .. automodule:: footix.models.bayesian
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 footix.models.dixon\_coles module
 ---------------------------------
 
 .. automodule:: footix.models.dixon_coles
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 footix.models.elo module
 ------------------------
 
 .. automodule:: footix.models.elo
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
-footix.models.protocol\_model module
-------------------------------------
+footix.models.hybrid\_model module
+----------------------------------
 
-.. automodule:: footix.models.protocol_model
+.. automodule:: footix.models.hybrid_model
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 footix.models.score\_matrix module
 ----------------------------------
 
 .. automodule:: footix.models.score_matrix
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 footix.models.team\_elo module
 ------------------------------
 
 .. automodule:: footix.models.team_elo
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 footix.models.utils module
 --------------------------
 
 .. automodule:: footix.models.utils
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 Module contents
 ---------------
 
 .. automodule:: footix.models
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

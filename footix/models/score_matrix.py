@@ -74,8 +74,13 @@ class GoalMatrix:
         if len(self.home_goals_probs) < 3:
             raise TypeError("Probas should be longer than 4")
 
-    def visualize(self) -> None:
-        tmp_small = self.matrix_array[:5, :5]
+    def visualize(self, n_goals: int = 5) -> None:
+        if n_goals > len(self.home_goals_probs):
+            raise ValueError(
+                f"Requested n_goals={n_goals} exceeds available goal probabilities "
+                f"({len(self.home_goals_probs)})."
+            )
+        tmp_small = self.matrix_array[:n_goals, :n_goals]
         _, ax = plt.subplots()
         ax.matshow(tmp_small, cmap="coolwarm")
         for i in range(len(tmp_small)):

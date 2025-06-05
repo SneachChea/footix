@@ -10,6 +10,8 @@ from footix.utils.decorators import verify_required_column
 
 logger = logging.getLogger(name=__name__)
 
+__all__ = ["BasicPoisson"]
+
 
 class BasicPoisson:
     def __init__(self, n_teams: int, n_goals: int) -> None:

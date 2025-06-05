@@ -36,35 +36,33 @@ def optimise_portfolio(
     alpha: float = 0.05,
     gamma: float | None = None,
 ):
-    """Optimizes the portfolio by allocating stakes to bets to maximize expected return while
-    incorporating an entropy bonus and ensuring risk constraints are met.
+    """Optimizes bet stakes using SciPy's constrained optimization to maximize return with risk
+    control.
 
-    The function computes the optimal allocation of stakes across a list of Bet objects by
-    maximizing an objective function that combines the expected value and a Shannon entropy
-    term to encourage diversification. It enforces two constraints:
-      1. The total stake must not exceed a specified fraction of the bankroll.
-      2. The likelihood of a negative portfolio return (computed via a chance constraint) is kept
-         below the significance level (alpha).
+    This function uses classical constrained optimization to find the optimal stake allocation
+    that maximizes expected value while maintaining risk constraints. It incorporates Shannon
+    entropy to encourage diversification.
 
     Args:
-        list_bets (list[Bet]): A list of Bet objects. Each Bet should have:
-                               - edge_mean (float): Expected edge value.
-                               - edge_std (float or None): Standard deviation of the edge.
-        bankroll (float): The total available bankroll.
-        max_fraction (float, optional): The maximum fraction of the bankroll that can be committed
-                                        to stakes. Defaults to 0.30.
-        alpha (float, optional): The significance level controlling the chance constraint to ensure
-                                 that the probability of a negative return does not exceed alpha.
-                                 Defaults to 0.05.
-        gamma (float | None, optional): The entropy weight in the objective function. If None,
-                                        a default value is used based on the stake cap.
-
-    Raises:
-        RuntimeError: If the optimization process fails to converge to a viable solution.
+        list_bets (list[Bet]): List of bets to optimize. Each Bet must have edge_mean and edge_std.
+        bankroll (float): Total available funds for betting.
+        max_fraction (float, optional): Maximum fraction of bankroll to stake. Defaults to 0.30.
+        alpha (float, optional): Risk threshold for chance constraint (probability of loss).
+            Defaults to 0.05.
+        gamma (float | None, optional): Entropy bonus weight. If None, defaults to 0.9 * stake_cap.
+            Controls diversification strength.
 
     Returns:
-        list[Bet]: The list of Bet objects with updated 'stake' attributes reflecting the optimal
-        allocation.
+        list[Bet]: Input bets with optimized stakes set in their stake attribute.
+
+    Raises:
+        RuntimeError: If the optimization fails to converge to a valid solution.
+
+    Notes:
+        - Uses trust-region constrained optimization from SciPy
+        - Enforces two main constraints:
+            1. Total stakes ≤ max_fraction * bankroll
+            2. P(portfolio loss) ≤ alpha via chance constraint
 
     """
     mu, sigma = stack_bets(list_bets)
@@ -127,43 +125,38 @@ def optimise_portfolio_torch(
     verbose: bool = False,
     device: str = "cpu",
 ):
-    """Optimizes the portfolio using a gradient-based approach implemented with PyTorch. This
-    function should have the same behavior as `optimize_portfolio`. It allocates stakes to a list
-    of Bet objects by optimizing an objective function that integrates the expected return and an
-    entropy bonus, while imposing a chance constraint on the probability of a negative return. The
-    optimization is performed using the Adam optimizer over a defined number of iterations.
+    """Optimizes bet stakes using PyTorch's gradient descent with soft constraints.
 
-    The stakes are parameterized via unconstrained raw variables that are transformed with a
-    softplus function to ensure non-negativity and then scaled to satisfy the total stake
-    constraint.
+    This function implements portfolio optimization using automatic differentiation and
+    gradient descent. Instead of hard constraints, it uses soft constraints via penalty
+    terms in the loss function.
 
     Args:
-        list_bets (list[Bet]): A list of Bet objects. Each Bet must have:
-                               - edge_mean (float): Expected edge value.
-                               - edge_std (float or None): Standard deviation of the edge.
-        bankroll (float): The total available bankroll.
-        max_fraction (float, optional): The maximum fraction of the bankroll that can be deployed.
-                                        Defaults to 0.30.
-        alpha (float, optional): The significance level for the chance constraint to ensure that
-                                 the probability of a negative return is at most alpha.
-                                 Defaults to 0.05.
-        gamma (float | None, optional): The entropy bonus weight in the objective function.
-                                        If None, a default rule-of-thumb value is applied.
-        lr (float, optional): The learning rate for the Adam optimizer. Defaults to 5e-2.
-        iters (int, optional): The number of iterations for the optimization loop.
-                                Defaults to 5_000.
-        penalty_lambda (float, optional): The penalty strength for chance constraint violations.
-                                          Defaults to 1_000.0.
-        verbose (bool, optional): If True, diagnostic information is printed during the
-                                optimization. Defaults to False.
-        device (str, optional): The device for computation (e.g., "cpu" or "cuda" for GPU).
-                                Defaults to "cpu".
+        list_bets (list[Bet]): List of bets to optimize. Each Bet must have edge_mean and edge_std.
+        bankroll (float): Total available funds for betting.
+        max_fraction (float, optional): Maximum fraction of bankroll to stake. Defaults to 0.30.
+        alpha (float, optional): Risk threshold for chance constraint. Defaults to 0.05.
+        gamma (float | None, optional): Entropy bonus weight. If None, defaults to 0.9 * stake_cap.
+        lr (float, optional): Learning rate for Adam optimizer. Defaults to 5e-2.
+        iters (int, optional): Number of optimization iterations. Defaults to 5_000.
+        penalty_lambda (float, optional): Weight of chance constraint penalty. Defaults to 1_000.0.
+        verbose (bool, optional): Whether to print diagnostic information. Defaults to False.
+        device (str, optional): PyTorch device to use ('cpu' or 'cuda'). Defaults to "cpu".
 
     Returns:
-        list[Bet]: The list of Bet objects with updated 'stake' attributes based on the optimal
-        allocation.
+        list[Bet]: Input bets with optimized stakes set in their stake attribute.
+
+    Notes:
+        - Uses Adam optimizer with gradient descent
+        - Enforces constraints softly through penalties:
+            1. Stakes positivity via softplus
+            2. Total stakes via scaling
+            3. Risk control via quadratic penalty
+        - Includes Shannon entropy term for diversification
+        - Provides detailed diagnostics when verbose=True
 
     """
+
     # ── 1. Static inputs ---------------------------------------------------
     mu_np, sigma_np = stack_bets(list_bets)
     mu: Tensor = torch.tensor(mu_np, device=device, dtype=torch.float)

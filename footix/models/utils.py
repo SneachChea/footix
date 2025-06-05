@@ -71,7 +71,7 @@ def to_torch_tensor(
 
 
 def poisson_proba(lambda_param: float, k: int) -> np.ndarray:
-    """Calculate the probability of achieving upto k goals given a lambda parameter.
+    """Calculate the probability of achieving up to k goals given a lambda parameter.
 
     Args:
         lambda_param (float): The expected number of goals.
@@ -90,20 +90,31 @@ def poisson_proba(lambda_param: float, k: int) -> np.ndarray:
 def implicit_intensities(
     proba_from_odds: np.ndarray, max_iter: int = 200, tol: float = 1e-10
 ) -> np.ndarray:
-    """Calculates the implied intensities of a Skellam model from the probabilities [p_win,
-    p_draw, p_loss].
+    """Calculate implicit scoring intensities from match outcome probabilities.
 
-    args:
-    proba_from_odds : np.ndarray, shape (n_matches, 3)
-        Probabilités [P(Y1 > Y2), P(Y1 = Y2), P(Y1 < Y2)].
-    max_iter : int, optional
-        Maximal number of iterations.
-    tol : float, optional
-        Tolerance of the solber.
-    Returns
-    -------
-    theta : ndarray, shape (n_matches, 2)
-        Parameters [λ₁, λ₂] of Skellam.
+    This function converts betting odds probabilities into implied goal-scoring
+    intensities (lambda parameters) for both teams using numerical optimization.
+    It uses the Skellam distribution to model the difference between two Poisson
+    processes (goal scoring by each team).
+
+    Args:
+        proba_from_odds (np.ndarray): Array of shape (n_matches, 3) containing
+            probabilities for [win, draw, loss] derived from betting odds.
+        max_iter (int, optional): Maximum number of iterations for the optimization
+            algorithm. Defaults to 200.
+        tol (float, optional): Tolerance for optimization convergence. Defaults to 1e-10.
+
+    Raises:
+        ValueError: If proba_from_odds does not have shape (n_matches, 3).
+
+    Returns:
+        np.ndarray: Array of shape (n_matches, 2) containing the implied scoring
+            intensities [lambda1, lambda2] for each match, where lambda1 is the
+            home team's scoring intensity and lambda2 is the away team's.
+
+    Note:
+        If the primary optimization fails, the function falls back to a grid search
+        over predefined lambda values to find the best approximation.
 
     """
     proba_from_odds = np.asarray(proba_from_odds, dtype=float)

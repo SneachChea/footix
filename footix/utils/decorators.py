@@ -10,8 +10,8 @@ ITERABLE_IN_STR = TypeVar("ITERABLE_IN_STR", list[str], tuple[str], set[str])
 
 
 def verify_required_column(column_names: ITERABLE_IN_STR) -> Callable:
-    """Decorator that check if the first input argument is a pandas Dataframme and check if the
-    columns in column_names are presents."""
+    """Decorator that check if the first input argument is a pandas Dataframe and check if the
+    columns in column_names are present."""
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @wraps(func)

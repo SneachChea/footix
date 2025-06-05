@@ -9,21 +9,29 @@ footix.utils.decorators module
 
 .. automodule:: footix.utils.decorators
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
+
+footix.utils.typing module
+--------------------------
+
+.. automodule:: footix.utils.typing
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
 footix.utils.utils module
 -------------------------
 
 .. automodule:: footix.utils.utils
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 Module contents
 ---------------
 
 .. automodule:: footix.utils
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

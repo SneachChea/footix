@@ -60,7 +60,7 @@ class ScrapFootballData(Scraper):
         self.infered_url = self.base_url + self.season + "/" + slug + ".csv"
         self.df = self.load()
         self.sanitize_columns()
-        self.df = utils_scrapper.add_mathc_id(self.df)
+        self.df = utils_scrapper.add_match_id(self.df)
 
     def download(self):
         response = self.get(self.infered_url)
