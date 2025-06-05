@@ -18,7 +18,8 @@ extensions = [
     'sphinx.ext.autodoc',           # auto-generate API docs
     'sphinx.ext.napoleon',          # Google & NumPy style docstrings
     'sphinx.ext.viewcode',          # link to highlighted source
-#    'sphinx_autodoc_typehints',     # show Python type hints
+    #'sphinx_autodoc_typehints',     # show Python type hints
+    'sphinx.ext.autosummary',
 ]
 
 templates_path = ['_templates']
@@ -31,13 +32,15 @@ exclude_patterns = []
 
 html_static_path = ['_static']
 html_theme = 'sphinx_rtd_theme'
+html_logo = "_static/logo_footix.png"
 html_theme_options = {
     'logo_only': False,
     'display_version': True,
     # set to True to collapse navigation on initial load
     'collapse_navigation': False,
     # scroll depth for the left sidebar tree
-    'navigation_depth': 4,  
+    'navigation_depth': 1,
+    'style_nav_header_background': "#0C192A",
 }
 napoleon_google_docstring = True
 
