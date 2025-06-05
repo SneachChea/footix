@@ -7,7 +7,7 @@ import pymc as pm
 import scipy.stats as stats
 from sklearn import preprocessing
 
-from footix.implied_odds import shin
+from footix.implied_odds import shin_method
 from footix.models.score_matrix import GoalMatrix
 from footix.models.utils import implicit_intensities
 from footix.utils.decorators import verify_required_column
@@ -71,7 +71,7 @@ class MixtureBayesian:
         """
         tmp_proba = []
         for odd in list_odds:
-            tmp_shin, _ = shin(odd)
+            tmp_shin, _ = shin_method(odd)
             tmp_proba.append(tmp_shin)
         return np.asarray(tmp_proba)
 
@@ -92,7 +92,7 @@ class MixtureBayesian:
         return goals_matrix
 
     def goal_expectation(self, home_team_id: int, away_team_id: int, bookmaker_odds: list[float]):
-        proba_shin, _ = shin(bookmaker_odds)
+        proba_shin, _ = shin_method(bookmaker_odds)
         proba_shin = np.asarray([proba_shin])
         theta_intensities = implicit_intensities(proba_shin)[0]
 
@@ -138,7 +138,7 @@ class MixtureBayesian:
         if bookmaker_odds is None:
             raise ValueError("bookmaker_odds is not defined")
         team_id = self.label.transform([home_team, away_team])
-        proba_shin, _ = shin(bookmaker_odds)
+        proba_shin, _ = shin_method(bookmaker_odds)
         proba_shin = np.asarray([proba_shin])
         theta_intensities = implicit_intensities(proba_shin)[0]
         posterior = self.trace.posterior
