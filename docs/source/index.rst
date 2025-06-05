@@ -1,5 +1,5 @@
 Welcome to **footix**'s documentation!
-=============
+======================================
 
 Footix is your intelligent companion for sports analysis and prediction. Leveraging advanced machine learning algorithms 
 and comprehensive data analysis, it helps you make data-driven decisions in sports betting and analysis.
@@ -21,7 +21,7 @@ Features
     * Multiple betting strategy templates
 
 Quick Start
-----------
+-----------
 
 .. code-block:: python
 
@@ -54,7 +54,7 @@ Quick Start
    :maxdepth: 2
    :caption: How to start
    :hidden:
-   
+
    installation
 
 .. toctree::

@@ -36,10 +36,11 @@ def optimise_portfolio(
     alpha: float = 0.05,
     gamma: float | None = None,
 ):
-    """Optimizes bet stakes using SciPy's constrained optimization to maximize return with risk control.
+    """Optimizes bet stakes using SciPy's constrained optimization to maximize return with risk
+    control.
 
-    This function uses classical constrained optimization to find the optimal stake allocation 
-    that maximizes expected value while maintaining risk constraints. It incorporates Shannon 
+    This function uses classical constrained optimization to find the optimal stake allocation
+    that maximizes expected value while maintaining risk constraints. It incorporates Shannon
     entropy to encourage diversification.
 
     Args:
@@ -62,6 +63,7 @@ def optimise_portfolio(
         - Enforces two main constraints:
             1. Total stakes ≤ max_fraction * bankroll
             2. P(portfolio loss) ≤ alpha via chance constraint
+
     """
     mu, sigma = stack_bets(list_bets)
     n = mu.size
@@ -125,8 +127,9 @@ def optimise_portfolio_torch(
 ):
     """Optimizes bet stakes using PyTorch's gradient descent with soft constraints.
 
-    This function implements portfolio optimization using automatic differentiation and gradient descent.
-    Instead of hard constraints, it uses soft constraints via penalty terms in the loss function.
+    This function implements portfolio optimization using automatic differentiation and
+    gradient descent. Instead of hard constraints, it uses soft constraints via penalty
+    terms in the loss function.
 
     Args:
         list_bets (list[Bet]): List of bets to optimize. Each Bet must have edge_mean and edge_std.
@@ -151,6 +154,7 @@ def optimise_portfolio_torch(
             3. Risk control via quadratic penalty
         - Includes Shannon entropy term for diversification
         - Provides detailed diagnostics when verbose=True
+
     """
 
     # ── 1. Static inputs ---------------------------------------------------

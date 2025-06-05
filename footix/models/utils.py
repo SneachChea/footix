@@ -115,6 +115,7 @@ def implicit_intensities(
     Note:
         If the primary optimization fails, the function falls back to a grid search
         over predefined lambda values to find the best approximation.
+
     """
     proba_from_odds = np.asarray(proba_from_odds, dtype=float)
     eps = 1e-12

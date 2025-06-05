@@ -12,6 +12,7 @@ logger = logging.getLogger(name=__name__)
 
 __all__ = ["BasicPoisson"]
 
+
 class BasicPoisson:
     def __init__(self, n_teams: int, n_goals: int) -> None:
         self.n_teams = n_teams
