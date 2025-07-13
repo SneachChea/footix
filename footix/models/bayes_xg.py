@@ -62,7 +62,7 @@ class XGBayesian:
         defs = posterior["defs"].mean(dim=["chain", "draw"]).values
         beta_1 = posterior["beta_hxg"].mean(dim=["chain", "draw"]).values
         beta_2 = posterior["beta_axg"].mean(dim=["chain", "draw"]).values
-        # ---------- latent‑xG layer: use their conditional means ----------
+
         intercept_xg = posterior["intercept_xg"].mean(("chain", "draw")).item()
         home_xg = posterior["home_xg"].mean(("chain", "draw")).values
 
@@ -109,13 +109,9 @@ class XGBayesian:
         if rng is not None and not isinstance(rng, np.random.Generator):
             raise TypeError(f"'rng' must be a numpy.random.Generator or None, got {type(rng)}")
 
-        # ------------------------------------------------------------------
-        # translate team names → indices
         home_team_id, away_team_id = self.label.transform([home_team, away_team])
 
         posterior = self.trace.posterior  # xarray Dataset
-
-        # ---------- top‑level parameters (dims: chain, draw) --------------
         intercept = posterior["intercept"].values  # (c,d)
         home_adv = posterior["home"].values[..., home_team_id]
         atts_h = posterior["atts"].values[..., home_team_id]
@@ -124,21 +120,16 @@ class XGBayesian:
         defs_a = posterior["defs"].values[..., away_team_id]
         beta_hxg = posterior["beta_hxg"].values  # (c,d)
         beta_axg = posterior["beta_axg"].values  # (c,d)
-
-        # ---------- latent‑xG hyper‑parameters ----------------------------
         kappa = posterior["kappa"].values  # (c,d)
         intercept_xg = posterior["intercept_xg"].values  # (c,d)
         theta_h = np.exp(intercept_xg + posterior["home_xg"].values[..., home_team_id])  # (c,d)
         theta_a = np.exp(intercept_xg)  # (c,d)
 
-        # ---------- draw latent xG from Gamma(κ, scale=κ/θ) ----------------
         scale_h = kappa / theta_h
         scale_a = kappa / theta_a
 
         latent_xgh = rng.gamma(shape=kappa, scale=scale_h)  # (c,d)
         latent_xga = rng.gamma(shape=kappa, scale=scale_a)  # (c,d)
-
-        # ---------- convert to goal‑rate λ --------------------------------
         lambda_h = np.exp(
             intercept + home_adv + atts_h + defs_a + beta_hxg * np.log(latent_xgh + 1e-6)
         )
@@ -321,6 +312,99 @@ class CorrelatedXGBayesian:
         theta_away = float(np.exp(log_lambda_g_away))
 
         return theta_home, theta_away
+
+    def get_samples(
+        self, home_team: str, away_team: str, **kwargs: Any
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Posterior-predictive λ samples for a single fixture.
+
+        The draw for each trace sample proceeds in two steps:
+
+        1.  **Latent-xG draw** –
+            sample the fixture-level expected-goals from the Normal likelihood that
+            was used when fitting:
+            :math:`xG \\sim  \\mathcal N(\\exp(\\log\\lambda_{xG}),\\;\\sigma_{xG}^2)`.
+
+        2.  **Finishing / goals draw** –
+            propagate the latent-xG into the finishing equation to obtain a
+            Poisson rate (λ).  No Poisson noise is added here; callers can draw
+            actual goal counts themselves if they need them.
+
+        Parameters
+        ----------
+        home_team, away_team
+            Team names exactly as they appeared in the training data.
+        **kwargs
+            rng : numpy.random.Generator, optional
+                Provide your own generator for reproducible draws.
+
+        Returns
+        -------
+        lambda_home, lambda_away
+            1-D arrays of length ``n_chains × n_draws`` with the posterior-
+            predictive goal rates for the home and away team respectively.
+
+        """
+        rng = kwargs.get("rng", None)
+        rng = np.random.default_rng() if rng is None else rng
+        if not isinstance(rng, np.random.Generator):
+            raise TypeError(
+                "'rng' must be a numpy.random.Generator or None, " f"got {type(rng).__name__}"
+            )
+
+        # ─────────── map team names to integer ids ───────────
+        home_id, away_id = self.label.transform([home_team, away_team])
+
+        # ─────────── pull posterior arrays from the trace ────
+        posterior = self.trace.posterior  # xarray.Dataset
+        mu_xg = posterior["mu_xg"].values  # (c,d)
+        mu_g = posterior["mu_g"].values  # (c,d)
+        home_adv = posterior["home_adv"].values  # (c,d)
+        sigma_xg = posterior["sigma_xg"].values  # (c,d)
+
+        beta_home = posterior["beta_home"].values  # (c,d)
+        beta_away = posterior["beta_away"].values  # (c,d)
+
+        att_xg_home = posterior["att_xg"].values[..., home_id]  # (c,d)
+        att_xg_away = posterior["att_xg"].values[..., away_id]  # (c,d)
+        def_xg_home = posterior["def_xg"].values[..., home_id]
+        def_xg_away = posterior["def_xg"].values[..., away_id]
+
+        att_g_home = posterior["att_g"].values[..., home_id]
+        att_g_away = posterior["att_g"].values[..., away_id]
+        def_g_home = posterior["def_g"].values[..., home_id]
+        def_g_away = posterior["def_g"].values[..., away_id]
+
+        # ─────────── latent xG intensities per posterior draw ────────────
+        logλ_xg_home = mu_xg + home_adv + att_xg_home - def_xg_away
+        logλ_xg_away = mu_xg + att_xg_away - def_xg_home
+
+        mean_xg_home = np.exp(logλ_xg_home)
+        mean_xg_away = np.exp(logλ_xg_away)
+
+        # Draw once for every (chain, draw) cell
+        latent_xg_home = rng.normal(loc=mean_xg_home, scale=sigma_xg)
+        latent_xg_away = rng.normal(loc=mean_xg_away, scale=sigma_xg)
+
+        # Numerical safeguard – xG must stay positive
+        latent_xg_home = np.clip(latent_xg_home, 1e-6, None)
+        latent_xg_away = np.clip(latent_xg_away, 1e-6, None)
+
+        # ─────────── propagate through finishing equation ────────────────
+        logλ_g_home = (
+            mu_g
+            + home_adv
+            + att_g_home
+            - def_g_away
+            + beta_home * (np.log(latent_xg_home) - mu_xg)
+        )
+        logλ_g_away = mu_g + att_g_away - def_g_home + beta_away * (np.log(latent_xg_away) - mu_xg)
+
+        lambda_home = np.exp(logλ_g_home)  # (c,d)
+        lambda_away = np.exp(logλ_g_away)  # (c,d)
+
+        # ─────────── flatten to 1-D and return ───────────────────────────
+        return lambda_home.ravel(), lambda_away.ravel()
 
     def hierarchical_xg_correlated_model(
         self,

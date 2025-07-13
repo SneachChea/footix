@@ -166,54 +166,44 @@ def optimise_portfolio_torch(
     stake_cap = bankroll * max_fraction
     z_alpha = float(norm.ppf(1.0 - alpha))
     if gamma is None:
-        gamma = 0.9 * stake_cap  # ≈2 % of cash-at-risk
+        gamma = 0.9 * stake_cap
 
-    # ── 2. Trainable parameters (unconstrained) ---------------------------
-    #     softplus(raw) guarantees positivity; we scale later for Σs ≤ cap.
     stake_raw = torch.zeros(n, device=device, requires_grad=True, dtype=torch.float)
 
-    # ── 3. Optimiser -------------------------------------------------------
     opt = torch.optim.Adam([stake_raw], lr=lr)
 
-    # ── 4. Utility functions ----------------------------------------------
     def stakes_from_raw() -> Tensor:
         """Positive stakes respecting Σ s ≤ stake_cap (via scaling)"""
-        s_pos = torch.nn.functional.softplus(stake_raw)  # ≥0
+        s_pos = torch.nn.functional.softplus(stake_raw)
         S = torch.sum(s_pos) + 1e-8  # avoid /0
         scale = torch.minimum(
             torch.tensor(1.0, device=device), torch.tensor(stake_cap, device=device) / S
         ).float()
-        return s_pos * scale  # Σ ≤ stake_cap
+        return s_pos * scale
 
-    # ── 5. Optimisation loop ----------------------------------------------
     pbar = tqdm(range(iters))
     for t in pbar:
         opt.zero_grad()
         s = stakes_from_raw()
-        ev = torch.dot(mu, s)  # expected value
-        # Shannon entropy of stake distribution
+        ev = torch.dot(mu, s)
         p = s / (torch.sum(s) + 1e-8)
-        H = -torch.sum(p * torch.log(p + 1e-8))  # nats
+        H = -torch.sum(p * torch.log(p + 1e-8))
 
-        # chance-constraint hinge penalty     0 if satisfied, >0 if violated
         std = torch.sqrt(torch.sum((sigma * s) ** 2))
-        hinge = torch.clamp(z_alpha * std - ev, min=0.0)  # (max(⋅,0))
+        hinge = torch.clamp(z_alpha * std - ev, min=0.0)
         penalty = penalty_lambda * hinge.pow(2)
 
-        # final objective:  minimise –(EV + γH) + penalty
         loss = -(ev + gamma * H) + penalty
         loss.backward()
         opt.step()
         pbar.set_postfix({"loss": loss.item(), "EV": ev.item()})
 
-    # ── 6. Write back results ---------------------------------------------
     with torch.no_grad():
         final_stakes = stakes_from_raw().cpu().numpy()
 
     for b, s in zip(list_bets, final_stakes):
         b.stake = float(s.round())
 
-    # optional diagnostics
     if verbose:
         stake_sum = final_stakes.sum()
         retmax = sum((b.stake * b.odds for b in list_bets))

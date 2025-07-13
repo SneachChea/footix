@@ -4,9 +4,12 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 import torch
-from scipy.optimize import least_squares
+from scipy.optimize import least_squares, root
+from scipy.special import iv
 
 import footix.utils.decorators as decorators
+from footix.models.score_matrix import GoalMatrix
+from footix.utils.typing import ProbaResult
 
 
 @decorators.verify_required_column(column_names=["home_team", "fthg"])
@@ -159,3 +162,74 @@ def implicit_intensities(
         results[i] = best_t
 
     return results
+
+
+def _p0(lamda_1: float, lamda_2: float) -> float:
+    return np.exp(-(lamda_1 + lamda_2)) * iv(0, 2 * np.sqrt(lamda_1 * lamda_2))
+
+
+def _p_pos(lamda_1: float, lamda_2: float, K: int = 40) -> float:
+    k = np.arange(1, K + 1)
+    return np.sum(
+        np.exp(-(lamda_1 + lamda_2))
+        * ((lamda_1 / lamda_2) ** (k / 2) * iv(k, 2 * np.sqrt(lamda_1 * lamda_2)))
+    )
+
+
+def implied_poisson_goals(
+    bookmaker_proba: ProbaResult, *, k_sum: int = 40, nbr_goals: int = 10
+) -> GoalMatrix:
+    """Calculate implied Poisson goal distributions from bookmaker probabilities.
+
+    This function uses a system of equations to find the Poisson parameters (lambda)
+    that best match the observed probabilities from bookmakers. It solves for the
+    scoring rates of both teams using modified Bessel functions of the first kind.
+
+    Args:
+        bookmaker_proba: Probabilities from bookmaker (draw, home win, away win)
+        k_sum: Maximum number of goals to consider in summation (default: 40)
+        nbr_goals: Number of goals to generate probabilities for (default: 10)
+
+    Returns:
+        GoalMatrix containing probability distributions for home and away goals
+
+    Raises:
+        ArithmeticError: If the numerical solver fails to converge
+
+    """
+    proba_draw = bookmaker_proba.proba_draw
+    proba_home_win = bookmaker_proba.proba_home
+
+    def system(params: np.ndarray, p_0_obs: float, p_pos_obs: float) -> list[float]:
+        """System of equations to solve for Poisson parameters.
+
+        Args:
+            params: Log of lambda parameters [log(λ1), log(λ2)]
+            p_0_obs: Observed probability of draw
+            p_pos_obs: Observed probability of home win
+
+        Returns:
+            Differences between model and observed probabilities
+
+        """
+        l1, l2 = np.exp(params)
+        p_0_model = _p0(l1, l2)  # Probability of draw
+        p_pos_model = _p_pos(l1, l2, K=k_sum)  # Probability of home win
+        return [p_0_model - p_0_obs, p_pos_model - p_pos_obs]
+
+    # Initial guess for lambda parameters (log scale)
+    initial_guess = [np.log(1.2), np.log(0.9)]
+
+    # Solve system of equations
+    sol = root(system, x0=initial_guess, args=(proba_draw, proba_home_win))
+
+    if not sol.success:
+        raise ArithmeticError("Numerical solver failed to converge")
+
+    # Convert solution back from log scale
+    lamda_1, lamda_2 = np.exp(sol.x)
+
+    return GoalMatrix(
+        home_goals_probs=poisson_proba(lambda_param=lamda_1, k=nbr_goals),
+        away_goals_probs=poisson_proba(lambda_param=lamda_2, k=nbr_goals),
+    )

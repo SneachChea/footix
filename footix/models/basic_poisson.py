@@ -61,12 +61,16 @@ class BasicPoisson:
             raise ValueError(f"Away team {away_team} is not in the list.")
         i = self.dict_teams[home_team]
         j = self.dict_teams[away_team]
-        lamb = np.exp(self.alphas[i] + self.betas[j] + self.gamma)
-        mu = np.exp(self.alphas[j] + self.betas[i])
+        lamb, mu = self.goal_expectation(home_team_id=i, away_team_id=j)
         return score_matrix.GoalMatrix(
             home_goals_probs=model_utils.poisson_proba(lambda_param=lamb, k=self.n_goals),
             away_goals_probs=model_utils.poisson_proba(lambda_param=mu, k=self.n_goals),
         )
+
+    def goal_expectation(self, home_team_id: int, away_team_id: int):
+        lamb = np.exp(self.alphas[home_team_id] + self.betas[away_team_id] + self.gamma)
+        mu = np.exp(self.alphas[away_team_id] + self.betas[home_team_id])
+        return lamb, mu
 
     def mapping_team_index(self, teams: pd.Series) -> dict[str, int]:
         list_teams = list(sorted(teams.unique()))
