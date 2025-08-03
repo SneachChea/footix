@@ -107,9 +107,7 @@ def test_odds_range_config():
     config = EdgeFloorConfig(
         ranges=[
             OddsRange(min_odds=1.0, max_odds=2.0, edge=0.2, prob_edge=0.6),  # Strict for low odds
-            OddsRange(
-                min_odds=2.0, max_odds=5.0, edge=0.1, prob_edge=0.55
-            ),  # More lenient for higher odds
+            OddsRange(min_odds=2.0, max_odds=5.0, edge=0.1, prob_edge=0.55),
         ]
     )
 

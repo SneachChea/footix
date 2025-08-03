@@ -9,7 +9,6 @@ import arviz as az
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as pt
 import scipy.stats as stats
 from sklearn import preprocessing
 
@@ -80,7 +79,7 @@ class BayesianModel:
         alpha = means["alpha"]
         home_pmf = stats.nbinom.pmf(ks, alpha, alpha / (alpha + home_mu))
         away_pmf = stats.nbinom.pmf(ks, alpha, alpha / (alpha + away_mu))
-        return GoalMatrix(home_pmf, away_pmf, correlation_matrix=corr)
+        return GoalMatrix(home_pmf, away_pmf)
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
         posterior = self.trace.posterior  # type:ignore
