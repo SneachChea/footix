@@ -197,8 +197,8 @@ def implied_poisson_goals(
         ArithmeticError: If the numerical solver fails to converge
 
     """
-    proba_draw = bookmaker_proba.proba_draw
-    proba_home_win = bookmaker_proba.proba_home
+    proba_draw = bookmaker_proba[1]
+    proba_home_win = bookmaker_proba[0]
 
     def system(params: np.ndarray, p_0_obs: float, p_pos_obs: float) -> list[float]:
         """System of equations to solve for Poisson parameters.

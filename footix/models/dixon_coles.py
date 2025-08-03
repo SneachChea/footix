@@ -12,11 +12,14 @@ import torch
 import torch.nn as nn
 from sklearn import preprocessing
 from tqdm.auto import tqdm
-
+from functools import cache
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
+import os
+from scipy.special import gammaln
+from footix.utils.typing import SampleProbaResult
 
 logger = logging.getLogger(name=__name__)
 
@@ -179,24 +182,20 @@ class DixonColesBayesian:
                 stacklevel=2,
             )
 
-        # Indices numériques
         home_id, away_id = self.label.transform([home_team, away_team])
 
-        # Espérances μ_home, μ_away (postérieure moyenne)
         mu_home, mu_away = self.goal_expectation(home_team_id=home_id, away_team_id=away_id)
 
-        # Probabilités Poisson marginales jusqu’à n_goals-1
         ks = np.arange(self.n_goals)
         home_probs = stats.poisson.pmf(ks, mu_home)
         away_probs = stats.poisson.pmf(ks, mu_away)
         rho = self.trace.posterior["low_score_corr"].mean(("chain", "draw")).values.item()
         corr_matrix = np.ones((self.n_goals, self.n_goals), dtype=float)
-        kappa = np.exp(-mu_home - mu_away)
 
-        corr_matrix[0, 0] = 1 - rho * kappa
-        corr_matrix[1, 0] = 1 - rho * mu_home * kappa
-        corr_matrix[0, 1] = 1 - rho * mu_away * kappa
-        corr_matrix[1, 1] = 1 + rho * mu_home * mu_away * kappa
+        corr_matrix[1, 1] = 1 - rho
+        corr_matrix[0, 1] = 1 + rho * mu_home
+        corr_matrix[1, 0] = 1 + rho * mu_away
+        corr_matrix[0, 0] = 1 - rho * mu_home * mu_away
 
         return GoalMatrix(home_probs, away_probs, correlation_matrix=corr_matrix)
 
@@ -215,12 +214,10 @@ class DixonColesBayesian:
         mu_away = np.exp(intercept + attack[away_team_id] + defense[home_team_id])
         return mu_home, mu_away
 
-    # ---------------------------------------------------------------------
-    #  Retourne des échantillons λ_home, λ_away (pour simulation PPC)
-    # ---------------------------------------------------------------------
+    @cache
     def get_samples(
         self, home_team: str, away_team: str, **kwargs: Any
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> SampleProbaResult:
         if kwargs:
             warnings.warn(
                 f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}",
@@ -228,17 +225,53 @@ class DixonColesBayesian:
             )
 
         home_id, away_id = self.label.transform([home_team, away_team])
+
         post = self.trace.posterior
 
-        intercept = post["intercept"].values
-        home_adv = post["home_adv"].values
-        attack = post["attack"].values
-        defense = post["defense"].values
+        intercept = post["intercept"].stack(sample=("chain", "draw")).values
+        home_adv = self.trace.posterior["home_adv"].stack(sample=("chain", "draw")).values
+        attack = self.trace.posterior["attack"].stack(sample=("chain", "draw")).values
+        defense = self.trace.posterior["defense"].stack(sample=("chain", "draw")).values
+        rho = self.trace.posterior["low_score_corr"].stack(sample=("chain", "draw")).values
 
-        lam_home = np.exp(intercept + home_adv + attack[..., home_id] + defense[..., away_id])
-        lam_away = np.exp(intercept + attack[..., away_id] + defense[..., home_id])
+        n_samples = intercept.shape[0]
 
-        return lam_home.flatten(), lam_away.flatten()
+        prob_H_list = []
+        prob_D_list = []
+        prob_A_list = []
+
+
+        def dc_tau(scores_h, scores_a, lam_h, lam_a, rho):
+            tau = np.ones_like(scores_h, dtype=np.float64)
+            m00 = (scores_h == 0) & (scores_a == 0)
+            m01 = (scores_h == 0) & (scores_a == 1)
+            m10 = (scores_h == 1) & (scores_a == 0)
+            m11 = (scores_h == 1) & (scores_a == 1)
+            tau[m00] = 1.0 - lam_h*lam_a*rho
+            tau[m01] = 1.0 + lam_h*rho
+            tau[m10] = 1.0 + lam_a*rho
+            tau[m11] = 1.0 - rho
+            return tau
+
+
+        for i in range(n_samples):
+            lam_home = np.exp(intercept[i] + home_adv[home_id] + attack[home_id, i] + defense[away_id, i])
+            lam_away = np.exp(intercept[i] + attack[away_id, i] + defense[home_id, i])
+            sh = np.random.poisson(lam_home, size=200)
+            sa = np.random.poisson(lam_away, size=200)
+            tau = dc_tau(sh, sa, lam_home, lam_away, rho[i])
+            w = tau
+            w_sum = w.sum()
+            mH = sh > sa
+            mD = sh == sa
+            mA = sh < sa
+
+            prob_H_list.append(w[mH].sum()/w_sum if mH.any() else 0.0)
+            prob_D_list.append(w[mD].sum()/w_sum if mD.any() else 0.0)
+            prob_A_list.append(w[mA].sum()/w_sum if mA.any() else 0.0)
+
+        return SampleProbaResult(proba_home=np.asarray(prob_H_list),proba_draw= np.asarray(prob_D_list), proba_away= np.asarray(prob_A_list))
+
 
     # ---------------------------------------------------------------------
     #  Construction du modèle hiérarchique + échantillonnage
@@ -281,7 +314,7 @@ class DixonColesBayesian:
             )
 
             # Paramètre Dixon-Coles : corrélation des faibles scores
-            low_score_corr = pm.Uniform("low_score_corr", lower=-1.0, upper=1.0)
+            low_score_corr = pm.Uniform("low_score_corr", lower=0.0, upper=1.0)
 
             # ---------------------------
             #  Taux Poisson attendus
@@ -290,8 +323,6 @@ class DixonColesBayesian:
             rate_away = pm.math.exp(intercept + attack[a_id] + defense[h_id])
 
             def dc_logp(goals_h, goals_a, lam_h, lam_a, rho):
-                """Log-vraisemblance Dixon-Coles vectorisée compatible PyTensor."""
-                # Poisson indépendants
                 base = pm.logp(pm.Poisson.dist(mu=lam_h), goals_h) + pm.logp(
                     pm.Poisson.dist(mu=lam_a), goals_a
                 )
@@ -307,23 +338,23 @@ class DixonColesBayesian:
 
                 # Ajouts conditionnels (avec pt.switch)
                 tau = pt.switch(
-                    zero_zero,
-                    1 - rho * pt.exp(-lam_h - lam_a),
+                    one_one,
+                    1 - rho,
                     tau,
                 )
                 tau = pt.switch(
-                    one_one,
-                    1 + rho * lam_h * lam_a * pt.exp(-lam_h - lam_a),
+                    zero_zero,
+                    1 + rho * lam_h * lam_a,
                     tau,
                 )
                 tau = pt.switch(
                     one_zero,
-                    1 - rho * lam_h * pt.exp(-lam_h - lam_a),
+                    1 + rho * lam_a,
                     tau,
                 )
                 tau = pt.switch(
                     zero_one,
-                    1 - rho * lam_a * pt.exp(-lam_h - lam_a),
+                    1 + rho * lam_h,
                     tau,
                 )
 
@@ -332,17 +363,13 @@ class DixonColesBayesian:
             # Ajout au log-posterior
             pm.Potential("dc_like", dc_logp(gh, ga, rate_home, rate_away, low_score_corr).sum())
 
-            # ---------------------------
-            #  Échantillonnage NUTS
-            # ---------------------------
             trace = pm.sample(
                 2000,
                 tune=1000,
-                cores=6,
+                cores=os.cpu_count(),
                 target_accept=0.95,
                 nuts_sampler="numpyro",  # rapide + robustesse
                 init="adapt_diag_grad",
-                chains=4,
                 return_inferencedata=True,
             )
         return trace

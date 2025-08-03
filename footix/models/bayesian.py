@@ -1,27 +1,45 @@
+from __future__ import annotations
 import warnings
-from copy import copy
+import os
+import pytensor.tensor as pt
 from typing import Any
-
+import arviz as az
 import numpy as np
 import pandas as pd
 import pymc as pm
 import scipy.stats as stats
 from sklearn import preprocessing
-
+from functools import cache
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
+from footix.utils.typing import SampleProbaResult
 
+class BayesianModel:
+    """
+    Bayesian hierarchical model for football scores using a Negative Binomial
+    likelihood.
 
-class Bayesian:
+    Attributes
+    ----------
+    n_teams : int
+        Number of distinct teams in the league.
+    n_goals : int
+        Maximum number of goals considered when computing score probabilities.
+    trace : arviz.InferenceData | None
+        Posterior samples after calling `fit`. None until the model is fitted.
+    """
+
     def __init__(self, n_teams: int, n_goals: int):
         self.n_teams = n_teams
         self.n_goals = n_goals
+        self.trace: az.InferenceData | None = None
         self.label = preprocessing.LabelEncoder()
 
     @verify_required_column(column_names={"home_team", "away_team", "fthg", "ftag"})
     def fit(self, X_train: pd.DataFrame):
-        x_train_cop = copy(X_train)
-        self.label.fit(X_train["home_team"])  # type: ignore
+        x_train_cop = X_train.copy(deep=False)
+        teams = pd.concat([X_train["home_team"], X_train["away_team"]]).unique()
+        self.label.fit(teams)  # type: ignore
         x_train_cop["home_team_id"] = self.label.transform(X_train["home_team"])
         x_train_cop["away_team_id"] = self.label.transform(X_train["away_team"])
 
@@ -31,29 +49,43 @@ class Bayesian:
         away_team = x_train_cop["away_team_id"].to_numpy()
         self.trace = self.hierarchical_bayes(goals_home_obs, goals_away_obs, home_team, away_team)
 
-    def predict(self, home_team: str, away_team: str, **kwargs: Any) -> GoalMatrix:
-        if kwargs:
-            warnings.warn(
-                f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}", stacklevel=2
-            )
-        # map team name → integer id
+    @cache
+    def _posterior_means(self) -> dict[str, np.ndarray]:
+        p = self.trace.posterior
+        self._cached_means = {
+            "home": p["home"].mean(("chain", "draw")).values,
+            "intercept": p["intercept"].mean(("chain", "draw")).values.item(),
+            "atts": p["atts"].mean(("chain", "draw")).values,
+            "defs": p["defs"].mean(("chain", "draw")).values,
+            "alpha": p["alpha_NB"].mean(("chain", "draw")).values.item(),
+            "rho":       p["rho_diag"].mean(("chain", "draw")).values.item(),
+        }
+        return self._cached_means
+
+    def predict(self, home_team: str, away_team: str, join_distribution: bool = False) -> GoalMatrix:
+
         home_id, away_id = self.label.transform([home_team, away_team])
 
-        # now also grab alpha
-        home_mu, away_mu, alpha = self.goal_expectation(home_team_id=home_id, away_team_id=away_id)
-
-        # scipy's nbinom uses (n, p) where
-        #   mean = n * (1−p) / p   →   p = n / (n + μ)
-        r_home = alpha
-        p_home = r_home / (r_home + home_mu)
-        r_away = alpha
-        p_away = r_away / (r_away + away_mu)
+        means = self._posterior_means()
+        home_mu = np.exp(
+            means["intercept"] + means["home"][home_id] +
+            means["atts"][home_id] + means["defs"][away_id]
+        )
+        away_mu = np.exp(
+            means["intercept"] + means["atts"][away_id] + means["defs"][home_id]
+        )
 
         ks = np.arange(self.n_goals)
-        home_goals_probs = stats.nbinom.pmf(ks, r_home, p_home)
-        away_goals_probs = stats.nbinom.pmf(ks, r_away, p_away)
+        alpha = means["alpha"]
+        home_pmf = stats.nbinom.pmf(ks, alpha, alpha / (alpha + home_mu))
+        away_pmf = stats.nbinom.pmf(ks, alpha, alpha / (alpha + away_mu))
+        if join_distribution:
+            rho = means.get("rho_diag", 0.0)  # fallback if not present
+            corr = np.ones((self.n_goals, self.n_goals))
+            np.fill_diagonal(corr, 1.0 + rho)
+            return GoalMatrix(home_pmf, away_pmf, correlation_matrix=corr)
 
-        return GoalMatrix(home_goals_probs, away_goals_probs)
+        return GoalMatrix(home_pmf, away_pmf)
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
         posterior = self.trace.posterior
@@ -72,9 +104,11 @@ class Bayesian:
         # return both expectations and the dispersion α
         return home_mu, away_mu, alpha
 
+
+    @cache
     def get_samples(
         self, home_team: str, away_team: str, **kwargs: Any
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> SampleProbaResult:
         """Generates posterior predictive samples for the specified home and away teams based on
         the model.
 
@@ -98,18 +132,48 @@ class Bayesian:
             )
 
         team_id = self.label.transform([home_team, away_team])
-        posterior = self.trace.posterior
+
         home_team_id = team_id[0]
         away_team_id = team_id[1]
-        home = posterior["home"].values
-        intercept = posterior["intercept"].values
-        atts = posterior["atts"].values
-        defs = posterior["defs"].values
-        lambda_h = np.exp(
-            intercept + home[..., home_team_id] + atts[..., home_team_id] + defs[..., away_team_id]
-        )
-        lambda_a = np.exp(intercept + atts[..., away_team_id] + defs[..., home_team_id])
-        return lambda_h.flatten(), lambda_a.flatten()
+        home = self.trace.posterior["home"].stack(sample=("chain", "draw")).values
+        atts = self.trace.posterior["atts"].stack(sample=("chain", "draw")).values
+        defs = self.trace.posterior["defs"].stack(sample=("chain", "draw")).values
+        intercept = self.trace.posterior["intercept"].stack(sample=("chain", "draw")).values
+        alpha = self.trace.posterior["alpha_NB"].stack(sample=("chain", "draw")).values
+        n_samples = intercept.shape[0]
+
+        prob_H_list = []
+        prob_D_list = []
+        prob_A_list = []
+
+
+        for i in range(n_samples):
+            mu_home = np.exp(
+                intercept[i]
+                + home[home_team_id, i]
+                + atts[home_team_id, i]
+                + defs[away_team_id, i]
+            )
+            mu_away = np.exp(
+                intercept[i]
+                + atts[away_team_id, i]
+                + defs[home_team_id, i]
+            )
+            alpha_i = alpha[i]
+
+            home_goals = np.random.negative_binomial(alpha_i, alpha_i / (alpha_i + mu_home), 150)
+            away_goals = np.random.negative_binomial(alpha_i, alpha_i / (alpha_i + mu_away), 150)
+            prob_H = np.mean(home_goals > away_goals)
+            prob_D = np.mean(home_goals == away_goals)
+            prob_A = np.mean(home_goals < away_goals)
+
+            prob_H_list.append(prob_H)
+            prob_D_list.append(prob_D)
+            prob_A_list.append(prob_A)
+
+        return SampleProbaResult(proba_home=np.asarray(prob_H_list),proba_draw= np.asarray(prob_D_list), proba_away= np.asarray(prob_A_list))
+
+
 
     def hierarchical_bayes(
         self,
@@ -127,7 +191,9 @@ class Bayesian:
 
             # Home advantage and intercept
             home = pm.Normal("home", mu=0, sigma=1, shape=self.n_teams)
-            intercept = pm.Normal("intercept", mu=3, sigma=1)
+            intercept = pm.Normal("intercept", mu=0.4, sigma=0.5)
+
+            rho_diag = pm.HalfNormal("rho_diag", sigma=0.3)
 
             # Attack ratings with non-centered parameterization
             tau_att = pm.HalfNormal("tau_att", sigma=2)
@@ -140,6 +206,7 @@ class Bayesian:
             defs_uncentered = raw_defs * tau_def
             defs = pm.Deterministic("defs", defs_uncentered - pm.math.mean(defs_uncentered))
             alpha = pm.HalfCauchy("alpha_NB", 2.0)  # dispersion (α → 0 recovers Poisson)
+
 
             # Calculate theta for home and away
             home_theta = pm.math.exp(
@@ -158,6 +225,12 @@ class Bayesian:
                 alpha=alpha,
                 observed=goals_away_data,
             )
+            # ─── inflation de la diagonale (toutes valeurs de buts) ──
+            same_score = pt.eq(goals_home_obs, goals_away_obs)
+            log_weight = pt.switch(same_score,
+                                pt.log1p(rho_diag),  # log(1+ρ)
+                                0.0)
+            pm.Potential("draw_inflation", log_weight)
 
             # Goal likelihood
             # pm.Poisson("home_goals", mu=home_theta, observed=goals_home_data)
@@ -166,7 +239,7 @@ class Bayesian:
             trace = pm.sample(
                 2000,
                 tune=1000,
-                cores=6,
+                cores=os.cpu_count(),
                 target_accept=0.95,
                 return_inferencedata=True,
                 nuts_sampler="numpyro",
