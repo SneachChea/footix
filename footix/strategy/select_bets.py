@@ -1,15 +1,16 @@
+from dataclasses import dataclass, field
+from typing import NamedTuple, Optional, Sequence
+
 import numpy as np
 
-from dataclasses import dataclass, field
-from typing import Optional, NamedTuple, Sequence, cast
-
-from footix.strategy._utils import _skellam_post_probs
 from footix.strategy.bets import Bet, OddsInput
 from footix.utils.typing import SampleProbaResult
+
 
 class Thresholds(NamedTuple):
     edge_floor: float
     prob_edge: Optional[float] = None
+
 
 class OddsRange(NamedTuple):
     """Represents an odds range and its corresponding edge and probability thresholds.
@@ -19,11 +20,14 @@ class OddsRange(NamedTuple):
         max_odds: Maximum odds value (inclusive)
         edge: Required edge floor for this odds range
         prob_edge: Required probability of positive edge (optional)
+
     """
+
     min_odds: float
     max_odds: float
     edge: float
     prob_edge: Optional[float] = None
+
 
 @dataclass(slots=True)
 class EdgeFloorConfig:
@@ -163,11 +167,11 @@ def select_matches_posterior(
 
     """
     if config is None:
-        config = EdgeFloorConfig(default_edge_floor=edge_floor, default_prob_edge=prob_edge_threshold)
-
+        config = EdgeFloorConfig(
+            default_edge_floor=edge_floor, default_prob_edge=prob_edge_threshold
+        )
 
     selected: list[Bet] = []
-
 
     for odd in odds_input:
         p_home, p_draw, p_away = lambda_samples[odd.match_id]
@@ -246,5 +250,3 @@ def select_bets_by_probability(
                 selections.append(_build_bet(odd, outcomes=outcomes, pick=int(pick), prob=p[pick]))
 
     return selections
-
-

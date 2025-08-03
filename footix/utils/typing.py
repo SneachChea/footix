@@ -30,13 +30,13 @@ class ProbaResult(NamedTuple):
 
 
 class SampleProbaResult(NamedTuple):
-    """
-    A NamedTuple representing the probability results for a match outcome.
+    """A NamedTuple representing the probability results for a match outcome.
 
     Attributes:
         proba_home (np.ndarray): Array of probabilities for the home team winning.
         proba_draw (np.ndarray): Array of probabilities for a draw.
         proba_away (np.ndarray): Array of probabilities for the away team winning.
+
     """
 
     proba_home: np.ndarray

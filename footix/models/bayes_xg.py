@@ -1,3 +1,4 @@
+import os
 import warnings
 from copy import copy
 from typing import Any
@@ -10,7 +11,7 @@ from sklearn import preprocessing
 
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
-import os
+
 
 class XGBayesian:
     def __init__(self, n_teams: int, n_goals: int):
@@ -57,15 +58,15 @@ class XGBayesian:
     def goal_expectation(self, home_team_id: int, away_team_id: int):
         post = self.trace.posterior
 
-        alpha     = post["alpha_xg"].mean(("chain","draw")).item()
-        home_adv  = post["home_adv_xg"].mean(("chain","draw")).item()
-        att       = post["att"].mean(("chain","draw")).values
-        deff      = post["def"].mean(("chain","draw")).values
-        alpha_g   = post["alpha_goal"].mean(("chain","draw")).item()
-        delta     = post["delta"].mean(("chain","draw")).item()
+        alpha = post["alpha_xg"].mean(("chain", "draw")).item()
+        home_adv = post["home_adv_xg"].mean(("chain", "draw")).item()
+        att = post["att"].mean(("chain", "draw")).values
+        deff = post["def"].mean(("chain", "draw")).values
+        alpha_g = post["alpha_goal"].mean(("chain", "draw")).item()
+        delta = post["delta"].mean(("chain", "draw")).item()
 
         eta_h = alpha + home_adv + att[home_team_id] - deff[away_team_id]
-        eta_a = alpha            + att[away_team_id] - deff[home_team_id]
+        eta_a = alpha + att[away_team_id] - deff[home_team_id]
 
         home_theta = np.exp(alpha_g + delta * eta_h)
         away_theta = np.exp(alpha_g + delta * eta_a)
@@ -137,56 +138,59 @@ class XGBayesian:
         home_team: np.ndarray,
         away_team: np.ndarray,
     ):
-
-        with pm.Model() as model:
+        with pm.Model():
             # Data
             goals_home = pm.Data("goals_home", goals_home_obs)
             goals_away = pm.Data("goals_away", goals_away_obs)
-            xg_home    = pm.Data("xg_home", xg_home_obs)
-            xg_away    = pm.Data("xg_away", xg_away_obs)
-            h_idx      = pm.Data("home_team", home_team)
-            a_idx      = pm.Data("away_team", away_team)
+            xg_home = pm.Data("xg_home", xg_home_obs)
+            xg_away = pm.Data("xg_away", xg_away_obs)
+            h_idx = pm.Data("home_team", home_team)
+            a_idx = pm.Data("away_team", away_team)
 
             # Shared latent team strengths (sum-to-zero, non-centered)
             tau_att = pm.HalfNormal("tau_att", 1.5)
             tau_def = pm.HalfNormal("tau_def", 1.5)
             raw_att = pm.Normal("raw_att", 0, 1, shape=self.n_teams)
             raw_def = pm.Normal("raw_def", 0, 1, shape=self.n_teams)
-            att_u   = raw_att * tau_att
-            def_u   = raw_def * tau_def
-            att     = pm.Deterministic("att", att_u - pm.math.mean(att_u))
-            deff    = pm.Deterministic("def", def_u - pm.math.mean(def_u))
+            att_u = raw_att * tau_att
+            def_u = raw_def * tau_def
+            att = pm.Deterministic("att", att_u - pm.math.mean(att_u))
+            deff = pm.Deterministic("def", def_u - pm.math.mean(def_u))
 
             # Shared linear predictor for chance creation
-            alpha     = pm.Normal("alpha_xg", 0.0, 1.5)   # baseline
-            home_adv  = pm.Normal("home_adv_xg", 0.0, 0.5)
+            alpha = pm.Normal("alpha_xg", 0.0, 1.5)  # baseline
+            home_adv = pm.Normal("home_adv_xg", 0.0, 0.5)
             eta_h = alpha + home_adv + att[h_idx] - deff[a_idx]
-            eta_a = alpha +            att[a_idx] - deff[h_idx]
+            eta_a = alpha + att[a_idx] - deff[h_idx]
 
             # xG submodel (Gamma; mean = exp(eta))
             kappa = pm.HalfNormal("kappa_xg", 2.0)  # shape
             theta_xg_h = pm.Deterministic("theta_xg_h", pm.math.exp(eta_h))
             theta_xg_a = pm.Deterministic("theta_xg_a", pm.math.exp(eta_a))
-            pm.Gamma("xg_home_like",  alpha=kappa, beta=kappa/theta_xg_h, observed=xg_home)
-            pm.Gamma("xg_away_like",  alpha=kappa, beta=kappa/theta_xg_a, observed=xg_away)
+            pm.Gamma("xg_home_like", alpha=kappa, beta=kappa / theta_xg_h, observed=xg_home)
+            pm.Gamma("xg_away_like", alpha=kappa, beta=kappa / theta_xg_a, observed=xg_away)
 
             # Goal submodel: goals ~ Poisson(c * theta_xg^delta)
             alpha_goal = pm.Normal("alpha_goal", 0.0, 1.0)
-            delta      = pm.Normal("delta", 1.0, 0.3)     # link from xG-rate to goals
+            delta = pm.Normal("delta", 1.0, 0.3)  # link from xG-rate to goals
             lam_h = pm.Deterministic("lambda_h", pm.math.exp(alpha_goal + delta * eta_h))
             lam_a = pm.Deterministic("lambda_a", pm.math.exp(alpha_goal + delta * eta_a))
             pm.Poisson("home_goals", mu=lam_h, observed=goals_home)
             pm.Poisson("away_goals", mu=lam_a, observed=goals_away)
 
             trace = pm.sample(
-                2000, tune=1000,
-                cores=os.cpu_count(), target_accept=0.95,
-                nuts_sampler="numpyro", init="adapt_diag_grad",
+                2000,
+                tune=1000,
+                cores=os.cpu_count(),
+                target_accept=0.95,
+                nuts_sampler="numpyro",
+                init="adapt_diag_grad",
                 return_inferencedata=True,
             )
 
         self.trace = trace
         return trace
+
 
 class CorrelatedXGBayesian:
     def __init__(self, n_teams: int, n_goals: int):

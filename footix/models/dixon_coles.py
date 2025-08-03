@@ -1,6 +1,8 @@
 import logging
+import os
 import warnings
 from copy import copy
+from functools import cache
 from typing import Any
 
 import numpy as np
@@ -12,13 +14,11 @@ import torch
 import torch.nn as nn
 from sklearn import preprocessing
 from tqdm.auto import tqdm
-from functools import cache
+
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
-import os
-from scipy.special import gammaln
 from footix.utils.typing import SampleProbaResult
 
 logger = logging.getLogger(name=__name__)
@@ -215,9 +215,7 @@ class DixonColesBayesian:
         return mu_home, mu_away
 
     @cache
-    def get_samples(
-        self, home_team: str, away_team: str, **kwargs: Any
-    ) -> SampleProbaResult:
+    def get_samples(self, home_team: str, away_team: str, **kwargs: Any) -> SampleProbaResult:
         if kwargs:
             warnings.warn(
                 f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}",
@@ -240,22 +238,22 @@ class DixonColesBayesian:
         prob_D_list = []
         prob_A_list = []
 
-
         def dc_tau(scores_h, scores_a, lam_h, lam_a, rho):
             tau = np.ones_like(scores_h, dtype=np.float64)
             m00 = (scores_h == 0) & (scores_a == 0)
             m01 = (scores_h == 0) & (scores_a == 1)
             m10 = (scores_h == 1) & (scores_a == 0)
             m11 = (scores_h == 1) & (scores_a == 1)
-            tau[m00] = 1.0 - lam_h*lam_a*rho
-            tau[m01] = 1.0 + lam_h*rho
-            tau[m10] = 1.0 + lam_a*rho
+            tau[m00] = 1.0 - lam_h * lam_a * rho
+            tau[m01] = 1.0 + lam_h * rho
+            tau[m10] = 1.0 + lam_a * rho
             tau[m11] = 1.0 - rho
             return tau
 
-
         for i in range(n_samples):
-            lam_home = np.exp(intercept[i] + home_adv[home_id] + attack[home_id, i] + defense[away_id, i])
+            lam_home = np.exp(
+                intercept[i] + home_adv[home_id] + attack[home_id, i] + defense[away_id, i]
+            )
             lam_away = np.exp(intercept[i] + attack[away_id, i] + defense[home_id, i])
             sh = np.random.poisson(lam_home, size=200)
             sa = np.random.poisson(lam_away, size=200)
@@ -266,12 +264,15 @@ class DixonColesBayesian:
             mD = sh == sa
             mA = sh < sa
 
-            prob_H_list.append(w[mH].sum()/w_sum if mH.any() else 0.0)
-            prob_D_list.append(w[mD].sum()/w_sum if mD.any() else 0.0)
-            prob_A_list.append(w[mA].sum()/w_sum if mA.any() else 0.0)
+            prob_H_list.append(w[mH].sum() / w_sum if mH.any() else 0.0)
+            prob_D_list.append(w[mD].sum() / w_sum if mD.any() else 0.0)
+            prob_A_list.append(w[mA].sum() / w_sum if mA.any() else 0.0)
 
-        return SampleProbaResult(proba_home=np.asarray(prob_H_list),proba_draw= np.asarray(prob_D_list), proba_away= np.asarray(prob_A_list))
-
+        return SampleProbaResult(
+            proba_home=np.asarray(prob_H_list),
+            proba_draw=np.asarray(prob_D_list),
+            proba_away=np.asarray(prob_A_list),
+        )
 
     # ---------------------------------------------------------------------
     #  Construction du modèle hiérarchique + échantillonnage
