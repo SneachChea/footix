@@ -38,7 +38,6 @@ DICO_COMPATIBILITY: Final[dict[str, str]] = {
     "Metz": "Metz",
     "Pau": "Pau FC",
     "Laval": "Laval",
-    "Grenoble": "Grenoble",
     "Bordeaux": "Bordeaux",
     "Caen": "Caen",
     "Paris FC": "Paris FC",
