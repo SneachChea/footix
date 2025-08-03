@@ -10,10 +10,10 @@ from footix.utils.decorators import verify_required_column
 
 logger = logging.getLogger(name=__name__)
 
-__all__ = ["BasicPoisson"]
+__all__ = ["PoissonModel"]
 
 
-class BasicPoisson:
+class PoissonModel:
     def __init__(self, n_teams: int, n_goals: int) -> None:
         self.n_teams = n_teams
         self.n_goals = n_goals

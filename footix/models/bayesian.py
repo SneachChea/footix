@@ -54,7 +54,7 @@ class BayesianModel:
 
     @cache
     def _posterior_means(self) -> dict[str, np.ndarray]:
-        p = self.trace.posterior
+        p = self.trace.posterior  # type:ignore
         self._cached_means = {
             "home": p["home"].mean(("chain", "draw")).values,
             "intercept": p["intercept"].mean(("chain", "draw")).values.item(),
@@ -92,7 +92,7 @@ class BayesianModel:
         return GoalMatrix(home_pmf, away_pmf)
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
-        posterior = self.trace.posterior
+        posterior = self.trace.posterior  # type:ignore
 
         # posterior means
         home = posterior["home"].mean(dim=["chain", "draw"]).values
@@ -136,11 +136,12 @@ class BayesianModel:
 
         home_team_id = team_id[0]
         away_team_id = team_id[1]
-        home = self.trace.posterior["home"].stack(sample=("chain", "draw")).values
-        atts = self.trace.posterior["atts"].stack(sample=("chain", "draw")).values
-        defs = self.trace.posterior["defs"].stack(sample=("chain", "draw")).values
-        intercept = self.trace.posterior["intercept"].stack(sample=("chain", "draw")).values
-        alpha = self.trace.posterior["alpha_NB"].stack(sample=("chain", "draw")).values
+        _posterior = self.trace.posterior  # type:ignore
+        home = _posterior["home"].stack(sample=("chain", "draw")).values
+        atts = _posterior["atts"].stack(sample=("chain", "draw")).values
+        defs = _posterior["defs"].stack(sample=("chain", "draw")).values
+        intercept = _posterior["intercept"].stack(sample=("chain", "draw")).values
+        alpha = _posterior["alpha_NB"].stack(sample=("chain", "draw")).values
         n_samples = intercept.shape[0]
 
         prob_H_list = []
@@ -179,7 +180,7 @@ class BayesianModel:
         goals_away_obs: np.ndarray,
         home_team: np.ndarray,
         away_team: np.ndarray,
-    ):
+    ) -> az.InferenceData:
         with pm.Model():
             # Use pm.Data for the observed data and covariates
             goals_home_data = pm.Data("goals_home", goals_home_obs)
