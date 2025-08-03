@@ -87,7 +87,8 @@ def test_edge_floor_filtering():
 
 
 def test_odds_range_config():
-    """Test that EdgeFloorConfig properly applies different thresholds for different odds ranges."""
+    """Test that EdgeFloorConfig properly applies different thresholds
+    for different odds ranges."""
     odds_input = [
         OddsInput("Home1", "Away1", [1.5, 3.0, 4.0]),  # Low odds
         OddsInput("Home2", "Away2", [3.0, 3.5, 4.0]),  # Medium odds

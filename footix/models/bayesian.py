@@ -61,13 +61,10 @@ class BayesianModel:
             "atts": p["atts"].mean(("chain", "draw")).values,
             "defs": p["defs"].mean(("chain", "draw")).values,
             "alpha": p["alpha_NB"].mean(("chain", "draw")).values.item(),
-            "rho": p["rho_diag"].mean(("chain", "draw")).values.item(),
         }
         return self._cached_means
 
-    def predict(
-        self, home_team: str, away_team: str, join_distribution: bool = False
-    ) -> GoalMatrix:
+    def predict(self, home_team: str, away_team: str) -> GoalMatrix:
         home_id, away_id = self.label.transform([home_team, away_team])
 
         means = self._posterior_means()
@@ -83,13 +80,7 @@ class BayesianModel:
         alpha = means["alpha"]
         home_pmf = stats.nbinom.pmf(ks, alpha, alpha / (alpha + home_mu))
         away_pmf = stats.nbinom.pmf(ks, alpha, alpha / (alpha + away_mu))
-        if join_distribution:
-            rho = means.get("rho_diag", 0.0)  # fallback if not present
-            corr = np.ones((self.n_goals, self.n_goals))
-            np.fill_diagonal(corr, 1.0 + rho)
-            return GoalMatrix(home_pmf, away_pmf, correlation_matrix=corr)
-
-        return GoalMatrix(home_pmf, away_pmf)
+        return GoalMatrix(home_pmf, away_pmf, correlation_matrix=corr)
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
         posterior = self.trace.posterior  # type:ignore
@@ -192,8 +183,6 @@ class BayesianModel:
             home = pm.Normal("home", mu=0, sigma=1, shape=self.n_teams)
             intercept = pm.Normal("intercept", mu=0.4, sigma=0.5)
 
-            rho_diag = pm.HalfNormal("rho_diag", sigma=0.3)
-
             # Attack ratings with non-centered parameterization
             tau_att = pm.HalfNormal("tau_att", sigma=2)
             raw_atts = pm.Normal("raw_atts", mu=0, sigma=1, shape=self.n_teams)
@@ -223,10 +212,6 @@ class BayesianModel:
                 alpha=alpha,
                 observed=goals_away_data,
             )
-            # ─── inflation de la diagonale (toutes valeurs de buts) ──
-            same_score = pt.eq(goals_home_obs, goals_away_obs)
-            log_weight = pt.switch(same_score, pt.log1p(rho_diag), 0.0)  # log(1+ρ)
-            pm.Potential("draw_inflation", log_weight)
 
             # Goal likelihood
             # pm.Poisson("home_goals", mu=home_theta, observed=goals_home_data)
