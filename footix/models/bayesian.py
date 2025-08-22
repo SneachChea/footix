@@ -220,7 +220,7 @@ class BayesianModel:
                 2000,
                 tune=1000,
                 cores=os.cpu_count(),
-                target_accept=0.95,
+                target_accept=0.9,
                 return_inferencedata=True,
                 nuts_sampler="numpyro",
                 init="adapt_diag_grad",

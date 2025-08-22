@@ -45,6 +45,16 @@ class GoalMatrix:
         home_win = np.sum(np.tril(self.matrix_array, -1))
         draw = np.sum(np.diag(self.matrix_array))
         away_win = np.sum(np.triu(self.matrix_array, 1))
+
+        tail_mass = 1.0 - self.matrix_array.sum()
+
+        if tail_mass > 0:
+            s = home_win + draw + away_win
+            home_win, draw, away_win = (
+                home_win + tail_mass * (home_win / s),
+                draw + tail_mass * (draw / s),
+                away_win + tail_mass * (away_win / s),
+            )
         return ProbaResult(proba_home=home_win, proba_draw=draw, proba_away=away_win)
 
     def less_15_goals(self) -> float:

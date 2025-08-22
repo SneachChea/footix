@@ -11,6 +11,7 @@ from sklearn import preprocessing
 
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
+from footix.utils.typing import SampleProbaResult
 
 
 class XGBayesian:
@@ -30,8 +31,8 @@ class XGBayesian:
 
         goals_home_obs = x_train_cop["fthg"].to_numpy()
         goals_away_obs = x_train_cop["ftag"].to_numpy()
-        xg_home_obs = x_train_cop["fthxg"].to_numpy()
-        xg_away_obs = x_train_cop["ftaxg"].to_numpy()
+        xg_home_obs = np.clip(x_train_cop["fthxg"].to_numpy(), a_min=1e-5, a_max=None)
+        xg_away_obs = np.clip(x_train_cop["ftaxg"].to_numpy(), a_min=1e-5, a_max=None)
         home_team = x_train_cop["home_team_id"].to_numpy()
         away_team = x_train_cop["away_team_id"].to_numpy()
         self.trace = self.hierarchical_joint_xg_goals(
@@ -72,9 +73,7 @@ class XGBayesian:
         away_theta = np.exp(alpha_g + delta * eta_a)
         return home_theta, away_theta
 
-    def get_samples(
-        self, home_team: str, away_team: str, **kwargs: Any
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def get_samples(self, home_team: str, away_team: str, **kwargs: Any) -> SampleProbaResult:
         """Posterior‑predictive λ samples for one fixture, including Gamma‑sampled latent‑xG
         uncertainty.
 
@@ -116,6 +115,8 @@ class XGBayesian:
         theta_h = np.exp(intercept_xg + posterior["home_xg"].values[..., home_team_id])  # (c,d)
         theta_a = np.exp(intercept_xg)  # (c,d)
 
+        n_sample = intercept.shape[0]
+
         scale_h = kappa / theta_h
         scale_a = kappa / theta_a
 
@@ -124,10 +125,29 @@ class XGBayesian:
         lambda_h = np.exp(
             intercept + home_adv + atts_h + defs_a + beta_hxg * np.log(latent_xgh + 1e-6)
         )
-
         lambda_a = np.exp(intercept + atts_a + defs_h + beta_axg * np.log(latent_xga + 1e-6))
+        lambda_h = lambda_h.ravel()
+        lambda_a = lambda_a.ravel()
+        prob_H_list = []
+        prob_D_list = []
+        prob_A_list = []
 
-        return lambda_h.ravel(), lambda_a.ravel()
+        for i in range(n_sample):
+            home_goals = rng.poisson(lam=lambda_h[i], size=150)
+            away_goals = rng.poisson(lam=lambda_a[i], size=150)
+            prob_H = np.mean(home_goals > away_goals)
+            prob_D = np.mean(home_goals == away_goals)
+            prob_A = np.mean(home_goals < away_goals)
+
+            prob_H_list.append(prob_H)
+            prob_D_list.append(prob_D)
+            prob_A_list.append(prob_A)
+
+        return SampleProbaResult(
+            proba_home=np.asarray(prob_H_list),
+            proba_draw=np.asarray(prob_D_list),
+            proba_away=np.asarray(prob_A_list),
+        )
 
     def hierarchical_joint_xg_goals(
         self,
@@ -172,12 +192,11 @@ class XGBayesian:
 
             # Goal submodel: goals ~ Poisson(c * theta_xg^delta)
             alpha_goal = pm.Normal("alpha_goal", 0.0, 1.0)
-            delta = pm.Normal("delta", 1.0, 0.3)  # link from xG-rate to goals
+            delta = pm.TruncatedNormal("delta", 1.0, 0.3, lower=0.0)  # link from xG-rate to goals
             lam_h = pm.Deterministic("lambda_h", pm.math.exp(alpha_goal + delta * eta_h))
             lam_a = pm.Deterministic("lambda_a", pm.math.exp(alpha_goal + delta * eta_a))
             pm.Poisson("home_goals", mu=lam_h, observed=goals_home)
             pm.Poisson("away_goals", mu=lam_a, observed=goals_away)
-
             trace = pm.sample(
                 2000,
                 tune=1000,
@@ -189,299 +208,4 @@ class XGBayesian:
             )
 
         self.trace = trace
-        return trace
-
-
-class CorrelatedXGBayesian:
-    def __init__(self, n_teams: int, n_goals: int):
-        self.n_teams = n_teams
-        self.n_goals = n_goals
-        self.label = preprocessing.LabelEncoder()
-
-    @verify_required_column(
-        column_names={"home_team", "away_team", "fthg", "ftag", "fthxg", "ftaxg"}
-    )
-    def fit(self, X_train: pd.DataFrame):
-        x_train_cop = copy(X_train)
-        self.label.fit(X_train["home_team"])  # type: ignore
-        x_train_cop["home_team_id"] = self.label.transform(X_train["home_team"])
-        x_train_cop["away_team_id"] = self.label.transform(X_train["away_team"])
-
-        goals_home_obs = x_train_cop["fthg"].to_numpy()
-        goals_away_obs = x_train_cop["ftag"].to_numpy()
-        xg_home_obs = x_train_cop["fthxg"].to_numpy()
-        xg_away_obs = x_train_cop["ftaxg"].to_numpy()
-        home_team = x_train_cop["home_team_id"].to_numpy()
-        away_team = x_train_cop["away_team_id"].to_numpy()
-        self.trace = self.hierarchical_xg_correlated_model(
-            goals_home_obs, goals_away_obs, xg_home_obs, xg_away_obs, home_team, away_team
-        )
-
-    def predict(self, home_team: str, away_team: str, **kwargs: Any) -> GoalMatrix:
-        if kwargs:
-            warnings.warn(
-                f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}", stacklevel=2
-            )
-        team_id = self.label.transform([home_team, away_team])
-
-        home_goal_expectation, away_goal_expectation = self.goal_expectation(
-            home_team_id=team_id[0], away_team_id=team_id[1]
-        )
-
-        home_probs = stats.poisson.pmf(range(self.n_goals), home_goal_expectation)
-        away_probs = stats.poisson.pmf(range(self.n_goals), away_goal_expectation)
-
-        goals_matrix = GoalMatrix(home_probs, away_probs)
-        return goals_matrix
-
-    def goal_expectation(self, home_team_id: int, away_team_id: int):
-        """Return the posterior-mean expected goals (θ_home, θ_away) for one fixture.
-
-        Parameters
-        ----------
-        home_team_id, away_team_id : int
-            Integer indices 0 … n_teams-1 that were used when the model was
-            fitted.
-
-        Returns
-        -------
-        tuple[float, float]
-            Posterior-mean of the Negative-Binomial means (λ) for
-            home- and away-team goals.
-
-        """
-        posterior = self.trace.posterior
-
-        # ───────────────── global effects ──────────────────
-        home_adv = posterior["home_adv"].mean(("chain", "draw")).item()
-        mu_g = posterior["mu_g"].mean(("chain", "draw")).item()  # or "mu_g"
-        mu_xg = posterior["mu_xg"].mean(("chain", "draw")).item()  # or "mu_xg"
-
-        beta_home = posterior["beta_home"].mean(("chain", "draw")).item()
-        beta_away = posterior["beta_away"].mean(("chain", "draw")).item()
-
-        # ───────────────── team-level effects ──────────────
-        att_xg = posterior["att_xg"].mean(("chain", "draw")).values  # (teams,)
-        att_g = posterior["att_g"].mean(("chain", "draw")).values
-        def_xg = posterior["def_xg"].mean(("chain", "draw")).values
-        def_g = posterior["def_g"].mean(("chain", "draw")).values
-
-        # ───────────────── latent log-intensities ──────────
-        log_lambda_xg_home = mu_xg + home_adv + att_xg[home_team_id] - def_xg[away_team_id]
-        log_lambda_xg_away = mu_xg + att_xg[away_team_id] - def_xg[home_team_id]
-
-        log_lambda_g_home = (
-            mu_g
-            + home_adv
-            + att_g[home_team_id]
-            - def_g[away_team_id]
-            + beta_home * (log_lambda_xg_home - mu_xg)
-        )
-        log_lambda_g_away = (
-            mu_g
-            + att_g[away_team_id]
-            - def_g[home_team_id]
-            + beta_away * (log_lambda_xg_away - mu_xg)
-        )
-
-        # ───────────────── expected goals (means of NB) ────
-        theta_home = float(np.exp(log_lambda_g_home))
-        theta_away = float(np.exp(log_lambda_g_away))
-
-        return theta_home, theta_away
-
-    def get_samples(
-        self, home_team: str, away_team: str, **kwargs: Any
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Posterior-predictive λ samples for a single fixture.
-
-        The draw for each trace sample proceeds in two steps:
-
-        1.  **Latent-xG draw** –
-            sample the fixture-level expected-goals from the Normal likelihood that
-            was used when fitting:
-            :math:`xG \\sim  \\mathcal N(\\exp(\\log\\lambda_{xG}),\\;\\sigma_{xG}^2)`.
-
-        2.  **Finishing / goals draw** –
-            propagate the latent-xG into the finishing equation to obtain a
-            Poisson rate (λ).  No Poisson noise is added here; callers can draw
-            actual goal counts themselves if they need them.
-
-        Parameters
-        ----------
-        home_team, away_team
-            Team names exactly as they appeared in the training data.
-        **kwargs
-            rng : numpy.random.Generator, optional
-                Provide your own generator for reproducible draws.
-
-        Returns
-        -------
-        lambda_home, lambda_away
-            1-D arrays of length ``n_chains × n_draws`` with the posterior-
-            predictive goal rates for the home and away team respectively.
-
-        """
-        rng = kwargs.get("rng", None)
-        rng = np.random.default_rng() if rng is None else rng
-        if not isinstance(rng, np.random.Generator):
-            raise TypeError(
-                "'rng' must be a numpy.random.Generator or None, " f"got {type(rng).__name__}"
-            )
-
-        # ─────────── map team names to integer ids ───────────
-        home_id, away_id = self.label.transform([home_team, away_team])
-
-        # ─────────── pull posterior arrays from the trace ────
-        posterior = self.trace.posterior  # xarray.Dataset
-        mu_xg = posterior["mu_xg"].values  # (c,d)
-        mu_g = posterior["mu_g"].values  # (c,d)
-        home_adv = posterior["home_adv"].values  # (c,d)
-        sigma_xg = posterior["sigma_xg"].values  # (c,d)
-
-        beta_home = posterior["beta_home"].values  # (c,d)
-        beta_away = posterior["beta_away"].values  # (c,d)
-
-        att_xg_home = posterior["att_xg"].values[..., home_id]  # (c,d)
-        att_xg_away = posterior["att_xg"].values[..., away_id]  # (c,d)
-        def_xg_home = posterior["def_xg"].values[..., home_id]
-        def_xg_away = posterior["def_xg"].values[..., away_id]
-
-        att_g_home = posterior["att_g"].values[..., home_id]
-        att_g_away = posterior["att_g"].values[..., away_id]
-        def_g_home = posterior["def_g"].values[..., home_id]
-        def_g_away = posterior["def_g"].values[..., away_id]
-
-        # ─────────── latent xG intensities per posterior draw ────────────
-        logλ_xg_home = mu_xg + home_adv + att_xg_home - def_xg_away
-        logλ_xg_away = mu_xg + att_xg_away - def_xg_home
-
-        mean_xg_home = np.exp(logλ_xg_home)
-        mean_xg_away = np.exp(logλ_xg_away)
-
-        # Draw once for every (chain, draw) cell
-        latent_xg_home = rng.normal(loc=mean_xg_home, scale=sigma_xg)
-        latent_xg_away = rng.normal(loc=mean_xg_away, scale=sigma_xg)
-
-        # Numerical safeguard – xG must stay positive
-        latent_xg_home = np.clip(latent_xg_home, 1e-6, None)
-        latent_xg_away = np.clip(latent_xg_away, 1e-6, None)
-
-        # ─────────── propagate through finishing equation ────────────────
-        logλ_g_home = (
-            mu_g
-            + home_adv
-            + att_g_home
-            - def_g_away
-            + beta_home * (np.log(latent_xg_home) - mu_xg)
-        )
-        logλ_g_away = mu_g + att_g_away - def_g_home + beta_away * (np.log(latent_xg_away) - mu_xg)
-
-        lambda_home = np.exp(logλ_g_home)  # (c,d)
-        lambda_away = np.exp(logλ_g_away)  # (c,d)
-
-        # ─────────── flatten to 1-D and return ───────────────────────────
-        return lambda_home.ravel(), lambda_away.ravel()
-
-    def hierarchical_xg_correlated_model(
-        self,
-        goals_home_obs: np.ndarray,
-        goals_away_obs: np.ndarray,
-        xg_home_obs: np.ndarray,
-        xg_away_obs: np.ndarray,
-        home_team: np.ndarray,
-        away_team: np.ndarray,
-    ):
-        """Correlated xG / finishing ability model with hierarchical team effects.
-
-        Finishing ability is tied to (log-)xG through β_home / β_away, while team-level attack &
-        defence vectors share an LKJ prior so that (xG, goals) traits can be correlated within
-        each team.
-
-        """
-
-        coords = dict(teams=np.arange(self.n_teams), fixture=np.arange(len(home_team)))
-        with pm.Model(coords=coords):
-            # ──────────────────────── global priors ─────────────────────────
-            mu_xg = pm.Normal("mu_xg", 0.0, 1.0)
-            mu_g = pm.Normal("mu_g", 0.0, 1.0)
-            home_adv = pm.Normal("home_adv", 0.0, 0.5)
-
-            # ─────────────── correlated attack / defence effects ────────────
-            # First column: xG-creation       Second column: finishing skill
-            chol_att, _, _ = pm.LKJCholeskyCov(
-                "chol_att", n=2, eta=3.0, sd_dist=pm.HalfNormal.dist(1.0)
-            )
-            chol_def, _, _ = pm.LKJCholeskyCov(
-                "chol_def", n=2, eta=3.0, sd_dist=pm.HalfNormal.dist(1.0)
-            )
-
-            att_raw = pm.Normal("att_raw", 0.0, 1.0, shape=(self.n_teams, 2))
-            def_raw = pm.Normal("def_raw", 0.0, 1.0, shape=(self.n_teams, 2))
-
-            att = pm.Deterministic("att", att_raw @ chol_att.T)  # (teams, 2)
-            defense = pm.Deterministic("def", def_raw @ chol_def.T)  # (teams, 2)
-
-            # Split the two traits so we can index them directly
-            att_xg = pm.Deterministic("att_xg", att[:, 0])
-            att_g = pm.Deterministic("att_g", att[:, 1])
-            def_xg = pm.Deterministic("def_xg", defense[:, 0])
-            def_g = pm.Deterministic("def_g", defense[:, 1])
-
-            # ───────────────── latent log-intensities per fixture ───────────
-            idx_home = pm.Data("idx_home", home_team, dims="fixture")
-            idx_away = pm.Data("idx_away", away_team, dims="fixture")
-            logλ_xg_home = mu_xg + home_adv + att_xg[idx_home] - def_xg[idx_away]
-            logλ_xg_away = mu_xg + att_xg[idx_away] - def_xg[idx_home]
-
-            beta_home = pm.Normal("beta_home", 0.0, 0.5)
-            beta_away = pm.Normal("beta_away", 0.0, 0.5)
-
-            logλ_g_home = (
-                mu_g
-                + home_adv
-                + att_g[idx_home]
-                - def_g[idx_away]
-                + beta_home * (logλ_xg_home - mu_xg)
-            )
-            logλ_g_away = (
-                mu_g + att_g[idx_away] - def_g[idx_home] + beta_away * (logλ_xg_away - mu_xg)
-            )
-
-            # ─────────────────────────── likelihoods ────────────────────────
-            sigma_xg = pm.HalfNormal("sigma_xg", 1.0)
-            pm.Normal(
-                "xg_home_obs",
-                mu=pm.math.exp(logλ_xg_home),
-                sigma=sigma_xg,
-                observed=xg_home_obs,
-            )
-            pm.Normal(
-                "xg_away_obs",
-                mu=pm.math.exp(logλ_xg_away),
-                sigma=sigma_xg,
-                observed=xg_away_obs,
-            )
-
-            pm.Poisson(
-                "goals_home_obs",
-                mu=pm.math.exp(logλ_g_home),
-                observed=goals_home_obs,
-            )
-            pm.Poisson(
-                "goals_away_obs",
-                mu=pm.math.exp(logλ_g_away),
-                observed=goals_away_obs,
-            )
-
-            # ─────────────────────────── sampling ───────────────────────────
-            trace = pm.sample(
-                2000,
-                tune=1000,
-                cores=6,
-                nuts_sampler="numpyro",
-                target_accept=0.95,
-                return_inferencedata=True,
-            )
-
         return trace
