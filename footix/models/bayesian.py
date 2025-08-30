@@ -219,8 +219,8 @@ class BayesianModel:
             trace = pm.sample(
                 2000,
                 tune=1000,
-                cores=os.cpu_count(),
-                target_accept=0.9,
+                cores=min(4, os.cpu_count() or 1),
+                target_accept=0.95,
                 return_inferencedata=True,
                 nuts_sampler="numpyro",
                 init="adapt_diag_grad",

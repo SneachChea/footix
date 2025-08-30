@@ -15,6 +15,7 @@ html/
 *.swp
 *.bak
 *.tmp
+.coverage
 
 # data files
 *.csv

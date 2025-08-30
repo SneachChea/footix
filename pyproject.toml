@@ -56,7 +56,7 @@ ignore_missing_imports = true
 
 [tool.taskipy.tasks]
 lint = "flake8 --max-line-length 99 --extend-ignore=E203 ."
-test = "pytest -v"
+test = "pytest -v --cov"
 type = "mypy footix/ test/"
 format-isort = "isort ."
 format-black = "black ."
