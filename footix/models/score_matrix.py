@@ -146,6 +146,30 @@ class GoalMatrix:
         (2, 1)
 
         """
-        # Find the indices of the maximum value in the probability matrix
         idx = np.unravel_index(np.argmax(self.matrix_array), self.matrix_array.shape)
-        return int(idx[0]), int(idx[1])  # (home_goals, away_goals)
+        return int(idx[0]), int(idx[1])
+
+    def double_chance(self) -> tuple[float, float, float]:
+        """Calculates the double chance probabilities for a football match outcome.
+
+        Double chance is a betting market that covers two of the three possible outcomes
+        in a match:
+            - Home win or Draw (1X)
+            - Draw or Away win (X2)
+            - Home win or Away win (12)
+
+        Returns:
+            tuple[float, float, float]: A tuple containing:
+                - Probability of Home win or Draw (1X)
+                - Probability of Draw or Away win (X2)
+                - Probability of Home win or Away win (12)
+
+        """
+        probas = self.return_probas()
+        p_1_x = probas.proba_home + probas.proba_draw
+        p_x_2 = probas.proba_draw + probas.proba_away
+        p_1_2 = probas.proba_home + probas.proba_away
+        return p_1_x, p_x_2, p_1_2
+
+    def probability_both_teams_scores(self) -> float:
+        return np.sum(self.matrix_array[1:, 1:])

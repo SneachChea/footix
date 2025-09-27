@@ -79,12 +79,14 @@ class DixonColesBayesian:
     def goal_expectation(self, home_team_id: int, away_team_id: int):
         post = self.trace.posterior
 
-        intercept = post["intercept"].mean(("chain", "draw")).values
-        home_adv_coef = post["home_adv"].mean(("chain", "draw")).values
-        attack = post["attack"].mean(("chain", "draw")).values
-        defense = post["defense"].mean(("chain", "draw")).values
+        intercept = post["intercept"].mean(("chain", "draw")).values.item()
+        home_adv_coef = post["home"].mean(("chain", "draw")).values
+        attack = post["atts"].mean(("chain", "draw")).values
+        defense = post["defs"].mean(("chain", "draw")).values
 
-        mu_home = np.exp(intercept + home_adv_coef + attack[home_team_id] + defense[away_team_id])
+        mu_home = np.exp(
+            intercept + home_adv_coef[home_team_id] + attack[home_team_id] + defense[away_team_id]
+        )
         mu_away = np.exp(intercept + attack[away_team_id] + defense[home_team_id])
         return mu_home, mu_away
 
@@ -101,10 +103,10 @@ class DixonColesBayesian:
         post = self.trace.posterior
 
         intercept = post["intercept"].stack(sample=("chain", "draw")).values
-        home_adv = self.trace.posterior["home_adv"].stack(sample=("chain", "draw")).values
-        attack = self.trace.posterior["attack"].stack(sample=("chain", "draw")).values
-        defense = self.trace.posterior["defense"].stack(sample=("chain", "draw")).values
-        rho = self.trace.posterior["low_score_corr"].stack(sample=("chain", "draw")).values
+        home_adv = post["home"].stack(sample=("chain", "draw")).values
+        attack = post["atts"].stack(sample=("chain", "draw")).values
+        defense = post["defs"].stack(sample=("chain", "draw")).values
+        rho = post["low_score_corr"].stack(sample=("chain", "draw")).values
 
         n_samples = intercept.shape[0]
 
@@ -126,7 +128,7 @@ class DixonColesBayesian:
 
         for i in range(n_samples):
             lam_home = np.exp(
-                intercept[i] + home_adv[home_id] + attack[home_id, i] + defense[away_id, i]
+                intercept[i] + home_adv[home_id, i] + attack[home_id, i] + defense[away_id, i]
             )
             lam_away = np.exp(intercept[i] + attack[away_id, i] + defense[home_id, i])
             sh = np.random.poisson(lam_home, size=200)
@@ -159,43 +161,32 @@ class DixonColesBayesian:
         away_id: np.ndarray,
     ):
         with pm.Model():
-            # ---------------------------
-            #  Données observées
-            # ---------------------------
-            gh = pm.Data("gh", goals_home_obs)
-            ga = pm.Data("ga", goals_away_obs)
-            h_id = pm.Data("h_id", home_id)
-            a_id = pm.Data("a_id", away_id)
+            goals_home_data = pm.Data("goals_home", goals_home_obs)
+            goals_away_data = pm.Data("goals_away", goals_away_obs)
+            home_team_data = pm.Data("home_team", home_id)
+            away_team_data = pm.Data("away_team", away_id)
 
-            # ---------------------------
-            #  Effets hiérarchiques
-            # ---------------------------
-            intercept = pm.Normal("intercept", mu=0.9, sigma=1.0)
+            # Home advantage and intercept
+            home = pm.Normal("home", mu=0, sigma=1, shape=self.n_teams)
+            intercept = pm.Normal("intercept", mu=0.4, sigma=0.5)
 
-            # Home advantage (un seul paramètre ; somme-à-zéro inutile)
-            home_adv = pm.Normal("home_adv", mu=0, sigma=0.5)
-
-            # Attaques / défenses non centrées
-            tau_att = pm.HalfNormal("tau_att", sigma=1.5)
-            raw_att = pm.Normal("raw_att", mu=0, sigma=1, shape=self.n_teams)
-            attack = pm.Deterministic(
-                "attack", (raw_att * tau_att) - pm.math.mean(raw_att * tau_att)
-            )
-
-            tau_def = pm.HalfNormal("tau_def", sigma=1.5)
-            raw_def = pm.Normal("raw_def", mu=0, sigma=1, shape=self.n_teams)
-            defense = pm.Deterministic(
-                "defense", (raw_def * tau_def) - pm.math.mean(raw_def * tau_def)
-            )
-
-            # Paramètre Dixon-Coles : corrélation des faibles scores
+            # Attack ratings with non-centered parameterization
+            tau_att = pm.HalfNormal("tau_att", sigma=2)
+            raw_atts = pm.Normal("raw_atts", mu=0, sigma=1, shape=self.n_teams)
+            atts_uncentered = raw_atts * tau_att
+            atts = pm.Deterministic("atts", atts_uncentered - pm.math.mean(atts_uncentered))
+            # Defence ratings with non-centered parameterization
+            tau_def = pm.HalfNormal("tau_def", sigma=2)
+            raw_defs = pm.Normal("raw_defs", mu=0, sigma=1, shape=self.n_teams)
+            defs_uncentered = raw_defs * tau_def
+            defs = pm.Deterministic("defs", defs_uncentered - pm.math.mean(defs_uncentered))
             low_score_corr = pm.Uniform("low_score_corr", lower=0.0, upper=1.0)
 
-            # ---------------------------
-            #  Taux Poisson attendus
-            # ---------------------------
-            rate_home = pm.math.exp(intercept + home_adv + attack[h_id] + defense[a_id])
-            rate_away = pm.math.exp(intercept + attack[a_id] + defense[h_id])
+            # Calculate theta for home and away
+            rate_home = pm.math.exp(
+                intercept + home[home_team_data] + atts[home_team_data] + defs[away_team_data]
+            )
+            rate_away = pm.math.exp(intercept + atts[away_team_data] + defs[home_team_data])
 
             def dc_logp(goals_h, goals_a, lam_h, lam_a, rho):
                 base = pm.logp(pm.Poisson.dist(mu=lam_h), goals_h) + pm.logp(
@@ -236,7 +227,12 @@ class DixonColesBayesian:
                 return base + pt.log(tau)
 
             # Ajout au log-posterior
-            pm.Potential("dc_like", dc_logp(gh, ga, rate_home, rate_away, low_score_corr).sum())
+            pm.Potential(
+                "dc_like",
+                dc_logp(
+                    goals_home_data, goals_away_data, rate_home, rate_away, low_score_corr
+                ).sum(),
+            )
 
             trace = pm.sample(
                 2000,

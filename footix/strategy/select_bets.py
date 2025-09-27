@@ -80,7 +80,7 @@ def simple_select_bets(
 
         if single_bet_per_game:
             best_idx = int(np.argmax(edges))
-            required_edges, _ = edge_config.get_thresholds(edges[odds_arr[best_idx]])
+            required_edges, _ = edge_config.get_thresholds(odds_arr[best_idx])
             if edges[best_idx] > required_edges:
                 selections.append(
                     _build_bet(

@@ -107,7 +107,7 @@ def power_method(
 
     """
     _assert_odds(odds)
-    odds = np.asarray(odds)
+    odds = np.asarray(odds, dtype=float)
     inv_odds = 1.0 / odds
     margin = cast(float, np.sum(inv_odds) - 1.0)
     log_inv = np.log(inv_odds)

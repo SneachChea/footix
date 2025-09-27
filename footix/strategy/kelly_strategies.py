@@ -11,6 +11,7 @@ from tqdm.auto import tqdm
 
 import footix.strategy._utils as strat_utils
 from footix.strategy.bets import Bet
+from footix.utils.typing import SampleProbaResult
 
 
 def classic_kelly(list_bets: list[Bet], bankroll: float) -> list[Bet]:
@@ -263,7 +264,7 @@ def bayesian_kelly(
 
 def kelly_shrinkage(
     list_bets: list[Bet],
-    lambda_samples: dict[str, tuple[np.ndarray, np.ndarray]],
+    lambda_samples: dict[str, SampleProbaResult],
     per_bet_cap: float = 0.10,
     bankroll_cap: float = 0.30,
     bankroll: float = 100,
@@ -302,8 +303,9 @@ def kelly_shrinkage(
     bets_w_stake = []
 
     for bet in list_bets:
-        lamb_h, lamb_a = lambda_samples[bet.match_id]
-        probs = strat_utils._skellam_post_probs(lamb_h, lamb_a)  # shape (K,3) or (3,)
+        probs = lambda_samples[
+            bet.match_id
+        ]  # strat_utils._skellam_post_probs(lamb_h, lamb_a)  # shape (K,3) or (3,)
         p = probs[mapping_match[bet.market]]
 
         mu = p.mean(0)  # scalar for that market
