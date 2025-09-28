@@ -38,6 +38,7 @@ sphinx-autodoc-typehints = "^3.0.0"
 sphinx-rtd-theme = "^3.0.2"
 docformatter = "^1.7.5"
 types-requests = "^2.32.0.20241016"
+pytest-cov = "^7.0.0"
 
 [tool.isort]
 profile = "black"
