@@ -1,5 +1,6 @@
 from footix.strategy.bets import Bet
 
+
 def flat_staking(list_bets: list[Bet], bankroll: float, fraction_bankroll: float) -> list[Bet]:
     """Allocate a fixed portion of the bankroll to each bet.
 
@@ -21,6 +22,7 @@ def flat_staking(list_bets: list[Bet], bankroll: float, fraction_bankroll: float
 
     Raises:
         ValueError: If the total required stake exceeds the available bankroll.
+
     """
     if fraction_bankroll * len(list_bets) > 1.0:
         raise ValueError("Too many bets for the stake")

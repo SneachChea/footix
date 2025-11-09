@@ -58,7 +58,7 @@ def simple_select_bets(
     probas: np.ndarray,
     edge_floor: float | EdgeFloorConfig = 0.0,
     single_bet_per_game: bool = True,
-    outcomes: Sequence[str] = ("H", "D", "A")
+    outcomes: Sequence[str] = ("H", "D", "A"),
 ) -> list[Bet]:
     n_matches = len(odds_input)
     if probas.shape != (n_matches, 3):
