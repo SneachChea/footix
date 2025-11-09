@@ -178,7 +178,7 @@ class BayesianModel:
 
             # Home advantage and intercept
             home = pm.Normal("home", mu=0, sigma=1, shape=self.n_teams)
-            intercept = pm.Normal("intercept", mu=0.4, sigma=0.5)
+            intercept = pm.Normal("intercept", mu=3, sigma=1)
 
             # Attack ratings with non-centered parameterization
             tau_att = pm.HalfNormal("tau_att", sigma=2)

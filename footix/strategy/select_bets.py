@@ -58,8 +58,8 @@ def simple_select_bets(
     probas: np.ndarray,
     edge_floor: float | EdgeFloorConfig = 0.0,
     single_bet_per_game: bool = True,
+    outcomes: Sequence[str] = ("H", "D", "A")
 ) -> list[Bet]:
-    outcomes = ["H", "D", "A"]
     n_matches = len(odds_input)
     if probas.shape != (n_matches, 3):
         raise ValueError(f"probas must have shape ({n_matches}, 3), got {probas.shape}")
@@ -107,7 +107,7 @@ def simple_select_bets(
 
 def _build_bet(
     odd_input: OddsInput,
-    outcomes: list[str],
+    outcomes: Sequence[str],
     pick: int,
     prob: float,
 ) -> Bet:
