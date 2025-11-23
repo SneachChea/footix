@@ -56,7 +56,7 @@ wrap-summaries = 98
 ignore_missing_imports = true
 
 [tool.taskipy.tasks]
-lint = "flake8 --max-line-length 99 --extend-ignore=E203 ."
+lint = "flake8 --max-line-length 99 --extend-ignore=E203 --exclude notebooks ."
 test = "pytest -v --cov"
 type = "mypy footix/ tests/"
 format-isort = "isort ."
