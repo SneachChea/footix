@@ -1,12 +1,7 @@
 from __future__ import annotations
 
 from functools import wraps
-from typing import (
-    Callable,
-    Iterable,
-    ParamSpec,
-    TypeVar,
-)
+from typing import Callable, Iterable, ParamSpec, TypeVar
 
 import pandas as pd
 
@@ -17,8 +12,7 @@ R = TypeVar("R")
 def verify_required_column(
     column_names: Iterable[str],
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """
-    Decorator that validates the presence of required columns in a pandas DataFrame.
+    """Decorator that validates the presence of required columns in a pandas DataFrame.
 
     The decorator inspects **both** positional and keyword arguments.  If a
     ``pd.DataFrame`` is supplied under the name ``df`` (positional or keyword)
@@ -34,6 +28,7 @@ def verify_required_column(
     -------
     Callable[[Callable[P, R]], Callable[P, R]]
         The wrapped function.
+
     """
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
