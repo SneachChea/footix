@@ -24,30 +24,36 @@ def compute_goals_home_vectors(
         nbr_team (int): Number of teams in the league.
     Returns:
         tuple[np.ndarray, np.ndarray]: A tuple containing two NumPy arrays:
-            x representing home team goals and tau_home representing binary vectors
+            goals_vector representing home team goals and tau_home representing binary vectors
             for each home team.
 
     """
-    x = np.zeros(len(data))
+    goals_vector = data["fthg"].values
     tau_home = np.zeros((len(data), nbr_team))
-    for i, row in data.iterrows():
-        j = map_teams[row["home_team"]]
-        x[i] = row["fthg"]
-        tau_home[i, j] = 1
-    return x, tau_home
+    tau_home[np.arange(len(data)), [map_teams[team] for team in data["home_team"]]] = 1
+    return goals_vector, tau_home
 
 
 @decorators.verify_required_column(column_names=["away_team", "ftag"])
 def compute_goals_away_vectors(
     data: pd.DataFrame, /, map_teams: dict[str, int], nbr_team: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    x = np.zeros(len(data))
+    """Compute vectors representing away team goals.
+
+    Args:
+        data (pd.DataFrame): Input DataFrame with away team goals and AwayTeam column.
+        map_teams (dict): Dictionary mapping team names to numerical IDs.
+        nbr_team (int): Number of teams in the league.
+    Returns:
+        tuple[np.ndarray, np.ndarray]: A tuple containing two NumPy arrays:
+            goals_vector representing away team goals and tau_away representing binary vectors
+            for each away team.
+
+    """
+    goals_vector = data["ftag"].values
     tau_away = np.zeros((len(data), nbr_team))
-    for i, row in data.iterrows():
-        j = map_teams[row["away_team"]]
-        x[i] = row["ftag"]
-        tau_away[i, j] = 1
-    return x, tau_away
+    tau_away[np.arange(len(data)), [map_teams[team] for team in data["away_team"]]] = 1
+    return goals_vector, tau_away
 
 
 def to_torch_tensor(
@@ -147,7 +153,13 @@ def implicit_intensities(
             return (np.array([p_wd, p_l]) - target) / np.sqrt(target * (1 - target))
 
         sol = least_squares(
-            residual, x0, bounds=(1e-6, np.inf), xtol=tol, ftol=tol, gtol=tol, max_nfev=max_iter
+            residual,
+            x0,
+            bounds=(1e-6, np.inf),
+            xtol=tol,
+            ftol=tol,
+            gtol=tol,
+            max_nfev=max_iter,
         )
 
         if sol.success and np.all(sol.x > 0):
