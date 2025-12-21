@@ -22,12 +22,9 @@ class PoissonModel:
         self.n_teams = n_teams
         self.n_goals = n_goals
 
-    @verify_required_column(
-        column_names={"home_team", "away_team", "ftr", "fthg", "ftag"}
-    )
+    @verify_required_column(column_names={"home_team", "away_team", "ftr", "fthg", "ftag"})
     def fit(self, X_train: pd.DataFrame) -> None:
-        """
-        Fit the Poisson model to the training data.
+        """Fit the Poisson model to the training data.
 
         This method trains the model by estimating the parameters (gamma, alphas, betas)
         that maximize the likelihood of the observed goals in the training data.
@@ -48,6 +45,7 @@ class PoissonModel:
             - alphas: Home team strength parameters
             - betas: Away team strength parameters
             - dict_teams: Mapping of team names to indices
+
         """
         self.dict_teams = self.mapping_team_index(X_train["home_team"])
         self._sanity_check(X_train["away_team"])
@@ -84,16 +82,10 @@ class PoissonModel:
             raise AttributeError("Model not trained yet")
         str_resume = f"Gamma = {self.gamma} \n"
         str_alpha = "".join(
-            [
-                f"alpha team-{team} = {self.alphas[idx]} \n"
-                for team, idx in self.dict_teams.items()
-            ]
+            [f"alpha team-{team} = {self.alphas[idx]} \n" for team, idx in self.dict_teams.items()]
         )
         str_beta = "".join(
-            [
-                f"beta team-{team} = {self.betas[idx]} \n"
-                for team, idx in self.dict_teams.items()
-            ]
+            [f"beta team-{team} = {self.betas[idx]} \n" for team, idx in self.dict_teams.items()]
         )
         print(str_resume + str_alpha + str_beta)
 
@@ -113,6 +105,7 @@ class PoissonModel:
 
         Raises:
             ValueError: If either team is not in the list of trained teams.
+
         """
         if home_team not in self.dict_teams.keys():
             raise ValueError(f"Home team {home_team} is not in the list.")
@@ -122,15 +115,11 @@ class PoissonModel:
         j = self.dict_teams[away_team]
         lamb, mu = self.goal_expectation(home_team_id=i, away_team_id=j)
         return score_matrix.GoalMatrix(
-            home_goals_probs=model_utils.poisson_proba(
-                lambda_param=lamb, k=self.n_goals
-            ),
+            home_goals_probs=model_utils.poisson_proba(lambda_param=lamb, k=self.n_goals),
             away_goals_probs=model_utils.poisson_proba(lambda_param=mu, k=self.n_goals),
         )
 
-    def goal_expectation(
-        self, home_team_id: int, away_team_id: int
-    ) -> tuple[float, float]:
+    def goal_expectation(self, home_team_id: int, away_team_id: int) -> tuple[float, float]:
         """Calculate expected goals for home and away teams.
 
         The expected number of goals for the home team (lamb) and away team (mu)
@@ -143,6 +132,7 @@ class PoissonModel:
 
         Returns:
             Tuple containing expected goals for home team (lamb) and away team (mu).
+
         """
         lamb = np.exp(self.alphas[home_team_id] + self.betas[away_team_id] + self.gamma)
         mu = np.exp(self.alphas[away_team_id] + self.betas[home_team_id])
@@ -159,9 +149,7 @@ class PoissonModel:
                 "Not every teams have played at home and away. Please give another dataset."
             )
         if len(self.dict_teams) != self.n_teams:
-            raise ValueError(
-                f"Expecting {self.n_teams} teams, only got {len(self.dict_teams)}."
-            )
+            raise ValueError(f"Expecting {self.n_teams} teams, only got {len(self.dict_teams)}.")
 
     def basic_poisson_likelihood(
         self,

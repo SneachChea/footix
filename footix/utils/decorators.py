@@ -57,9 +57,7 @@ def verify_required_column(
             if missing_columns:
                 # Join names for a cleaner error message
                 missing_str = ", ".join(missing_columns)
-                raise ValueError(
-                    f"The following required columns are missing: {missing_str}"
-                )
+                raise ValueError(f"The following required columns are missing: {missing_str}")
 
             return func(*args, **kwargs)
 
