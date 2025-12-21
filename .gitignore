@@ -22,3 +22,6 @@ html/
 *.json
 *.whl
 *.tar.gz
+
+# notebook folder
+notebooks/
