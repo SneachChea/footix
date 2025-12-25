@@ -27,9 +27,9 @@ class GoalMatrix:
         self.home_goals_probs = np.asarray(self.home_goals_probs)
         self.away_goals_probs = np.asarray(self.away_goals_probs)
         if (self.home_goals_probs.ndim > 1) or (self.away_goals_probs.ndim > 1):
-            raise TypeError("Array probs should be one dimensional")
+            raise ValueError("Array probs should be one dimensional")
         if len(self.home_goals_probs) != len(self.away_goals_probs):
-            raise TypeError("Length of proba's array should be the same")
+            raise ValueError("Length of proba's array should be the same")
         if self.correlation_matrix is not None:
             if self.home_goals_probs.shape[0] != self.correlation_matrix.shape[0]:
                 raise ValueError(
@@ -102,7 +102,7 @@ class GoalMatrix:
 
     def asian_handicap_results(self, handicap: float) -> ProbaResult:
         """Calculate the probabilities for a home win, draw, and away win after applying an Asian
-        handicap. The handicap is added to the home team's goal count.
+        handicap using vectorized operations. The handicap is added to the home team's goal count.
 
         Args:
             handicap (float): The handicap to be applied to the home team's score.
@@ -110,20 +110,19 @@ class GoalMatrix:
             ProbaResult: home_win, draw, away_win probabilities.
 
         """
-        home_win = 0.0
-        draw = 0.0
-        away_win = 0.0
         n = len(self.home_goals_probs)
         tol = 1e-6  # tolerance for float equality
-        for i in range(n):
-            for j in range(n):
-                diff = (i + handicap) - j
-                if diff > tol:
-                    home_win += self.matrix_array[i, j]
-                elif diff < -tol:
-                    away_win += self.matrix_array[i, j]
-                else:
-                    draw += self.matrix_array[i, j]
+
+        # Create a grid of differences between home and away goals
+        home_indices = np.arange(n)[:, None] + handicap  # Add handicap to home goals
+        away_indices = np.arange(n)
+        diff_matrix = home_indices - away_indices
+
+        # Calculate probabilities based on the difference matrix
+        home_win = np.sum(self.matrix_array[diff_matrix > tol])
+        away_win = np.sum(self.matrix_array[diff_matrix < -tol])
+        draw = np.sum(self.matrix_array[np.abs(diff_matrix) <= tol])
+
         return ProbaResult(proba_home=home_win, proba_draw=draw, proba_away=away_win)
 
     def __str__(self) -> str:

@@ -37,20 +37,22 @@ class EloTeam:
         return self.rank_
 
     @rank.setter
-    def rank(self, new_rank: float) -> None:
+    def rank(self, new_rank: float | int) -> None:
         """Set the Elo rank of the team.
 
         Args:
             new_rank: The new Elo rank to set (must be a float)
 
         Note:
-            If a non-float value is provided, an error message will be printed
+            If a non-float value is provided, a TypeError will be raised.
 
         """
-        if isinstance(new_rank, float):
+        if isinstance(new_rank, float) or isinstance(new_rank, int):
             self.rank_ = new_rank
         else:
-            print("Enter a valid rank, i.e. a float")
+            raise TypeError(
+                f"Rank must be a float, got {type(new_rank)} instead."
+            )
 
     def __str__(self) -> str:
         """Return string representation of the team.

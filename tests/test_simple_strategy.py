@@ -1,7 +1,7 @@
 import pytest
 
 from footix.strategy.bets import Bet
-from footix.strategy.simple import flat_staking
+from footix.strategy.simple_strategy import flat_staking
 
 
 @pytest.fixture
