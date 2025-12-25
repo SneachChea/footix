@@ -50,9 +50,7 @@ class EloTeam:
         if isinstance(new_rank, float) or isinstance(new_rank, int):
             self.rank_ = new_rank
         else:
-            raise TypeError(
-                f"Rank must be a float, got {type(new_rank)} instead."
-            )
+            raise TypeError(f"Rank must be a float, got {type(new_rank)} instead.")
 
     def __str__(self) -> str:
         """Return string representation of the team.
