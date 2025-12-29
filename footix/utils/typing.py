@@ -1,9 +1,8 @@
-from typing import Any, NamedTuple, Protocol
-
+from typing import Any, NamedTuple, Protocol, TypeAlias, Sequence
+from numpy.typing import NDArray
 import numpy as np
 
-ArrayLikeF = list[float] | np.ndarray
-
+ArrayLikeF: TypeAlias = Sequence[float] | NDArray[np.floating]
 
 class ProtoModel(Protocol):
     def fit(self, *args: Any, **kwargs: Any) -> Any:
