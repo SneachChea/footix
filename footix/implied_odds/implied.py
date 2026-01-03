@@ -61,7 +61,7 @@ def power_method(
         greater than zero.
     tol : float, default=1e-12
         Convergence tolerance for the root-finding procedure. The iteration stops when
-        |∑(1/odds)**k − 1| < tol.
+        ``abs(sum((1/odds)**k) - 1) < tol``.
     max_iter : int, default=50
         Maximum number of Newton steps to attempt. If convergence is not reached within
         this many iterations, a RuntimeError is raised.
@@ -72,8 +72,7 @@ def power_method(
         A 1-D array of implied probabilities corresponding to each input odd. These probabilities
         are non-negative and sum exactly (to machine precision) to 1.0.
     margin : float
-        The bookmaker’s over-round (or “vigorish”), computed as ∑(1/odds) − 1. A value of zero
-        indicates a fair book (no margin).
+        The bookmaker’s over-round (or “vigorish”), computed as ``sum(1/odds) - 1``. A value of zero indicates a fair book (no margin).
 
     Raises
     ------
@@ -86,10 +85,7 @@ def power_method(
     -----
     1. When `margin` is already within `tol` of zero, the function treats the book as fair and
         returns the normalized inverses of the odds directly.
-    2. Internally, we solve
-           f(k) = Σ (1/odds_i)**k − 1 = 0
-       by applying Newton’s method to the equivalent form
-           f(k) = Σ exp(k * log(1/odds_i)) − 1.
+    2. Internally, we solve ``f(k) = sum((1/odds_i)**k) - 1 = 0`` by applying Newton's method to the equivalent form ``f(k) = sum(exp(k * log(1/odds_i))) - 1``.
        Working in log-space improves numerical stability, especially when odds are large
        (inv-odds small).
     3. The default initial guess for k is 1. For typical sportsbook margins (up to 10–15%),
