@@ -132,43 +132,33 @@ def power_method(
 def shin_method(odds: ArrayLikeF, *, tol: float = 1e-12) -> tuple[np.ndarray, float]:
     """Compute implied probabilities and bookmaker margin using Shin’s method.
 
-    Shin’s method (Shin, 1992; Shin, 1993) adjusts raw decimal odds for insider‐information
-    risk by finding a parameter z in (0, 1) that forces the “Shin‐adjusted” probabilities
-    to sum to 1. This implementation uses Brent’s root‐finding algorithm to solve for z.
+    Shin’s method (Shin, 1992; Shin, 1993) adjusts raw decimal odds for insider information
+    risk by finding a parameter z in (0, 1) that forces the “Shin adjusted” probabilities
+    to sum to 1. This implementation uses Brent’s root finding algorithm to solve for z.
 
     Parameters
     ----------
-    odds : array‐like of float, shape (3,)
+    odds : arraylike of float, shape (3,)
         Decimal odds for the three mutually exclusive outcomes, in the order:
         [home_win, draw, away_win]. Each entry must be strictly positive.
     tol : float, optional
         Absolute tolerance for the Brent solver when finding the Shin parameter z.
-        Default is 1e‐12.
+        Default is 1e-12.
 
     Returns
     -------
     implied : ndarray, shape (3,)
-        Shin‐adjusted probabilities for [home_win, draw, away_win]. These probabilities
-        account for bookmaker over‐round and the presence of insider information, and they
+        Shin adjusted probabilities for [home_win, draw, away_win]. These probabilities
+        account for bookmaker overround and the presence of insider information, and they
         sum to 1 within numerical tolerance.
     margin : float
-        Bookmaker over‐round (also called “vig” or “juice”), computed as
-            margin = sum(1 / odds_i) − 1.
+        Bookmaker overround (also called “vig” or “juice”), computed as
+            margin = sum(1 / odds_i) - 1.
 
     Raises
     ------
     ValueError
         If `odds` does not have exactly three elements or if any element is non‐positive.
-
-    Notes
-    -----
-    1. Let q_i = 1 / odds_i and Q = sum(q_i). For a given z in (0, 1), Shin’s formula gives:
-         p_i(z) = ( sqrt(z^2 + 4 (1 − z) q_i^2 / Q) − z ) / [2 (1 − z)].
-       The root‐finding problem is:
-         f(z) = sum_i p_i(z) − 1 = 0.
-       We bracket z within (ε, 1 − ε) to avoid division by zero (ε ≈ 1e‐12).
-
-    2. Once z is found, the implied probabilities p_i(z) automatically sum to 1 (within tol).
 
     """
 
