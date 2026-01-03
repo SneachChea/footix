@@ -38,6 +38,9 @@ sphinx-rtd-theme = "^3.0.2"
 docformatter = "^1.7.5"
 types-requests = "^2.32.0.20241016"
 pytest-cov = "^7.0.0"
+pydocstyle = "^6.3.0"
+roman-numerals = "^4.1.0"
+pygments = "^2.19.2"
 
 [tool.isort]
 profile = "black"
@@ -56,11 +59,13 @@ ignore_missing_imports = true
 
 [tool.taskipy.tasks]
 lint = "flake8 --max-line-length 99 --extend-ignore=E203 --exclude notebooks ."
+doclint = "pydocstyle --convention=google footix"
 test = "pytest -v --cov=footix"
 type = "mypy footix/ tests/"
 format-isort = "isort ."
 format-black = "black ."
 docformat = "docformatter -r -i --blank footix"
+docstyle = "pydocstyle --convention=google footix"
 precommit = "task format-isort && task docformat && task format-black && task lint"
 
 [build-system]

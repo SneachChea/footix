@@ -191,7 +191,7 @@ def shin_method(odds: ArrayLikeF, *, tol: float = 1e-12) -> tuple[np.ndarray, fl
 
     # In theory 0 < z < 1; shrink the bracket slightly to avoid division errors.
     z_star = optimize.brentq(_objective, 1e-12, 1.0 - 1e-12, xtol=tol)
-    implied = _shin_probabilities(inv_odds, z_star)
+    implied = _shin_probabilities(inv_odds, z_star)  # type: ignore
     return implied, margin
 
 

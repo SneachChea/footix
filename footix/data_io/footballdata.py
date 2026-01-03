@@ -1,3 +1,16 @@
+"""Module for scraping and processing footballdata.co.uk data.
+
+This module contains the `ScrapFootballData` class, which is responsible for
+downloading, storing, and preprocessing football match data from football-data.co.uk.
+It includes methods for data sanitization, team name mapping, and fixture retrieval.
+
+Classes:
+    ScrapFootballData: Handles the scraping and processing of football match data.
+
+Functions:
+    _process_season(season: str) -> str: Processes a season string into a standardized format.
+
+"""
 import io
 
 import pandas as pd
@@ -50,6 +63,23 @@ class ScrapFootballData(Scraper):
         force_reload: bool = False,
         mapping_teams: dict[str, str] | None = None,
     ) -> None:
+        """Initialize the ScrapFootballData instance.
+
+        Args:
+            competition (str): The competition code. The mapping of competition names to their
+            respective codes is defined in `utils_scrapper.MAPPING_COMPETITIONS`.
+            season (str): The season string (e.g., '2020/2021', '2020-2021', or '2021').
+            path (str): Directory path to store the downloaded CSV files.
+            force_reload (bool, optional): If True, forces re-download of data even if the file
+            exists. Defaults to False.
+            mapping_teams (dict[str, str] | None, optional): Optional mapping for team name
+                normalization. Defaults to None.
+
+        Raises:
+            ValueError: If the competition is invalid or the season string is not in a valid
+            format.
+
+        """
         super().__init__(path=path, mapping_teams=mapping_teams)
         self._check_competitions(competition_name=competition)
         self.competition = competition
@@ -62,7 +92,8 @@ class ScrapFootballData(Scraper):
         self.sanitize_columns()
         self.df = utils_scrapper.add_match_id(self.df)
 
-    def download(self):
+    def download(self) -> None:
+        """Download the competition data and save it as a CSV file."""
         response = self.get(self.infered_url)
         df = (
             pd.read_csv(io.StringIO(response), encoding="utf-8")
@@ -76,6 +107,26 @@ class ScrapFootballData(Scraper):
         )
 
     def load(self) -> pd.DataFrame:
+        """Load the CSV for the configured competition and season into a pandas DataFrame.
+
+        If a file named "{competition}_{season}.csv" exists under self.path and self.force_reload
+        is False, it is loaded with pandas.read_csv. Otherwise self.download() is invoked to
+        (re)create the CSV, which is then read.
+
+        Returns:
+            pd.DataFrame: The loaded dataset.
+
+        Raises:
+            FileNotFoundError: If the expected CSV is not found after attempting download.
+            pandas.errors.EmptyDataError, pandas.errors.ParserError, OSError: Propagated from
+            pandas.read_csv or filesystem operations.
+
+        Notes:
+            Relies on the instance attributes self.path (Path or str), self.competition (str),
+            self.season (str), and self.force_reload (bool). This method may have the side
+            effect of calling self.download().
+
+        """
         if self._check_if_file_exist() and not self.force_reload:
             df = pd.read_csv(self.path / (self.competition + "_" + self.season + ".csv"))
         else:
@@ -84,9 +135,16 @@ class ScrapFootballData(Scraper):
         return df
 
     def sanitize_columns(self):
+        """Convert DataFrame columns to snake_case."""
         self.df.columns = [utils_scrapper.to_snake_case(x) for x in self.df.columns]
 
     def get_fixtures(self) -> pd.DataFrame:
+        """Return the processed match data DataFrame.
+
+        Returns:
+            pd.DataFrame: The DataFrame containing match data.
+
+        """
         return self.df
 
     def _check_if_file_exist(self) -> bool:
