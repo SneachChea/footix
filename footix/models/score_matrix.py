@@ -218,9 +218,10 @@ class GoalMatrix:
 
         Double chance is a betting market that covers two of the three possible outcomes
         in a match:
-            - Home win or Draw (1X)
-            - Draw or Away win (X2)
-            - Home win or Away win (12)
+
+        - Home win or Draw (1X)
+        - Draw or Away win (X2)
+        - Home win or Away win (12)
 
         Returns:
             tuple[float, float, float]: A tuple containing:
