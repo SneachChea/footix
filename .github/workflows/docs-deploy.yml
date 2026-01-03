@@ -43,18 +43,22 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --no-interaction --no-ansi --with dev
 
-      - name: Regenerate API documentation
+      - name:  Regenerate API documentation
         run: |
-          poetry run sphinx-apidoc -o docs/source/api footix -f
+          cd docs
+          poetry run sphinx-apidoc -o source/api ../footix -f
 
-      - name: Build documentation
+      - name: Build documentation with Makefile
         run: |
-          poetry run sphinx-build -b html -W docs/source docs/build/html
+          cd docs
+          poetry run make html
 
-      - name: Run linkcheck
+      - name: Run linkcheck (optional)
         run: |
-          poetry run sphinx-build -b linkcheck docs/source docs/build/linkcheck
+          cd docs
+          poetry run make linkcheck
         continue-on-error: true
+
 
       - name: Upload artifacts
         uses: actions/upload-pages-artifact@v4
