@@ -152,7 +152,8 @@ class GoalMatrix:
     def visualize(self, n_goals: int = 5) -> None:
         if n_goals > len(self.home_goals_probs):
             raise ValueError(
-                f"n_goals must be <= len(home_goals_probs) ({len(self.home_goals_probs)}); got {n_goals}"
+                f"n_goals must be <= len(home_goals_probs) ({len(self.home_goals_probs)})\n"
+                f"got {n_goals}"
             )
         tmp_small = self.matrix_array[:n_goals, :n_goals]
         _, ax = plt.subplots()

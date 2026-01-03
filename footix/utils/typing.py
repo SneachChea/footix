@@ -5,6 +5,7 @@ from numpy.typing import NDArray
 
 ArrayLikeF: TypeAlias = Sequence[float] | NDArray[np.floating]
 
+
 class ProtoModel(Protocol):
     def fit(self, *args: Any, **kwargs: Any) -> Any:
         ...

@@ -8,10 +8,10 @@ import footix.implied_odds as implied_odds
 def odds():
     return [5.4, 4.3, 1.55]
 
+
 @pytest.fixture
 def large_odds():
     return [1000, 2000, 3000]
-
 
 
 class TestMultiplicativeMethod:
@@ -37,6 +37,7 @@ class TestShinMethod:
         assert np.allclose(proba, [0.1668, 0.2134, 0.6198], rtol=1e-3)
         assert np.isclose(margin, 0.0629, rtol=1e-3)
 
+
 class TestImpliedProbsPower:
     def test_implied_probs_power(self, odds):
         proba, margin = implied_odds.power_method(odds)
@@ -46,4 +47,3 @@ class TestImpliedProbsPower:
     def test_implied_probs_power_non_convergence(self, odds):
         with pytest.raises(RuntimeError, match="Power root-finder did not converge."):
             implied_odds.power_method(odds, max_iter=1)
-

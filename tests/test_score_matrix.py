@@ -1,4 +1,5 @@
 import math
+import re
 
 import numpy as np
 import pytest
@@ -73,7 +74,9 @@ class TestGoalMatrixInitialization:
 
         with pytest.raises(
             ValueError,
-            match="correlation_matrix must have shape \(n, n\) matching probabilities length",
+            match=re.escape(
+                "correlation_matrix must have shape (n, n) matching probabilities length"
+            ),
         ):
             GoalMatrix(home_probs, away_probs, correlation_matrix=corr_matrix)
 
@@ -198,9 +201,7 @@ class TestGoalMarketMethods:
         away_probs = [0.5]
         gm = GoalMatrix(home_probs, away_probs)
 
-        with pytest.raises(
-            ValueError, match="must have length >= 2 for less_15_goals"
-        ):
+        with pytest.raises(ValueError, match="must have length >= 2 for less_15_goals"):
             gm.less_15_goals()
 
     def test_less_25_goals(self):
@@ -220,9 +221,7 @@ class TestGoalMarketMethods:
         away_probs = [0.5, 0.5]
         gm = GoalMatrix(home_probs, away_probs)
 
-        with pytest.raises(
-            ValueError, match="must have length >= 3 for less_25_goals"
-        ):
+        with pytest.raises(ValueError, match="must have length >= 3 for less_25_goals"):
             gm.less_25_goals()
 
     def test_more_15_goals(self):
