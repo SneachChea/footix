@@ -11,6 +11,7 @@ from tqdm.auto import tqdm
 
 import footix.strategy._utils as strat_utils
 from footix.strategy.bets import Bet
+from footix.utils.typing import SampleProbaResult
 
 
 def classic_kelly(list_bets: list[Bet], bankroll: float) -> list[Bet]:
@@ -185,7 +186,7 @@ def realKelly(
 
 def bayesian_kelly(
     list_bets: list[Bet],
-    lambda_samples: dict[str, tuple[np.ndarray, np.ndarray]],
+    lambda_samples: dict[str, SampleProbaResult],
     bankroll: float = 100,
     summary: Literal["mean", "quantile"] = "quantile",
     alpha: float = 0.3,
@@ -202,7 +203,7 @@ def bayesian_kelly(
 
     Args:
         list_bets (list[Bet]): List of bet objects for which to compute the stake.
-        lambda_samples (dict[str, tuple[np.ndarray, np.ndarray]]): Mapping of match IDs to a tuple
+        lambda_samples (dict[str, SampleProbaResult): Mapping of match IDs to a tuple
             of numpy arrays representing the lambda samples for home and away teams.
         bankroll (float, optional): Total available bankroll. Defaults to 100.
         summary (Literal["mean", "quantile"], optional): Method to summarize the Kelly fraction
@@ -225,8 +226,7 @@ def bayesian_kelly(
     mapping_match = {"H": 0, "D": 1, "A": 2}
     bets_w_stake = []
     for bet in list_bets:
-        lambda_h, lambda_a = lambda_samples[bet.match_id]
-        probas = strat_utils._skellam_post_probs(lh=lambda_h, la=lambda_a)
+        probas = lambda_samples[bet.match_id]
         p_samples = probas[mapping_match[bet.market]]
         X = bet.odds - 1.0  # gain unitaire si victoire
         f_kelly = (p_samples * bet.odds - (1 - p_samples)) / X  # shape (K, J)
@@ -263,7 +263,7 @@ def bayesian_kelly(
 
 def kelly_shrinkage(
     list_bets: list[Bet],
-    lambda_samples: dict[str, tuple[np.ndarray, np.ndarray]],
+    lambda_samples: dict[str, SampleProbaResult],
     per_bet_cap: float = 0.10,
     bankroll_cap: float = 0.30,
     bankroll: float = 100,
@@ -282,9 +282,9 @@ def kelly_shrinkage(
 
     Args:
         list_bets (list[Bet]): List of bet objects to evaluate.
-        lambda_samples (dict[str, tuple[np.ndarray, np.ndarray]]):
-                                                Dictionary mapping match IDs to tuples of
-            numpy arrays containing lambda samples for the home and away teams.
+        lambda_samples (dict[str, SampleProbaResult):
+                                                Dictionary mapping match IDs to probabilities of
+            sampled MCMC trajectory for the game.
         per_bet_cap (float, optional): Maximum fraction of the bankroll allowed on a single bet.
         Defaults to 0.10.
         bankroll_cap (float, optional): Maximum allowed total fraction of the bankroll across
@@ -302,8 +302,7 @@ def kelly_shrinkage(
     bets_w_stake = []
 
     for bet in list_bets:
-        lamb_h, lamb_a = lambda_samples[bet.match_id]
-        probs = strat_utils._skellam_post_probs(lamb_h, lamb_a)  # shape (K,3) or (3,)
+        probs = lambda_samples[bet.match_id]
         p = probs[mapping_match[bet.market]]
 
         mu = p.mean(0)  # scalar for that market
@@ -344,7 +343,7 @@ def kelly_shrinkage(
 
 def kelly_portfolio_torch(
     list_bets: list[Bet],
-    lambda_samples: dict[str, tuple[np.ndarray, np.ndarray]],
+    lambda_samples: dict[str, SampleProbaResult],
     *,
     per_bet_cap: float = 0.10,
     bankroll_cap: float = 0.30,
@@ -364,9 +363,9 @@ def kelly_portfolio_torch(
 
     Args:
         list_bets (list[Bet]): List of bet objects to evaluate.
-        lambda_samples (dict[str, tuple[np.ndarray, np.ndarray]]): Dictionary mapping
-            match IDs to tuples of numpy arrays containing lambda samples for the
-            home and away teams.
+        lambda_samples (dict[str, SampleProbaResult): Dictionary mapping
+            match IDs to probabilities samples for the
+            game.
         per_bet_cap (float, optional): Maximum fraction of the bankroll allowed on
             a single bet. Defaults to 0.10.
         bankroll_cap (float, optional): Maximum allowed total fraction of the bankroll
@@ -408,8 +407,7 @@ def kelly_portfolio_torch(
     ps, bs = [], []
 
     for bet in list_bets:
-        lam_h, lam_a = lambda_samples[bet.match_id]
-        probs = strat_utils._skellam_post_probs(lam_h, lam_a)
+        probs = lambda_samples[bet.match_id]
         p = probs[mapping[bet.market]]
 
         mu, var = p.mean(), p.var(ddof=1)

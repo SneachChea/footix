@@ -15,9 +15,13 @@ html/
 *.swp
 *.bak
 *.tmp
+.coverage
 
 # data files
 *.csv
 *.json
 *.whl
 *.tar.gz
+
+# notebook folder
+notebooks/

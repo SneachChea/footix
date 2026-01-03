@@ -1,11 +1,8 @@
-from typing import Final, TypeVar
+from typing import Final
 
 import numpy as np
 
 import footix.models.basic_poisson as model_poisson
-import footix.models.dixon_coles as dixon_coles
-
-T = TypeVar("T", model_poisson.BasicPoisson, dixon_coles.NeuralDixonColes)
 
 EPS: Final[float] = 1e-5
 
@@ -41,7 +38,6 @@ DICO_COMPATIBILITY: Final[dict[str, str]] = {
     "Metz": "Metz",
     "Pau": "Pau FC",
     "Laval": "Laval",
-    "Grenoble": "Grenoble",
     "Bordeaux": "Bordeaux",
     "Caen": "Caen",
     "Paris FC": "Paris FC",
@@ -54,7 +50,7 @@ DICO_COMPATIBILITY: Final[dict[str, str]] = {
 }
 
 
-def poisson_model_recap(home_team: str, away_team: str, model: T) -> None:
+def poisson_model_recap(home_team: str, away_team: str, model: model_poisson.PoissonModel) -> None:
     score_recap = model.predict(home_team=home_team, away_team=away_team)
     proba_h, proba_d, proba_a = score_recap.return_probas()
     alpha = model.alphas

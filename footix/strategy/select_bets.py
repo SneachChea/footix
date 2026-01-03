@@ -1,30 +1,75 @@
+from dataclasses import dataclass, field
+from typing import NamedTuple, Optional, Sequence
+
 import numpy as np
 
-from footix.strategy._utils import _skellam_post_probs
 from footix.strategy.bets import Bet, OddsInput
+from footix.utils.typing import SampleProbaResult
+
+
+class Thresholds(NamedTuple):
+    edge_floor: float
+    prob_edge: Optional[float] = None
+
+
+class OddsRange(NamedTuple):
+    """Represents an odds range and its corresponding edge and probability thresholds.
+
+    Attributes:
+        min_odds: Minimum odds value (inclusive)
+        max_odds: Maximum odds value (inclusive)
+        edge: Required edge floor for this odds range
+        prob_edge: Required probability of positive edge (optional)
+
+    """
+
+    min_odds: float
+    max_odds: float
+    edge: float
+    prob_edge: Optional[float] = None
+
+
+@dataclass(slots=True)
+class EdgeFloorConfig:
+    ranges: Sequence[OddsRange] = field(default_factory=list)
+    default_edge_floor: float = 0.0
+    default_prob_edge: Optional[float] = None
+
+    def get_thresholds(self, odds: float) -> Thresholds:
+        """Return edge-floor thresholds for the given odds."""
+        # Find the first matching range, if any
+        match = next(
+            (r for r in self.ranges if r.min_odds <= odds <= r.max_odds),
+            None,
+        )
+
+        if match is not None:
+            return Thresholds(
+                edge_floor=match.edge,
+                prob_edge=match.prob_edge or self.default_prob_edge,
+            )
+
+        # No range matched – fall back to defaults
+        return Thresholds(self.default_edge_floor, self.default_prob_edge)
 
 
 def simple_select_bets(
     odds_input: list[OddsInput],
     probas: np.ndarray,
-    edge_floor: float = 0.0,
+    edge_floor: float | EdgeFloorConfig = 0.0,
     single_bet_per_game: bool = True,
+    outcomes: Sequence[str] = ("H", "D", "A"),
 ) -> list[Bet]:
-    """Select bets with positive expected value (p > 1/odds).
-
-    Args:
-        odds (pd.DataFrame): DataFrame with columns ['home_team', 'away_team', 'H', 'D', 'A'].
-        probas (np.ndarray): Array of shape (n_matches, 3) containing predicted probabilities.
-        single_bet_per_game (bool): If True, only the highest-edge bet per match is kept.
-
-    Returns:
-        List[Bet]: A list of Bet objects with positive edge.
-
-    """
-    outcomes = ["H", "D", "A"]
     n_matches = len(odds_input)
     if probas.shape != (n_matches, 3):
         raise ValueError(f"probas must have shape ({n_matches}, 3), got {probas.shape}")
+
+    if isinstance(edge_floor, float):
+        edge_config = EdgeFloorConfig(default_edge_floor=edge_floor)
+    elif isinstance(edge_floor, EdgeFloorConfig):
+        edge_config = edge_floor
+    else:
+        raise TypeError("Edge floor should be either a float or an EdgeFloorConfig instance")
 
     selections: list[Bet] = []
     for idx, odd in enumerate(odds_input):
@@ -35,7 +80,8 @@ def simple_select_bets(
 
         if single_bet_per_game:
             best_idx = int(np.argmax(edges))
-            if edges[best_idx] > edge_floor:
+            required_edges, _ = edge_config.get_thresholds(odds_arr[best_idx])
+            if edges[best_idx] > required_edges:
                 selections.append(
                     _build_bet(
                         odd,
@@ -61,7 +107,7 @@ def simple_select_bets(
 
 def _build_bet(
     odd_input: OddsInput,
-    outcomes: list[str],
+    outcomes: Sequence[str],
     pick: int,
     prob: float,
 ) -> Bet:
@@ -89,7 +135,9 @@ def _build_bet(
 
 def select_matches_posterior(
     odds_input: list[OddsInput],
-    lambda_samples: dict[str, tuple[np.ndarray, np.ndarray]],
+    lambda_samples: dict[str, SampleProbaResult],
+    *,
+    config: EdgeFloorConfig | None = None,
     edge_floor: float = 0.1,
     prob_edge_threshold: float = 0.55,
     single_bet_per_game: bool = True,
@@ -118,12 +166,15 @@ def select_matches_posterior(
         list[Bet]: A sorted list of selected Bet objects, ordered by descending edge_mean.
 
     """
+    if config is None:
+        config = EdgeFloorConfig(
+            default_edge_floor=edge_floor, default_prob_edge=prob_edge_threshold
+        )
+
     selected: list[Bet] = []
 
     for odd in odds_input:
-        lam_h, lam_a = lambda_samples[odd.match_id]
-        p_home, p_draw, p_away = _skellam_post_probs(lam_h, lam_a)
-
+        p_home, p_draw, p_away = lambda_samples[odd.match_id]
         candidate_bets = []
         for market, p_samples in zip(("H", "D", "A"), (p_home, p_draw, p_away)):
             o = odd.odd_dict[market]
@@ -133,8 +184,8 @@ def select_matches_posterior(
             std_edge = edge_samples.std(ddof=1)
             prob_pos = (edge_samples > 0).mean()
             p_mean = p_samples.mean()
-
-            if mu_edge > edge_floor and prob_pos > prob_edge_threshold:
+            edge_thresholds = config.get_thresholds(odds=o)
+            if mu_edge > edge_thresholds.edge_floor and prob_pos > edge_thresholds.prob_edge:
                 candidate_bets.append(
                     Bet(
                         match_id=odd.match_id,

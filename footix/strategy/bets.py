@@ -27,7 +27,7 @@ class Bet:
     edge_mean: float = field(init=False)
 
     def __post_init__(self):
-        self.edge_mean = self.prob_mean * (self.odds - 1) - (1.0 - self.prob_mean)
+        self.edge_mean = self.prob_mean * self.odds - 1.0
 
     def to_dict(self) -> dict:
         return asdict(self)

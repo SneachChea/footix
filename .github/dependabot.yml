@@ -1,0 +1,13 @@
+version: 2
+
+updates:
+  # Check for updates in Poetry (Python dependencies)
+  - package-ecosystem: "poetry"
+    directory: "/"                     # Root directory where pyproject.toml is located
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(deps)"            # Customize commit message for dependency updates
+    labels:
+      - "dependencies"
+      - "python"
