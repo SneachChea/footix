@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
+
 import footix.implied_odds as implied_odds
+
 
 @pytest.fixture
 def odds():

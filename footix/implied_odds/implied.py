@@ -35,8 +35,7 @@ def multiplicative_method(
 
     """
     _assert_odds(odds, axis=axis)
-    if isinstance(odds, list):
-        odds = np.array(odds)
+    odds = np.asarray(odds, dtype=float)
     if len(odds.shape) > 1:
         normalization = np.sum(1.0 / odds, axis=axis, keepdims=True)
     else:

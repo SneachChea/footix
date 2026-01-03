@@ -11,7 +11,7 @@ packages = [
 repository = "https://github.com/SneachChea/footix"
 
 [tool.poetry.dependencies]
-python = ">=3.11, <3.13"
+python = ">=3.11, <3.14"
 numpy = "^1.24.3"
 scipy = "^1.10.1"
 scikit-learn = "^1.2.2"

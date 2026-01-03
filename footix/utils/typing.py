@@ -1,6 +1,7 @@
-from typing import Any, NamedTuple, Protocol, TypeAlias, Sequence
-from numpy.typing import NDArray
+from typing import Any, NamedTuple, Protocol, Sequence, TypeAlias
+
 import numpy as np
+from numpy.typing import NDArray
 
 ArrayLikeF: TypeAlias = Sequence[float] | NDArray[np.floating]
 

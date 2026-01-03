@@ -44,7 +44,9 @@ class TestGoalMatrixInitialization:
         home_probs = [0.2, 0.5, 0.3]
         away_probs = [0.3, 0.4]
 
-        with pytest.raises(ValueError, match="Length of proba's array should be the same"):
+        with pytest.raises(
+            ValueError, match="home_goals_probs and away_goals_probs must have the same length"
+        ):
             GoalMatrix(home_probs, away_probs)
 
     def test_multidimensional_home_probs(self):
@@ -52,7 +54,7 @@ class TestGoalMatrixInitialization:
         home_probs = [[0.2, 0.5], [0.3, 0.2]]
         away_probs = [0.3, 0.4, 0.3]
 
-        with pytest.raises(ValueError, match="Array probs should be one dimensional"):
+        with pytest.raises(ValueError, match="must be 1D arrays"):
             GoalMatrix(home_probs, away_probs)
 
     def test_multidimensional_away_probs(self):
@@ -60,7 +62,7 @@ class TestGoalMatrixInitialization:
         home_probs = [0.2, 0.5, 0.3]
         away_probs = [[0.3, 0.4], [0.2, 0.1]]
 
-        with pytest.raises(ValueError, match="Array probs should be one dimensional"):
+        with pytest.raises(ValueError, match="must be 1D arrays"):
             GoalMatrix(home_probs, away_probs)
 
     def test_mismatched_correlation_matrix_size(self):
@@ -71,8 +73,65 @@ class TestGoalMatrixInitialization:
 
         with pytest.raises(
             ValueError,
-            match="Size between probability matrix and correlation matrix should be the same",
+            match="correlation_matrix must have shape \(n, n\) matching probabilities length",
         ):
+            GoalMatrix(home_probs, away_probs, correlation_matrix=corr_matrix)
+
+    def test_initialization_normalizes_inputs(self):
+        """Test that probability vectors are normalized to sum to 1."""
+        home_probs = [1.0, 1.0, 2.0]
+        away_probs = [2.0, 1.0, 1.0]
+        gm = GoalMatrix(home_probs, away_probs)
+
+        assert math.isclose(float(np.sum(gm.home_goals_probs)), 1.0, rel_tol=1e-12)
+        assert math.isclose(float(np.sum(gm.away_goals_probs)), 1.0, rel_tol=1e-12)
+        assert math.isclose(float(np.sum(gm.matrix_array)), 1.0, rel_tol=1e-12)
+
+    def test_negative_probabilities_raise(self):
+        """Test that negative probabilities are rejected."""
+        home_probs = [-0.1, 1.1]
+        away_probs = [0.5, 0.5]
+        with pytest.raises(ValueError, match="home_goals_probs must be non-negative"):
+            GoalMatrix(home_probs, away_probs)
+
+    def test_nan_probabilities_raise(self):
+        """Test that NaN values are rejected."""
+        home_probs = [np.nan, 1.0]
+        away_probs = [0.5, 0.5]
+        with pytest.raises(ValueError, match="home_goals_probs must contain only finite values"):
+            GoalMatrix(home_probs, away_probs)
+
+    def test_zero_mass_probabilities_raise(self):
+        """Test that zero total probability mass is rejected."""
+        home_probs = [0.0, 0.0]
+        away_probs = [0.5, 0.5]
+        with pytest.raises(
+            ValueError, match="home_goals_probs must have positive total probability mass"
+        ):
+            GoalMatrix(home_probs, away_probs)
+
+    def test_invalid_correlation_matrix_ndim_raise(self):
+        """Test that non-2D correlation matrices are rejected."""
+        home_probs = [0.5, 0.5]
+        away_probs = [0.5, 0.5]
+        corr_matrix = np.zeros((2, 2, 1))
+        with pytest.raises(ValueError, match="correlation_matrix must be a 2D array"):
+            GoalMatrix(home_probs, away_probs, correlation_matrix=corr_matrix)
+
+    def test_negative_correlation_matrix_raise(self):
+        """Test that negative values in correlation_matrix are rejected."""
+        home_probs = [0.5, 0.5]
+        away_probs = [0.5, 0.5]
+        corr_matrix = np.array([[1.0, -1.0], [1.0, 1.0]])
+        with pytest.raises(ValueError, match="correlation_matrix must be non-negative"):
+            GoalMatrix(home_probs, away_probs, correlation_matrix=corr_matrix)
+
+    def test_non_finite_correlation_matrix_raise(self):
+        """Test that non-finite values in correlation_matrix are rejected."""
+        home_probs = [0.5, 0.5]
+        away_probs = [0.5, 0.5]
+        corr_matrix = np.array([[1.0, np.nan], [1.0, 1.0]])
+        with pytest.raises(ValueError, match="correlation_matrix must contain only finite values"):
             GoalMatrix(home_probs, away_probs, correlation_matrix=corr_matrix)
 
 
@@ -139,7 +198,9 @@ class TestGoalMarketMethods:
         away_probs = [0.5]
         gm = GoalMatrix(home_probs, away_probs)
 
-        with pytest.raises(TypeError, match="Probas should be longer than 3"):
+        with pytest.raises(
+            ValueError, match="must have length >= 2 for less_15_goals"
+        ):
             gm.less_15_goals()
 
     def test_less_25_goals(self):
@@ -159,7 +220,9 @@ class TestGoalMarketMethods:
         away_probs = [0.5, 0.5]
         gm = GoalMatrix(home_probs, away_probs)
 
-        with pytest.raises(TypeError, match="Probas should be longer than 4"):
+        with pytest.raises(
+            ValueError, match="must have length >= 3 for less_25_goals"
+        ):
             gm.less_25_goals()
 
     def test_more_15_goals(self):
