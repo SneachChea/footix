@@ -44,14 +44,6 @@ footix.models.elo module
    :show-inheritance:
    :undoc-members:
 
-footix.models.hybrid\_model module
-----------------------------------
-
-.. automodule:: footix.models.hybrid_model
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
 footix.models.score\_matrix module
 ----------------------------------
 

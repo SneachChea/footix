@@ -7,7 +7,10 @@ from footix.utils.decorators import verify_required_column
 
 
 class DataProtocol(Protocol):
+    """Protocol for data readers."""
+
     def __len__(self) -> int:
+        """Length of the data reader."""
         ...
 
 

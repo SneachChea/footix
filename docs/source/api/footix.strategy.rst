@@ -36,10 +36,10 @@ footix.strategy.select\_bets module
    :show-inheritance:
    :undoc-members:
 
-footix.strategy.simple module
------------------------------
+footix.strategy.simple\_strategy module
+---------------------------------------
 
-.. automodule:: footix.strategy.simple
+.. automodule:: footix.strategy.simple_strategy
    :members:
    :show-inheritance:
    :undoc-members:

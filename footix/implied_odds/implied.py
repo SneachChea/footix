@@ -5,7 +5,7 @@ from scipy import optimize
 
 from footix.utils.typing import ArrayLikeF
 
-# Most of those functions are inspired by the awesome package penaltyblog
+# Most of those functions are inspired by the **awesome** package penaltyblog
 # https://github.com/martineastwood/penaltyblog/tree/master
 
 
@@ -61,7 +61,7 @@ def power_method(
         greater than zero.
     tol : float, default=1e-12
         Convergence tolerance for the root-finding procedure. The iteration stops when
-        |∑(1/odds)**k − 1| < tol.
+        ``abs(sum((1/odds)**k) - 1) < tol``.
     max_iter : int, default=50
         Maximum number of Newton steps to attempt. If convergence is not reached within
         this many iterations, a RuntimeError is raised.
@@ -72,8 +72,8 @@ def power_method(
         A 1-D array of implied probabilities corresponding to each input odd. These probabilities
         are non-negative and sum exactly (to machine precision) to 1.0.
     margin : float
-        The bookmaker’s over-round (or “vigorish”), computed as ∑(1/odds) − 1. A value of zero
-        indicates a fair book (no margin).
+        The bookmaker’s over-round (or “vigorish”), computed as ``sum(1/odds) - 1``.
+         A value of zero indicates a fair book (no margin).
 
     Raises
     ------
@@ -86,10 +86,8 @@ def power_method(
     -----
     1. When `margin` is already within `tol` of zero, the function treats the book as fair and
         returns the normalized inverses of the odds directly.
-    2. Internally, we solve
-           f(k) = Σ (1/odds_i)**k − 1 = 0
-       by applying Newton’s method to the equivalent form
-           f(k) = Σ exp(k * log(1/odds_i)) − 1.
+    2. Internally, we solve ``f(k) = sum((1/odds_i)**k) - 1 = 0`` by applying Newton's method
+      to the equivalent form ``f(k) = sum(exp(k * log(1/odds_i))) - 1``.
        Working in log-space improves numerical stability, especially when odds are large
        (inv-odds small).
     3. The default initial guess for k is 1. For typical sportsbook margins (up to 10–15%),
@@ -134,43 +132,33 @@ def power_method(
 def shin_method(odds: ArrayLikeF, *, tol: float = 1e-12) -> tuple[np.ndarray, float]:
     """Compute implied probabilities and bookmaker margin using Shin’s method.
 
-    Shin’s method (Shin, 1992; Shin, 1993) adjusts raw decimal odds for insider‐information
-    risk by finding a parameter z in (0, 1) that forces the “Shin‐adjusted” probabilities
-    to sum to 1. This implementation uses Brent’s root‐finding algorithm to solve for z.
+    Shin’s method (Shin, 1992; Shin, 1993) adjusts raw decimal odds for insider information
+    risk by finding a parameter z in (0, 1) that forces the “Shin adjusted” probabilities
+    to sum to 1. This implementation uses Brent’s root finding algorithm to solve for z.
 
     Parameters
     ----------
-    odds : array‐like of float, shape (3,)
+    odds : arraylike of float, shape (3,)
         Decimal odds for the three mutually exclusive outcomes, in the order:
         [home_win, draw, away_win]. Each entry must be strictly positive.
     tol : float, optional
         Absolute tolerance for the Brent solver when finding the Shin parameter z.
-        Default is 1e‐12.
+        Default is 1e-12.
 
     Returns
     -------
     implied : ndarray, shape (3,)
-        Shin‐adjusted probabilities for [home_win, draw, away_win]. These probabilities
-        account for bookmaker over‐round and the presence of insider information, and they
+        Shin adjusted probabilities for [home_win, draw, away_win]. These probabilities
+        account for bookmaker overround and the presence of insider information, and they
         sum to 1 within numerical tolerance.
     margin : float
-        Bookmaker over‐round (also called “vig” or “juice”), computed as
-            margin = sum(1 / odds_i) − 1.
+        Bookmaker overround (also called “vig” or “juice”), computed as
+            margin = sum(1 / odds_i) - 1.
 
     Raises
     ------
     ValueError
         If `odds` does not have exactly three elements or if any element is non‐positive.
-
-    Notes
-    -----
-    1. Let q_i = 1 / odds_i and Q = sum(q_i). For a given z in (0, 1), Shin’s formula gives:
-         p_i(z) = ( sqrt(z^2 + 4 (1 − z) q_i^2 / Q) − z ) / [2 (1 − z)].
-       The root‐finding problem is:
-         f(z) = sum_i p_i(z) − 1 = 0.
-       We bracket z within (ε, 1 − ε) to avoid division by zero (ε ≈ 1e‐12).
-
-    2. Once z is found, the implied probabilities p_i(z) automatically sum to 1 (within tol).
 
     """
 
@@ -191,7 +179,7 @@ def shin_method(odds: ArrayLikeF, *, tol: float = 1e-12) -> tuple[np.ndarray, fl
 
     # In theory 0 < z < 1; shrink the bracket slightly to avoid division errors.
     z_star = optimize.brentq(_objective, 1e-12, 1.0 - 1e-12, xtol=tol)
-    implied = _shin_probabilities(inv_odds, z_star)
+    implied = _shin_probabilities(inv_odds, z_star)  # type: ignore
     return implied, margin
 
 

@@ -1,12 +1,11 @@
 footix package
 ==============
-.. contents:: Table of Contents
 
-Modules
+Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 4
 
    footix.data_io
    footix.implied_odds
@@ -14,3 +13,11 @@ Modules
    footix.models
    footix.strategy
    footix.utils
+
+Module contents
+---------------
+
+.. automodule:: footix
+   :members:
+   :show-inheritance:
+   :undoc-members:
