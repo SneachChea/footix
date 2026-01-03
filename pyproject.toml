@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyfootix"
-version = "0.1.1"
+version = "0.2.0"
 description = "Footix is a Python package for sports betting analysis and modeling, with a focus on football (soccer)."
 authors = ["sneachchea"]
 license = "MIT"
