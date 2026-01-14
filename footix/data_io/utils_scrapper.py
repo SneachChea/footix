@@ -40,8 +40,7 @@ def process_string(input_string):
 
 
 def to_snake_case(name: str) -> str:
-    """
-    Convert the string name into a snake case string.
+    """Convert the string name into a snake case string.
     Shamelessly copied from:
     https://stackoverflow.com/questions/1175208/
     elegant-python-function-to-convert-camelcase-to-snake-case
@@ -51,6 +50,7 @@ def to_snake_case(name: str) -> str:
 
     Returns:
         str: the name in snake case
+
     """
     name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
     name = re.sub("__([A-Z])", r"_\1", name)
@@ -60,6 +60,54 @@ def to_snake_case(name: str) -> str:
 
 @verify_required_column(["home_team", "away_team", "date"])
 def add_match_id(df: pd.DataFrame) -> pd.DataFrame:
+    """Add a stable `match_id` column in the form "Home - Away - YYYY-MM-DD".
+
+    This normalizes the date formatting so match ids are consistent across scrapers
+    that use different date string formats.
+    """
     tmp_df = df.copy()
-    tmp_df["match_id"] = tmp_df["home_team"] + " - " + tmp_df["away_team"] + " - " + tmp_df["date"]
+    # Ensure date is datetime-like for a stable formatting
+    if not pd.api.types.is_datetime64_any_dtype(tmp_df["date"]):
+        tmp_df["date"] = pd.to_datetime(tmp_df["date"], dayfirst=True)
+    tmp_df["match_id"] = (
+        tmp_df["home_team"]
+        + " - "
+        + tmp_df["away_team"]
+        + " - "
+        + tmp_df["date"].dt.strftime("%Y-%m-%d")
+    )
     return tmp_df
+
+
+def canonicalize_matches_df(
+    df: pd.DataFrame, *, require_columns: list[str] | None = None
+) -> pd.DataFrame:
+    """Canonicalize a match dataframe.
+
+    Ensures date parsing, required columns present, sorts by date and adds a stable `match_id`.
+
+    Args:
+        df: Input dataframe with match rows.
+        require_columns: List of columns that must be present (defaults to minimal match columns).
+
+    Returns:
+        The canonicalized dataframe.
+
+    """
+    cols_required = require_columns or ["date", "home_team", "away_team", "fthg", "ftag"]
+    missing = [c for c in cols_required if c not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns for canonicalization: {missing}")
+
+    tmp = df.copy()
+    # Parse dates with dayfirst=True to be consistent with existing readers
+    tmp["date"] = pd.to_datetime(tmp["date"], dayfirst=True)
+
+    # Ensure minimal dtypes
+    tmp["home_team"] = tmp["home_team"].astype(str)
+    tmp["away_team"] = tmp["away_team"].astype(str)
+
+    # Add stable match_id and sort
+    tmp = add_match_id(tmp)
+    tmp = tmp.sort_values(by="date", ascending=True).reset_index(drop=True)
+    return tmp

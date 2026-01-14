@@ -161,7 +161,6 @@ def shin_method(odds: ArrayLikeF, *, tol: float = 1e-12) -> tuple[np.ndarray, fl
         If `odds` does not have exactly three elements or if any element is non‐positive.
 
     """
-
     _assert_odds(odds)
     odds_arr = np.asarray(odds)
     inv_odds = 1.0 / odds_arr

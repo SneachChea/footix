@@ -22,6 +22,7 @@ def compute_goals_home_vectors(
         data (pd.DataFrame): Input DataFrame with home team goals and HomeTeam column.
         map_teams (dict): Dictionary mapping team names to numerical IDs.
         nbr_team (int): Number of teams in the league.
+
     Returns:
         tuple[np.ndarray, np.ndarray]: A tuple containing two NumPy arrays:
             goals_vector representing home team goals and tau_home representing binary vectors
@@ -44,6 +45,7 @@ def compute_goals_away_vectors(
         data (pd.DataFrame): Input DataFrame with away team goals and AwayTeam column.
         map_teams (dict): Dictionary mapping team names to numerical IDs.
         nbr_team (int): Number of teams in the league.
+
     Returns:
         tuple[np.ndarray, np.ndarray]: A tuple containing two NumPy arrays:
             goals_vector representing away team goals and tau_away representing binary vectors
@@ -64,6 +66,7 @@ def to_torch_tensor(
     Args:
         *arrays: Variable number of numpy arrays to convert
         dtype: Target tensor dtype (default: torch.float32)
+
     Returns:
         Single tensor if one array is provided, tuple of tensors if multiple arrays
     Examples:

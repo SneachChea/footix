@@ -162,6 +162,7 @@ def select_matches_posterior(
             consider a bet. Defaults to 0.55.
         single_bet_per_game (bool, optional): If True, only the best bet per match is
         selected. Defaults to True.
+
     Returns:
         list[Bet]: A sorted list of selected Bet objects, ordered by descending edge_mean.
 

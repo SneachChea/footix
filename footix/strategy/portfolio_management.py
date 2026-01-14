@@ -16,6 +16,7 @@ def stack_bets(bets: list[Bet]) -> tuple[np.ndarray, np.ndarray]:
     Args:
         bets (list[Bet]): A list of Bet objects, where each Bet contains attributes
                           `edge_mean` (float) and `edge_std` (float or None).
+
     Returns:
         tuple[np.ndarray, np.ndarray]: A tuple containing two numpy arrays:
                                        - The first array contains the mean edge values.
@@ -155,7 +156,6 @@ def optimise_portfolio_torch(
         - Provides detailed diagnostics when verbose=True
 
     """
-
     # ── 1. Static inputs ---------------------------------------------------
     mu_np, sigma_np = stack_bets(list_bets)
     mu: Tensor = torch.tensor(mu_np, device=device, dtype=torch.float)

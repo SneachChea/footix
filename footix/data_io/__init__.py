@@ -11,3 +11,8 @@ Submodules:
     - utils_scrapper: Scraper utility functions
 
 """
+
+from .footballdata import ScrapFootballData
+from .understat import ScrapUnderstat
+
+__all__ = ["ScrapFootballData", "ScrapUnderstat"]

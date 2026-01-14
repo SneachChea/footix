@@ -109,6 +109,7 @@ class BayesianModel:
                 A tuple containing two one-dimensional numpy arrays:
                     - The first array represents the sampled lambda values for the home team.
                     - The second array represents the sampled lambda values for the away team.
+
         Notes:
             This function transforms the team names into their corresponding indices, retrieves
             the posterior samples for model parameters from the trace, computes the expected
@@ -233,8 +234,6 @@ class BayesianModel:
                 cores=min(4, os.cpu_count() or 1),
                 target_accept=0.95,
                 return_inferencedata=True,
-                nuts_sampler="numpyro",
-                init="adapt_diag_grad",
             )
         return trace
 

@@ -61,7 +61,9 @@ def test_implied_poisson_goals_extreme_probabilities():
 def test_implied_poisson_goals_invalid_input():
     """Test with invalid probability values."""
     invalid_proba = ProbaResult(
-        proba_home=1.2, proba_draw=0.2, proba_away=0.1  # Invalid probability > 1
+        proba_home=1.2,
+        proba_draw=0.2,
+        proba_away=0.1,  # Invalid probability > 1
     )
 
     with pytest.raises(ArithmeticError):

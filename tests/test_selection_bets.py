@@ -54,7 +54,6 @@ def test_select_matches_single_bet():
 
 def test_select_matches_multiple_bets(sample_odds_input, sample_lambda_samples):
     """Test selecting multiple bets per match."""
-
     selected = select_matches_posterior(
         odds_input=sample_odds_input,
         lambda_samples=sample_lambda_samples,
@@ -87,8 +86,9 @@ def test_edge_floor_filtering():
 
 
 def test_odds_range_config():
-    """Test that EdgeFloorConfig properly applies different thresholds
-    for different odds ranges."""
+    """Test that EdgeFloorConfig properly applies different thresholds for different odds
+    ranges.
+    """
     odds_input = [
         OddsInput("Home1", "Away1", [1.5, 3.0, 4.0]),  # Low odds
         OddsInput("Home2", "Away2", [3.0, 3.5, 4.0]),  # Medium odds
@@ -153,10 +153,14 @@ def test_sorting_by_edge():
 
     lambda_samples = {
         "Home1 - Away1": SampleProbaResult(
-            np.full(1000, 0.6), np.full(1000, 0.3), np.full(1000, 0.1)  # Home favored
+            np.full(1000, 0.6),
+            np.full(1000, 0.3),
+            np.full(1000, 0.1),  # Home favored
         ),
         "Home2 - Away2": SampleProbaResult(
-            np.full(1000, 0.1), np.full(1000, 0.3), np.full(1000, 0.6)  # Away favored
+            np.full(1000, 0.1),
+            np.full(1000, 0.3),
+            np.full(1000, 0.6),  # Away favored
         ),
     }
 

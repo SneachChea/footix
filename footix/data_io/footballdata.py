@@ -11,6 +11,7 @@ Functions:
     _process_season(season: str) -> str: Processes a season string into a standardized format.
 
 """
+
 import io
 
 import pandas as pd

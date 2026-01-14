@@ -38,7 +38,8 @@ class MatchupResult:
     def from_dict(dict_row: dict) -> "MatchupResult":
         """Factory method to create a MatchupResult object from a dictionary row.
 
-        Parameters:
+        Parameters
+        ----------
             dict_row (dict): A dictionary containing the match results with keys:
             - 'HomeTeam': The name of the home team.
             - 'AwayTeam': The name of the away team.
@@ -46,7 +47,9 @@ class MatchupResult:
                 ('H' for Home Win, 'A' for Away Win, 'D' for Draw).
             - 'FTAG': The number of goals scored by the away team.
             - 'FTHG': The number of goals scored by the home team.
-        Returns:
+
+        Returns
+        -------
             MatchupResult: An instance of the MatchupResult class populated with data
             from the dictionary row.
 

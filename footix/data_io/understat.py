@@ -22,8 +22,7 @@ class FixtureDataNotFound(RuntimeError):
 
 
 class ScrapUnderstat(Scraper):
-    """
-    Scraper for downloading and processing football match data from understat.com.
+    """Scraper for downloading and processing football match data from understat.com.
     This class function is heavily inspired/copied from its counterpart from penalty blog:
     https://github.com/martineastwood/penaltyblog
 
@@ -50,6 +49,7 @@ class ScrapUnderstat(Scraper):
         sanitize_columns(df): Converts DataFrame columns to snake_case.
         get_fixtures() -> pd.DataFrame: Downloads, parses, and returns processed match data.
         _process_season(season: str) -> str: Processes the season string for URL usage.
+
     """
 
     base_url: str = "https://understat.com/"

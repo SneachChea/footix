@@ -55,7 +55,6 @@ class GoalMatrix:
             ValueError: If any of the invariants described in the class docstring are violated.
 
         """
-
         self.home_goals_probs = np.asarray(self.home_goals_probs, dtype=float)
         self.away_goals_probs = np.asarray(self.away_goals_probs, dtype=float)
 
@@ -106,6 +105,7 @@ class GoalMatrix:
 
         Raises:
             ValueError: If the internal probability matrix has zero mass.
+
         """
         home_win = np.sum(np.tril(self.matrix_array, -1))
         draw = np.sum(np.diag(self.matrix_array))
@@ -171,6 +171,7 @@ class GoalMatrix:
 
         Args:
             handicap (float): The handicap to be applied to the home team's score.
+
         Returns:
             ProbaResult: home_win, draw, away_win probabilities.
 

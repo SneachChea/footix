@@ -34,7 +34,6 @@ def classic_kelly(list_bets: list[Bet], bankroll: float) -> list[Bet]:
                     the Kelly criterion.
 
     """
-
     for b in list_bets:
         edge = b.edge_mean
         odd = b.odds
@@ -402,7 +401,6 @@ def kelly_portfolio_torch(
         >>>     print(bet)
 
     """
-
     mapping = {"H": 0, "D": 1, "A": 2}
     ps, bs = [], []
 

@@ -6,7 +6,6 @@ from footix.strategy.bets import Bet
 
 def test_generate_combinations():
     """Test the generate_combinations function with various scenarios."""
-
     # Test case 1: Two selections with probabilities
     selections_1 = [
         Bet(match_id="A", market="H", odds=2.0, prob_mean=0.6),

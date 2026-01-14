@@ -1,6 +1,7 @@
 """Test suite for documentation build integrity.
 
 This module verifies that Sphinx builds successfully and treats warnings as errors.
+
 """
 
 import subprocess
@@ -17,6 +18,7 @@ def test_sphinx_build() -> None:
 
     Raises:
         AssertionError: If Sphinx build fails or warnings are treated as errors.
+
     """
     repo_root = Path(__file__).parent.parent
     docs_source = repo_root / "docs" / "source"
