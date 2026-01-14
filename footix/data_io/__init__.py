@@ -13,7 +13,6 @@ Submodules:
 """
 
 from .footballdata import ScrapFootballData
-from .rolling_stats import add_rolling_team_features
 from .understat import ScrapUnderstat
 
-__all__ = ["ScrapFootballData", "ScrapUnderstat", "add_rolling_team_features"]
+__all__ = ["ScrapFootballData", "ScrapUnderstat"]
