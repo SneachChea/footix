@@ -35,7 +35,7 @@ jobs:
           poetry install --no-interaction --no-ansi --with dev
 
       - name: Lint
-        run: poetry run task lint
+        run: poetry run pre-commit run --all-files
 
   type:
     needs: [lint]
@@ -53,7 +53,7 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --no-interaction --no-ansi --with dev
       - name: Type-check
-        run: poetry run task type
+        run: poetry run mypy footix/ tests/
 
   test:
     needs: [type]
@@ -81,4 +81,4 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --no-interaction --no-ansi --with dev
       - name: Run tests
-        run: poetry run task test
+        run: poetry run pytest -v --cov=footix

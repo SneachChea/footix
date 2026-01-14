@@ -34,17 +34,17 @@ unit-test-job:   # This job runs in the test stage.
 
   script:
     - echo "Running unit tests"
-    - poetry run task test
+    - poetry run pytest -v --cov=footix
 
 lint-test-job:   # This job also runs in the test stage.
   stage: lint    # It can run at the same time as unit-test-job (in parallel).
 
   script:
     - echo "Linting code..."
-    - poetry run task lint
+    - poetry run pre-commit run --all-files
 
 type-test-job:
   stage: type
   script:
     - echo "Typing code..."
-    - poetry run task type
+    - poetry run mypy footix/ tests/
