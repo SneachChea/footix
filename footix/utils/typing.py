@@ -7,11 +7,9 @@ ArrayLikeF: TypeAlias = Sequence[float] | NDArray[np.floating]
 
 
 class ProtoModel(Protocol):
-    def fit(self, *args: Any, **kwargs: Any) -> Any:
-        ...
+    def fit(self, *args: Any, **kwargs: Any) -> Any: ...
 
-    def predict(self, HomeTeam: str, AwayTeam: str) -> Any:
-        ...
+    def predict(self, HomeTeam: str, AwayTeam: str) -> Any: ...
 
 
 class RPSResult(NamedTuple):

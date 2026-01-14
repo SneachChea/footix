@@ -40,8 +40,7 @@ def process_string(input_string):
 
 
 def to_snake_case(name: str) -> str:
-    """
-    Convert the string name into a snake case string.
+    """Convert the string name into a snake case string.
     Shamelessly copied from:
     https://stackoverflow.com/questions/1175208/
     elegant-python-function-to-convert-camelcase-to-snake-case
@@ -51,6 +50,7 @@ def to_snake_case(name: str) -> str:
 
     Returns:
         str: the name in snake case
+
     """
     name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
     name = re.sub("__([A-Z])", r"_\1", name)
@@ -70,12 +70,18 @@ def add_match_id(df: pd.DataFrame) -> pd.DataFrame:
     if not pd.api.types.is_datetime64_any_dtype(tmp_df["date"]):
         tmp_df["date"] = pd.to_datetime(tmp_df["date"], dayfirst=True)
     tmp_df["match_id"] = (
-        tmp_df["home_team"] + " - " + tmp_df["away_team"] + " - " + tmp_df["date"].dt.strftime("%Y-%m-%d")
+        tmp_df["home_team"]
+        + " - "
+        + tmp_df["away_team"]
+        + " - "
+        + tmp_df["date"].dt.strftime("%Y-%m-%d")
     )
     return tmp_df
 
 
-def canonicalize_matches_df(df: pd.DataFrame, *, require_columns: list[str] | None = None) -> pd.DataFrame:
+def canonicalize_matches_df(
+    df: pd.DataFrame, *, require_columns: list[str] | None = None
+) -> pd.DataFrame:
     """Canonicalize a match dataframe.
 
     Ensures date parsing, required columns present, sorts by date and adds a stable `match_id`.
@@ -86,6 +92,7 @@ def canonicalize_matches_df(df: pd.DataFrame, *, require_columns: list[str] | No
 
     Returns:
         The canonicalized dataframe.
+
     """
     cols_required = require_columns or ["date", "home_team", "away_team", "fthg", "ftag"]
     missing = [c for c in cols_required if c not in df.columns]

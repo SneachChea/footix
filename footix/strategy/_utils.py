@@ -14,6 +14,7 @@ def generate_combinations(selections: list[Bet]) -> tuple[list[list[int]], list[
     Args:
         selections (list[Bet]):
             A list of Bet object representing the selectable options,
+
     Returns:
         tuple[list[list[int]], list[float]]: A tuple containing two lists:
             1. A list of lists, where each sublist represents a combination of selections (0 or 1),
@@ -91,7 +92,6 @@ def compute_stacks(
         float: The negative sum of the expected log bankrolls.
 
     """
-
     end_bankrolls = np.array([bankroll - np.sum(stakes)] * len(combinations), dtype=float)
     for index_bet, comb_indices in winning_bets.items():
         for index in comb_indices:
@@ -104,7 +104,8 @@ def _skellam_post_probs(
     lh: np.ndarray, la: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Probabilités a posteriori (vecteurs) : home‑win, draw, away‑win pour des échantillons
-    λ_home, λ_away de même longueur."""
+    λ_home, λ_away de même longueur.
+    """
     p_home = 1 - skellam.cdf(0, lh, la)  # P(diff > 0)
     p_draw = skellam.pmf(0, lh, la)  # P(diff = 0)
     p_away = skellam.cdf(-1, lh, la)  # P(diff < 0)

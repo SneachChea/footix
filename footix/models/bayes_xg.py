@@ -119,9 +119,7 @@ class XGBayesian:
 
         """
         rng: np.random.Generator = (
-            np.random.default_rng()
-            if kwargs.get("rng") is None
-            else kwargs.get("rng")  # type:ignore
+            np.random.default_rng() if kwargs.get("rng") is None else kwargs.get("rng")  # type:ignore
         )
         if rng is not None and not isinstance(rng, np.random.Generator):
             raise TypeError(f"'rng' must be a numpy.random.Generator or None, got {type(rng)}")
@@ -155,8 +153,8 @@ class XGBayesian:
         prob_A_list = []
 
         for i in range(n_samples):
-            home_goals = rng.poisson(lam=lambda_h[i], size=150)
-            away_goals = rng.poisson(lam=lambda_a[i], size=150)
+            home_goals = rng.poisson(lam=lambda_h[i], size=150)  # type: ignore
+            away_goals = rng.poisson(lam=lambda_a[i], size=150)  # type: ignore
             prob_H = np.mean(home_goals > away_goals)
             prob_D = np.mean(home_goals == away_goals)
             prob_A = np.mean(home_goals < away_goals)
