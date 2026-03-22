@@ -193,7 +193,9 @@ class BayesianModel:
             self._cached_means["bias"] = p["bias"].mean(("chain", "draw")).values
         return self._cached_means
 
-    def _apply_calibration(self, probs: np.ndarray, tau: float, bias: np.ndarray) -> np.ndarray:
+    def _apply_calibration(
+        self, probs: np.ndarray, tau: np.ndarray | float, bias: np.ndarray
+    ) -> np.ndarray:
         """Apply calibration transformation to match outcome probabilities.
 
         Parameters

@@ -12,10 +12,26 @@ footix.models.basic\_poisson module
    :show-inheritance:
    :undoc-members:
 
+footix.models.bayes\_xg module
+------------------------------
+
+.. automodule:: footix.models.bayes_xg
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 footix.models.bayesian module
 -----------------------------
 
 .. automodule:: footix.models.bayesian
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+footix.models.dixon\_coles module
+---------------------------------
+
+.. automodule:: footix.models.dixon_coles
    :members:
    :show-inheritance:
    :undoc-members:

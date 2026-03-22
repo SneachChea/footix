@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 import yaml
 
@@ -225,7 +227,7 @@ class TestNonInteractiveErrors:
 class TestYamlPersistence:
     """New mappings must be written back to the YAML file."""
 
-    def test_new_auto_mapping_persisted(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_new_auto_mapping_persisted(self, tmp_path: Path) -> None:
         """A newly auto-resolved mapping is persisted to the YAML."""
         mapping_dir = tmp_path / "mappings"
         mapping_dir.mkdir()
@@ -252,7 +254,7 @@ class TestYamlPersistence:
         assert "Bayern Munchen" in data.get("mappings", {})
         assert data["mappings"]["Bayern Munchen"] == "Bayern Munich"
 
-    def test_existing_static_not_overwritten(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_existing_static_not_overwritten(self, tmp_path: Path) -> None:
         """Pre-existing static mappings survive a persist() call."""
         mapping_dir = tmp_path / "mappings"
         mapping_dir.mkdir()

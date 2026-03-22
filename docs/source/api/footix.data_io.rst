@@ -30,7 +30,7 @@ footix.data\_io.footballdata module
 
 footix.data\_io.prediction\_export module
 -----------------------------------------
-xz
+
 .. automodule:: footix.data_io.prediction_export
    :members:
    :show-inheritance:
