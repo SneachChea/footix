@@ -49,7 +49,7 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --no-interaction --no-ansi --with dev
       - name: Type-check
-        run: poetry run mypy footix/ tests/
+        run: poetry run pre-commit run mypy --all-files
 
   test:
     needs: [type]
