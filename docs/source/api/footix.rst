@@ -13,6 +13,7 @@ Subpackages
    footix.models
    footix.strategy
    footix.utils
+   footix.vizu
 
 Module contents
 ---------------

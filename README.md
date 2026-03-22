@@ -4,7 +4,6 @@
 
 # 🐓 Footix: Smart Sports Analysis & Prediction Toolkit
 
-
 [Features](#-features) • [Installation](#-installation) • [Quick Start](#-quick-start)
 
 ## 🎮 Overview
@@ -37,7 +36,7 @@ pip install pyfootix
 ## 🎯 Quick Start
 
 ```python
-from footix.models.bayesian import Bayesian
+from footix.models.bayesian import BayesianModel
 from footix.data_io.footballdata import ScrapFootballData
 
 
@@ -45,7 +44,7 @@ from footix.data_io.footballdata import ScrapFootballData
 dataset = ScrapFootballData(competition="FRA Ligue 1", season="2024-2025", path ="./data", force_reload=True).get_fixtures()
 
 # Initialize and fit the Bayesian model
-model = Bayesian(n_teams=18, n_goals=20)
+model = BayesianModel(n_teams=18, n_goals=20)
 model.fit(X_train=dataset)
 
 # Predict probabilities for a specific match
@@ -53,6 +52,13 @@ probas = model.predict(home_team="Marseille", away_team="Lyon").return_probas()
 print(f"Home: {probas[0]:.2f}, Draw: {probas[1]:.2f}, Away: {probas[2]:.2f}")
 ```
 
+## 📤 Exporting Predictions
+
+You can export Bayesian predictions to JSON using:
+
+- Core Python utilities for script/automation workflows
+
+See the full tutorial in [docs/source/prediction_export_tutorial.rst](docs/source/prediction_export_tutorial.rst).
 
 ## 📝 License
 
@@ -61,4 +67,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-

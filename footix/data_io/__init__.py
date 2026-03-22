@@ -13,6 +13,15 @@ Submodules:
 """
 
 from .footballdata import ScrapFootballData
+from .prediction_export import (
+    build_prediction_records_from_predictions,
+    export_prediction_records_from_model,
+)
 from .understat import ScrapUnderstat
 
-__all__ = ["ScrapFootballData", "ScrapUnderstat"]
+__all__ = [
+    "ScrapFootballData",
+    "ScrapUnderstat",
+    "build_prediction_records_from_predictions",
+    "export_prediction_records_from_model",
+]

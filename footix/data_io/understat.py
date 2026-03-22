@@ -7,6 +7,7 @@ from urllib.parse import urljoin
 
 import numpy as np
 import pandas as pd
+import requests
 from lxml import html
 
 import footix.data_io.utils_scrapper as utils_scrapper
@@ -75,24 +76,38 @@ class ScrapUnderstat(Scraper):
         df.columns = [utils_scrapper.to_snake_case(x) for x in df.columns]
 
     @lru_cache(maxsize=256)
-    def get_fixtures(self):
-        implied_url = urljoin(self.base_url, f"league/{self.slug}/{self.season}")
-        content = self.get(implied_url)
-        tree = html.fromstring(content)
-        events = None
-        for s in tree.cssselect("script"):
-            if "datesData" in s.text:
-                script = s.text
-                script = " ".join(script.split())
-                script = str(script.encode(), "unicode-escape")
-                script = re.match(r"var datesData = JSON\.parse\('(?P<json>.*?)'\)", script)
-                if script is not None:
-                    script = script.group("json")
-                events = json.loads(script)
-                break
+    def get_fixtures(self) -> pd.DataFrame:
+        """Downloads and processes match fixtures using Understat's API.
 
-        if events is None:
-            raise FixtureDataNotFound
+        Uses the /getLeagueData/ API endpoint which requires specific headers.
+
+        Returns:
+            pd.DataFrame: Processed fixtures with match details, xG, and forecasts.
+
+        Raises:
+            FixtureDataNotFound: If no fixture data is found in the API response.
+        """
+        # Use the API endpoint which requires specific headers
+        url = urljoin(self.base_url, f"getLeagueData/{self.slug}/{self.season}")
+
+        # The API requires X-Requested-With and Referer headers
+        headers = {
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": urljoin(self.base_url, f"league/{self.slug}/{self.season}"),
+        }
+
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+
+        # Parse the JSON response
+        try:
+            data = response.json()
+            # The response is a dict with 'dates', 'teams', 'players' keys
+            events = data.get("dates", [])
+            if not events:
+                raise FixtureDataNotFound("No dates data found in API response")
+        except json.JSONDecodeError as exc:
+            raise FixtureDataNotFound(f"Invalid JSON response: {exc}")
 
         fixtures = list()
         for e in events:

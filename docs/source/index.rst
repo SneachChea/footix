@@ -25,7 +25,7 @@ Quick Start
 
 .. code-block:: python
 
-    from footix.models.bayesian import Bayesian
+    from footix.models.bayesian import BayesianModel
     from footix.data_io.footballdata import ScrapFootballData
 
     # Load match data (example: Ligue 1 fixtures)
@@ -37,7 +37,7 @@ Quick Start
     ).get_fixtures()
 
     # Initialize and fit the Bayesian model
-    model = Bayesian(n_teams=18, n_goals=20)
+    model = BayesianModel(n_teams=18, n_goals=20)
     model.fit(X_train=dataset)
 
     # Predict probabilities for a specific match
@@ -55,7 +55,8 @@ Quick Start
    :caption: How to start
    :hidden:
 
-   installation
+    installation
+    prediction_export_tutorial
 
 .. toctree::
    :maxdepth: 4
