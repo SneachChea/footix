@@ -80,7 +80,10 @@ def confidence_1x2_from_samples_array(
       ``MI = H(mean_p) - E[H(p_s)]``
 
     Final score:
-    ``confidence = 100 * sharpness * (1 - disagreement)``.
+    ``confidence = clip(100 * 4.5 * sharpness * (1 - disagreement), 0, 100)``.
+
+    The ``4.5`` factor is an empirical stretch used to spread mid-range raw
+    sharpness values into a more readable 0-100 confidence scale before clipping.
 
     Args:
         p_samples: Array with shape ``(n_samples, 3)`` containing posterior

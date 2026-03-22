@@ -30,13 +30,6 @@ def test_basic_standings():
 def test_tiebreakers_gf():
     """Test tiebreaker switching to goals for (GF)."""
     data = [
-        {"home_team": "Team A", "away_team": "Team B", "fthg": 3, "ftag": 3},  # Draw
-        {"home_team": "Team B", "away_team": "Team A", "fthg": 0, "ftag": 0},  # Draw
-    ]
-    # Both have 2 pts, 0 GD. Team A has 3 GF, Team B has 3 GF.
-    # Add a match for one to increase GF but keep GD same.
-    # Wait, simple way:
-    data = [
         {"home_team": "A", "away_team": "B", "fthg": 4, "ftag": 4},  # Both 1pt, GD 0, GF 4
         {"home_team": "C", "away_team": "D", "fthg": 0, "ftag": 0},  # Both 1pt, GD 0, GF 0
     ]

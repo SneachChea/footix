@@ -140,7 +140,7 @@ class BayesianModel:
         self,
         n_goals: int,
         n_teams: int | None = None,
-        calibrate: bool = True,
+        calibrate: bool = False,
         use_stats: bool = False,
     ):
         self.n_teams = n_teams
@@ -151,7 +151,7 @@ class BayesianModel:
         self.label = preprocessing.LabelEncoder()
 
     @verify_required_column(column_names={"home_team", "away_team", "fthg", "ftag"})
-    def fit(self, X_train: pd.DataFrame):
+    def fit(self, X_train: pd.DataFrame, sample_kwargs: dict[str, Any] | None = None):
         x_train_cop = X_train.copy(deep=False)
         teams = pd.concat([X_train["home_team"], X_train["away_team"]]).unique()
         if self.n_teams is None:
@@ -171,12 +171,16 @@ class BayesianModel:
         home_team = x_train_cop["home_team_id"].to_numpy()
         away_team = x_train_cop["away_team_id"].to_numpy()
         optional_stats = _extract_optional_stats_data(x_train_cop) if self.use_stats else None
+        hierarchical_kwargs: dict[str, Any] = {"optional_stats": optional_stats}
+        if sample_kwargs is not None:
+            hierarchical_kwargs["sample_kwargs"] = sample_kwargs
+
         self.trace = self.hierarchical_bayes(
             goals_home_obs,
             goals_away_obs,
             home_team,
             away_team,
-            optional_stats=optional_stats,
+            **hierarchical_kwargs,
         )
 
     @cache
@@ -373,6 +377,7 @@ class BayesianModel:
         home_team: np.ndarray,
         away_team: np.ndarray,
         optional_stats: dict[str, Any] | None = None,
+        sample_kwargs: dict[str, Any] | None = None,
     ) -> az.InferenceData:
         optional_stats = optional_stats or {}
         match_obs = np.where(
@@ -520,19 +525,17 @@ class BayesianModel:
                 )
 
                 pm.Categorical("match_outcomes", p=match_probs, observed=match_res_data)
-                # Goal likelihood
-            # pm.Poisson("home_goals", mu=home_theta, observed=goals_home_data)
-            # pm.Poisson("away_goals", mu=away_theta, observed=goals_away_data)
-            # Sample with improved settings
-            trace = pm.sample(
-                4000,
-                tune=2000,
-                cores=min(4, os.cpu_count() or 1),
-                init="adapt_diag_grad",
-                nuts_sampler="blackjax",
-                target_accept=0.95,
-                return_inferencedata=True,
-            )
+                inference_kwargs: dict[str, Any] = {
+                    "draws": 2000,
+                    "tune": 1000,
+                    "cores": min(4, os.cpu_count() or 1),
+                    "init": "adapt_diag_grad",
+                    "target_accept": 0.95,
+                    "return_inferencedata": True,
+                }
+                if sample_kwargs is not None:
+                    inference_kwargs.update(sample_kwargs)
+                trace = pm.sample(**inference_kwargs)
         return trace
 
 

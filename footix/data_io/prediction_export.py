@@ -202,7 +202,7 @@ def _kde_distribution_from_samples(values: np.ndarray) -> list[float]:
                 masses[i] = float(np.trapezoid(y_slice, x=x_slice))
             else:
                 center = 0.5 * (edges[i] + edges[i + 1])
-                masses[i] = float(max(kde(center), 0.0) * 0.1)
+                masses[i] = max(float(kde(center)), 0.0) * 0.1
 
         norm_masses = _normalize_prob_vector(masses)
         return [_round_float(x) for x in norm_masses]

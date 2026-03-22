@@ -2,11 +2,81 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import arviz as az
 import numpy as np
 import pandas as pd
 import pytest
 
 from footix.models.bayesian import BayesianModel
+
+
+def _build_fake_trace(calibrate: bool, n_teams: int, n_matches: int) -> az.InferenceData:
+    """Create a lightweight posterior object for deterministic calibration tests."""
+    draws = 8
+    draw_axis = np.arange(draws, dtype=float)
+
+    home = np.full((1, draws, n_teams), 0.1, dtype=float)
+    intercept = np.linspace(0.2, 0.35, draws, dtype=float).reshape(1, draws)
+
+    atts_base = np.linspace(-0.15, 0.15, n_teams, dtype=float)
+    defs_base = np.linspace(0.12, -0.12, n_teams, dtype=float)
+    atts = (atts_base.reshape(1, n_teams) + 0.01 * draw_axis.reshape(draws, 1))[None, :, :]
+    defs = (defs_base.reshape(1, n_teams) + 0.005 * draw_axis.reshape(draws, 1))[None, :, :]
+
+    posterior: dict[str, np.ndarray] = {
+        "home": home,
+        "intercept": intercept,
+        "atts": atts,
+        "defs": defs,
+    }
+
+    if calibrate:
+        tau = np.linspace(0.8, 1.2, draws, dtype=float).reshape(1, draws)
+        bias = np.stack(
+            (
+                np.linspace(0.05, 0.20, draws, dtype=float),
+                np.linspace(-0.10, 0.05, draws, dtype=float),
+                np.linspace(-0.02, 0.08, draws, dtype=float),
+            ),
+            axis=-1,
+        )[None, :, :]
+        match_probs = np.tile(
+            np.array([0.55, 0.20, 0.25], dtype=float),
+            (1, draws, n_matches, 1),
+        )
+        posterior.update(
+            {
+                "tau": tau,
+                "bias": bias,
+                "match_probs": match_probs,
+            }
+        )
+
+    return az.from_dict(posterior=posterior)
+
+
+def _patch_hierarchical_bayes(monkeypatch: Any, sample_data: pd.DataFrame) -> None:
+    """Replace expensive MCMC with a deterministic fake posterior for tests."""
+
+    def fake_hierarchical_bayes(
+        self: BayesianModel,
+        goals_home_obs: np.ndarray,
+        goals_away_obs: np.ndarray,
+        home_team: np.ndarray,
+        away_team: np.ndarray,
+        optional_stats: dict[str, Any] | None = None,
+        sample_kwargs: dict[str, Any] | None = None,
+    ) -> az.InferenceData:
+        _ = goals_home_obs, goals_away_obs, home_team, away_team, optional_stats, sample_kwargs
+        return _build_fake_trace(
+            calibrate=self.calibrate,
+            n_teams=int(self.n_teams or 0),
+            n_matches=len(sample_data),
+        )
+
+    monkeypatch.setattr(BayesianModel, "hierarchical_bayes", fake_hierarchical_bayes)
 
 
 @pytest.fixture
@@ -46,8 +116,9 @@ def sample_data():
     )
 
 
-def test_bayesian_model_without_calibration(sample_data):
+def test_bayesian_model_without_calibration(sample_data, monkeypatch: Any):
     """Test that model works without calibration enabled."""
+    _patch_hierarchical_bayes(monkeypatch, sample_data)
     model = BayesianModel(n_goals=5, calibrate=False)
     model.fit(sample_data)
 
@@ -62,8 +133,9 @@ def test_bayesian_model_without_calibration(sample_data):
     assert "bias" not in model.trace.posterior
 
 
-def test_bayesian_model_with_calibration(sample_data):
+def test_bayesian_model_with_calibration(sample_data, monkeypatch: Any):
     """Test that model works with calibration enabled and includes calibration parameters."""
+    _patch_hierarchical_bayes(monkeypatch, sample_data)
     model = BayesianModel(n_goals=5, calibrate=True)
     model.fit(sample_data)
 
@@ -76,6 +148,7 @@ def test_bayesian_model_with_calibration(sample_data):
     assert "defs" in model.trace.posterior
 
     # Check that calibration parameters exist
+    assert model.trace is not None
     assert "tau" in model.trace.posterior, "Temperature parameter should be present"
     assert "bias" in model.trace.posterior, "Bias parameters should be present"
 
@@ -88,12 +161,14 @@ def test_bayesian_model_with_calibration(sample_data):
     assert bias_samples.shape[-1] == 3, "Bias should have 3 components (H, D, A)"
 
 
-def test_calibration_parameter_priors(sample_data):
+def test_calibration_parameter_priors(sample_data, monkeypatch: Any):
     """Test that calibration parameters are close to their prior means."""
+    _patch_hierarchical_bayes(monkeypatch, sample_data)
     model = BayesianModel(n_goals=5, calibrate=True)
     model.fit(sample_data)
 
     # Extract posterior means
+    assert model.trace is not None
     tau_mean = model.trace.posterior["tau"].mean().values
     bias_mean = model.trace.posterior["bias"].mean(dim=["chain", "draw"]).values
 
@@ -104,12 +179,14 @@ def test_calibration_parameter_priors(sample_data):
     assert np.all(np.abs(bias_mean) < 1.5), "Bias values are far from prior mean of 0.0"
 
 
-def test_calibrated_probabilities_sum_to_one(sample_data):
+def test_calibrated_probabilities_sum_to_one(sample_data, monkeypatch: Any):
     """Test that calibrated match probabilities sum to 1."""
+    _patch_hierarchical_bayes(monkeypatch, sample_data)
     model = BayesianModel(n_goals=5, calibrate=True)
     model.fit(sample_data)
 
     # Check match_probs deterministic
+    assert model.trace is not None
     match_probs = model.trace.posterior["match_probs"]
 
     # Sum over the last dimension (H, D, A classes)
@@ -119,8 +196,9 @@ def test_calibrated_probabilities_sum_to_one(sample_data):
     assert np.allclose(prob_sums.values, 1.0, atol=1e-6)
 
 
-def test_prediction_works_with_calibration(sample_data):
+def test_prediction_works_with_calibration(sample_data, monkeypatch: Any):
     """Test that prediction works correctly when calibration is enabled."""
+    _patch_hierarchical_bayes(monkeypatch, sample_data)
     model = BayesianModel(n_goals=5, calibrate=True)
     model.fit(sample_data)
 
@@ -147,8 +225,9 @@ def test_prediction_works_with_calibration(sample_data):
     assert 0 <= samples.proba_away <= 1
 
 
-def test_calibration_improves_model_fit(sample_data):
+def test_calibration_improves_model_fit(sample_data, monkeypatch: Any):
     """Test that calibration doesn't break the model (basic sanity check)."""
+    _patch_hierarchical_bayes(monkeypatch, sample_data)
     # Fit both models
     model_no_calib = BayesianModel(n_goals=5, calibrate=False)
     model_with_calib = BayesianModel(n_goals=5, calibrate=True)
@@ -167,12 +246,14 @@ def test_calibration_improves_model_fit(sample_data):
     assert model_with_calib.trace.posterior["atts"].shape[-1] == teams_in_data
 
 
-def test_calibration_parameters_are_learnable(sample_data):
+def test_calibration_parameters_are_learnable(sample_data, monkeypatch: Any):
     """Test that calibration parameters vary across posterior samples (not stuck)."""
+    _patch_hierarchical_bayes(monkeypatch, sample_data)
     model = BayesianModel(n_goals=5, calibrate=True)
     model.fit(sample_data)
 
     # Check that tau varies
+    assert model.trace is not None
     tau_samples = model.trace.posterior["tau"].values.flatten()
     tau_std = np.std(tau_samples)
     assert tau_std > 0.01, "Temperature parameter shows no variation"

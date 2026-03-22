@@ -30,7 +30,8 @@ Each exported match contains:
 Notes:
 
 - 1X2 probabilities are normalized to sum to approximately 1.
-- Distributions are normalized and forced to length 10.
+- Distribution arrays are normalized and exported with length 20.
+- ``distribution_bins`` is exported with length 21.
 - ``score_matrix`` is forced to 5x5 (truncate/pad).
 - Records are sorted by ``kickoff``.
 
@@ -117,7 +118,7 @@ Confidence score behavior
 
 Current project decision:
 
-- ``confidence_score`` is exported on a 0-100 scale.
+- ``confidence_score`` is exported as a float between 0 and 1, rounded to 2 decimal places.
 
 
 Validation and rejected matches

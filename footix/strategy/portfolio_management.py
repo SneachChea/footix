@@ -418,8 +418,9 @@ def mean_variance_markowitz(
         s = get_valid_stakes()
         ev = torch.dot(mu, s)
         var = torch.sum((sigma * s**2))
-        print("var", var)
-        print("ev", ev)
+        if verbose:
+            print("var", var)
+            print("ev", ev)
 
         loss = -(ev - risk_aversion * var)
         loss.backward()

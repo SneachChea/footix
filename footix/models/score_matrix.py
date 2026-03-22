@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
+from matplotlib.figure import Figure
 
 from footix.utils.typing import ArrayLikeF, ProbaResult
 from footix.vizu.score_matrix import plot_goal_matrix
@@ -150,7 +150,7 @@ class GoalMatrix:
                 "home_goals_probs and away_goals_probs must have length >= 3 for less_25_goals"
             )
 
-    def visualize(self, n_goals: int = 5) -> Any:
+    def visualize(self, n_goals: int = 5) -> Figure:
         """Visualize the goal matrix.
 
         Args:

@@ -147,10 +147,13 @@ class TestStaticMapLigue1:
 class TestFuzzyAutoAccept:
     """Names with WRatio ≥ auto_threshold must be resolved automatically."""
 
-    def test_abbreviated_name_auto_matched(self) -> None:
+    def test_abbreviated_name_auto_matched(self, tmp_path: Path) -> None:
         """'Stade Rennais' (no 'FC') should auto-match 'Rennes'."""
+        mapping_dir = tmp_path / "mappings"
+        mapping_dir.mkdir()
         resolver = TeamNameResolver(
             league="ligue_1",
+            mapping_dir=mapping_dir,
             interactive=False,
             auto_threshold=65,  # WRatio('Stade Rennais', 'Rennes') ≈ 68
             confirm_threshold=40,
@@ -162,10 +165,13 @@ class TestFuzzyAutoAccept:
         )
         assert mapping["Stade Rennais"] == "Rennes"
 
-    def test_transposed_name_auto_matched(self) -> None:
+    def test_transposed_name_auto_matched(self, tmp_path: Path) -> None:
         """'Bayern Munchen' should auto-match 'Bayern Munich' at high threshold."""
+        mapping_dir = tmp_path / "mappings"
+        mapping_dir.mkdir()
         resolver = TeamNameResolver(
             league="bundesliga_1",
+            mapping_dir=mapping_dir,
             interactive=False,
             auto_threshold=85,
         )

@@ -96,7 +96,7 @@ class ScrapUnderstat(Scraper):
             "Referer": urljoin(self.base_url, f"league/{self.slug}/{self.season}"),
         }
 
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
 
         # Parse the JSON response
