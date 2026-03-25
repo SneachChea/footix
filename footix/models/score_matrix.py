@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
 
-import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.figure import Figure
 
 from footix.utils.typing import ArrayLikeF, ProbaResult
+from footix.vizu.score_matrix import plot_goal_matrix
 
 
 @dataclass
@@ -149,21 +150,16 @@ class GoalMatrix:
                 "home_goals_probs and away_goals_probs must have length >= 3 for less_25_goals"
             )
 
-    def visualize(self, n_goals: int = 5) -> None:
-        if n_goals > len(self.home_goals_probs):
-            raise ValueError(
-                f"n_goals must be <= len(home_goals_probs) ({len(self.home_goals_probs)})\n"
-                f"got {n_goals}"
-            )
-        tmp_small = self.matrix_array[:n_goals, :n_goals]
-        _, ax = plt.subplots()
-        ax.matshow(tmp_small, cmap="coolwarm")
-        for i in range(len(tmp_small)):
-            for j in range(len(tmp_small)):
-                ax.text(j, i, round(tmp_small[i, j], 3), ha="center", va="center", color="w")
-        ax.set_xlabel("Away team")
-        ax.set_ylabel("Home team")
-        plt.show()
+    def visualize(self, n_goals: int = 5) -> Figure:
+        """Visualize the goal matrix.
+
+        Args:
+            n_goals (int): Number of goals to visualize in the matrix. Defaults to 5.
+
+        Returns:
+            matplotlib.figure.Figure: The generated figure.
+        """
+        return plot_goal_matrix(self.matrix_array, n_goals=n_goals)
 
     def asian_handicap_results(self, handicap: float) -> ProbaResult:
         """Calculate the probabilities for a home win, draw, and away win after applying an Asian

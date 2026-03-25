@@ -12,6 +12,14 @@ footix.utils.decorators module
    :show-inheritance:
    :undoc-members:
 
+footix.utils.team\_name\_resolver module
+----------------------------------------
+
+.. automodule:: footix.utils.team_name_resolver
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 footix.utils.typing module
 --------------------------
 

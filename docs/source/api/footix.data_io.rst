@@ -28,6 +28,14 @@ footix.data\_io.footballdata module
    :show-inheritance:
    :undoc-members:
 
+footix.data\_io.prediction\_export module
+-----------------------------------------
+
+.. automodule:: footix.data_io.prediction_export
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 footix.data\_io.understat module
 --------------------------------
 

@@ -1,0 +1,24 @@
+# Team name mappings for FRA Ligue 2
+# Format: "calendar_name": "training_name"
+# calendar_name  = name as it appears in the fixture/calendar CSV
+# training_name  = name as scraped from football-data.co.uk (used by the models)
+#
+# This file is auto-updated when new mappings are confirmed interactively.
+# You can also edit it manually — changes take effect on the next run.
+
+mappings:
+  # --- ligue-2-fr_2025-26.csv specific names ---
+  "Clermont Foot": "Clermont"
+  "Estac Troyes": "Troyes"
+  "PAU": "Pau FC"
+  "RED Star FC 93": "Red Star"
+  "Saint Etienne": "St Etienne"
+
+  # --- CUSTOM_TEAM_MAP entries migrated from export_predictions.py ---
+  "ac ajaccio": "Ajaccio"
+  "annecy fc": "Annecy"
+  "fc martigues": "Martigues"
+  "paris fc": "Paris FC"
+  "paris sg": "Paris SG"
+  "pau": "Pau FC"
+  "red star": "Red Star"

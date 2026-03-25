@@ -1,0 +1,28 @@
+# Team name mappings for DEU Bundesliga 1
+# Format: "calendar_name": "training_name"
+# calendar_name  = name as it appears in the fixture/calendar CSV
+# training_name  = name as scraped from football-data.co.uk (used by the models)
+#
+# This file is auto-updated when new mappings are confirmed interactively.
+# You can also edit it manually — changes take effect on the next run.
+
+mappings:
+  # Known mismatches — add more as they are encountered
+  "Bayern Munchen": "Bayern Munich"
+  "Borussia Dortmund": "Dortmund"
+  "Borussia Monchengladbach": "M'gladbach"
+  "Bayer Leverkusen": "Leverkusen"
+  "RB Leipzig": "RB Leipzig"
+  "Eintracht Frankfurt": "Ein Frankfurt"
+  "VfB Stuttgart": "Stuttgart"
+  "Werder Bremen": "Werder Bremen"
+  "1. FC Koln": "FC Koln"
+  "1. FC Union Berlin": "Union Berlin"
+  "FC Augsburg": "Augsburg"
+  "SC Freiburg": "Freiburg"
+  "TSG Hoffenheim": "Hoffenheim"
+  "FSV Mainz 05": "Mainz"
+  "VfL Wolfsburg": "Wolfsburg"
+  "1. FC Heidenheim": "Heidenheim"
+  "FC St. Pauli": "St Pauli"
+  "Hamburger SV": "Hamburg"
