@@ -5,7 +5,7 @@ Football analytics and prediction framework.
 ## Package identity
 
 - PyPI name: **pyfootix**; import package: **footix** (flat layout via `[tool.hatch.build.targets.wheel] packages = ["footix"]`)
-- Python: `>=3.10, <3.15`
+- Python: `>=3.12, <3.15`
 
 ## Commands
 
@@ -24,7 +24,7 @@ uv lock                       # regenerate lockfile
 
 - **lint**: `uv run pre-commit run --all-files` (ruff-format + ruff --fix)
 - **type**: `uv run pre-commit run mypy --all-files` (needs `types-requests` + `types-PyYAML` as additional_dependencies in `.pre-commit-config.yaml`)
-- **test**: `uv run pytest -v --cov=footix` on py3.10, 3.11, 3.12, 3.13, 3.14
+- **test**: `uv run pytest -v --cov=footix` on py3.12, 3.13, 3.14
 
 ## Known test failures
 

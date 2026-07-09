@@ -6,8 +6,11 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from footix.models.bayesian import BayesianModel, _extract_optional_stats_data
+
+pytestmark = pytest.mark.bayesian
 
 
 def _base_frame() -> pd.DataFrame:

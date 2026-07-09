@@ -80,3 +80,12 @@ def test_confidence_curve_rejects_non_positive_gamma() -> None:
     """Gamma must be strictly positive."""
     with pytest.raises(ValueError, match="gamma"):
         confidence_curve(20.0, gamma=0.0)
+
+
+def test_confidence_from_samples_array_invalid_shape() -> None:
+    """Invalid input shape raises ValueError."""
+    with pytest.raises(ValueError, match="p_samples must have shape"):
+        confidence_1x2_from_samples_array(np.ones((10, 4)))
+
+    with pytest.raises(ValueError, match="p_samples must have shape"):
+        confidence_1x2_from_samples_array(np.ones(10))

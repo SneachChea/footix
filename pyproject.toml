@@ -5,14 +5,14 @@ description = "Footix is a Python package for sports betting analysis and modeli
 authors = [{ name = "sneachchea" }]
 license = { text = "MIT" }
 readme = "README.md"
-requires-python = ">=3.10, <3.15"
+requires-python = ">=3.12, <3.15"
 dependencies = [
     "numpy>=2.0.0,<3",
     "scipy>=1.10.1,<2",
     "scikit-learn>=1.2.2,<2",
     "tqdm>=4.65.0,<5",
-    "pymc>=5.3.1,<6",
-    "pytensor>=2.11.2,<3",
+    "pymc>=6.0,<7",
+    "pytensor>=3.0,<4",
     "torch>=2.6.0,<3",
     "requests>=2.32.3,<3",
     "networkx>=3.4.2,<4",
@@ -52,6 +52,12 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: tests that take >5s (e.g. sphinx build)",
+    "bayesian: tests requiring pymc/arviz",
+]
 
 [tool.ruff]
 line-length = 99

@@ -1,6 +1,6 @@
 import pandas as pd
 
-from footix.metrics.standings import compute_standings
+from footix.metrics.standings import compute_standings, get_team_form
 
 
 def test_basic_standings():
@@ -66,3 +66,35 @@ def test_stable_sort_alphabetical():
     # Pts 1, GD 0, GF 1 for both. Apple should be first alphabetically.
     assert standings.iloc[0]["team"] == "Apple"
     assert standings.iloc[1]["team"] == "Zebra"
+
+
+def test_get_team_form_basic():
+    data = [
+        {"home_team": "A", "away_team": "B", "fthg": 2, "ftag": 0, "date": "01/01/2023"},
+        {"home_team": "A", "away_team": "C", "fthg": 1, "ftag": 1, "date": "05/01/2023"},
+        {"home_team": "B", "away_team": "A", "fthg": 2, "ftag": 1, "date": "10/01/2023"},
+    ]
+    df = pd.DataFrame(data)
+    form = get_team_form(df, team="A")
+    assert form == ["W", "D", "L"]
+
+
+def test_get_team_form_last_n():
+    data = [
+        {"home_team": "A", "away_team": "B", "fthg": 1, "ftag": 0, "date": "01/01/2023"},
+        {"home_team": "A", "away_team": "C", "fthg": 2, "ftag": 0, "date": "05/01/2023"},
+        {"home_team": "A", "away_team": "D", "fthg": 0, "ftag": 0, "date": "10/01/2023"},
+    ]
+    df = pd.DataFrame(data)
+    form = get_team_form(df, team="A", last_n=2)
+    assert form == ["W", "D"]
+
+
+def test_get_team_form_unplayed_matches():
+    data = [
+        {"home_team": "A", "away_team": "B", "fthg": 1, "ftag": 0, "date": "01/01/2023"},
+        {"home_team": "A", "away_team": "C", "fthg": None, "ftag": None, "date": "05/01/2023"},
+    ]
+    df = pd.DataFrame(data)
+    form = get_team_form(df, team="A")
+    assert form == ["W"]

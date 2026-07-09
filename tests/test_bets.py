@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from footix.strategy.bets import Bet
+from footix.strategy.bets import Bet, OddsInput
 
 
 def test_bet_creation():
@@ -80,3 +80,25 @@ def test_bet_equality():
     bet3 = Bet("m1", "D", 3.9, 0.1)
     assert bet1 == bet2
     assert not bet1 == bet3
+
+
+def test_bet_eq_non_bet():
+    bet = Bet("m1", "H", 2.0, 0.5)
+    assert not (bet == "not_a_bet")
+
+
+def test_bet_add_non_bet():
+    bet = Bet("m1", "H", 2.0, 0.5)
+    with pytest.raises(TypeError):
+        _ = bet + "invalid"
+
+
+def test_odds_input_odd_dict():
+    oi = OddsInput("Home", "Away", [2.0, 3.0, 4.0])
+    d = oi.odd_dict
+    assert d == {"H": 2.0, "D": 3.0, "A": 4.0}
+
+
+def test_odds_input_match_id():
+    oi = OddsInput("Home", "Away", [1.5, 4.0, 6.0])
+    assert oi.match_id == "Home - Away"

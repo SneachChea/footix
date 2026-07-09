@@ -11,6 +11,8 @@ import pytest
 
 from footix.models.bayesian import BayesianModel
 
+pytestmark = pytest.mark.bayesian
+
 
 def _build_fake_trace(calibrate: bool, n_teams: int, n_matches: int) -> az.InferenceData:
     """Create a lightweight posterior object for deterministic calibration tests."""
@@ -54,7 +56,7 @@ def _build_fake_trace(calibrate: bool, n_teams: int, n_matches: int) -> az.Infer
             }
         )
 
-    return az.from_dict(posterior=posterior)
+    return az.from_dict({"posterior": posterior})
 
 
 def _patch_hierarchical_bayes(monkeypatch: Any, sample_data: pd.DataFrame) -> None:

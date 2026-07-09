@@ -8,7 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 
+
+@pytest.mark.slow
 def test_sphinx_build() -> None:
     """Test that Sphinx builds docs without warnings or errors.
 
