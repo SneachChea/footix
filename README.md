@@ -27,9 +27,23 @@ Footix is your intelligent companion for sports analysis and prediction. Leverag
 
 ## 🚀 Installation
 
-Install Footix with pip:
+### CPU (default)
 
 ```bash
+# uv (recommended) — CPU torch resolved automatically
+uv add pyfootix
+
+# pip — pass the PyTorch CPU index to avoid CUDA packages
+pip install pyfootix --extra-index-url https://download.pytorch.org/whl/cpu
+```
+
+### GPU (Linux with CUDA)
+
+```bash
+# uv — override torch to use PyPI (includes CUDA on Linux)
+uv add pyfootix --no-sources
+
+# pip — standard PyPI install includes CUDA on Linux
 pip install pyfootix
 ```
 

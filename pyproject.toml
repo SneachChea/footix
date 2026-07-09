@@ -27,6 +27,9 @@ dependencies = [
 [project.urls]
 repository = "https://github.com/SneachChea/footix"
 
+[project.optional-dependencies]
+gpu = ["triton"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["footix"]
 
@@ -82,3 +85,11 @@ warn_return_any = false
 warn_unused_configs = true
 show_error_codes = true
 disable_error_code = ["no-any-return", "var-annotated", "operator", "attr-defined", "arg-type"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
