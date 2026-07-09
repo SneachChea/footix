@@ -2,7 +2,7 @@ version: 2
 
 updates:
   # Check for updates in Poetry (Python dependencies)
-  - package-ecosystem: "poetry"
+  - package-ecosystem: "uv"
     directory: "/"                     # Root directory where pyproject.toml is located
     schedule:
       interval: "monthly"
