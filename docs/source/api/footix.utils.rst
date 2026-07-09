@@ -28,14 +28,6 @@ footix.utils.typing module
    :show-inheritance:
    :undoc-members:
 
-footix.utils.utils module
--------------------------
-
-.. automodule:: footix.utils.utils
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
 Module contents
 ---------------
 

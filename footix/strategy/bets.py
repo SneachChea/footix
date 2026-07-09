@@ -113,7 +113,7 @@ class Bet:
 
         """
         if not isinstance(other, Bet):
-            raise NotImplementedError("== method works only for Bet objects.")
+            return NotImplemented
         if (self.match_id == other.match_id) and (self.market == other.market):
             return True
         return False

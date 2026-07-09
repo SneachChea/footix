@@ -25,3 +25,9 @@ html/
 
 # notebook folder
 notebooks/
+
+# Virtual environment
+.venv/
+
+# Knowledge graph artifacts
+graphify-out/

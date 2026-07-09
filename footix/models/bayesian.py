@@ -529,7 +529,7 @@ class BayesianModel:
                     "draws": 2000,
                     "tune": 1000,
                     "cores": min(4, os.cpu_count() or 1),
-                    "nuts_sampler": "blackjax",
+                    "nuts_sampler": "nutpie",
                     "init": "adapt_diag_grad",
                     "target_accept": 0.95,
                     "return_inferencedata": True,

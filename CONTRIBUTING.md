@@ -6,8 +6,8 @@ Thank you for your interest in contributing to Footix! This document provides gu
 
 ### Prerequisites
 
-- Python 3.10+
-- [Poetry](https://python-poetry.org/) for dependency management
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) for dependency management
 
 ### Setting Up Your Development Environment
 
@@ -19,12 +19,12 @@ Thank you for your interest in contributing to Footix! This document provides gu
 
 2. Install the project with development dependencies:
    ```bash
-   poetry install
+   uv sync --all-groups
    ```
 
-3. Activate the poetry shell:
+3. Activate the virtual environment:
    ```bash
-   poetry shell
+   source .venv/bin/activate
    ```
 
 ## Development Workflow
@@ -32,32 +32,26 @@ Thank you for your interest in contributing to Footix! This document provides gu
 ### Linting and Formatting
 
 The project uses:
-- **Black** for code formatting
-- **isort** for import sorting
-- **Flake8** for code linting
+- **Ruff** for code formatting and linting
 - **MyPy** for type checking
-- **pydocstyle** for docstring compliance (Google-style)
 
 Run the entire pre-commit pipeline:
 ```bash
-poetry run task precommit
+uv run pre-commit run --all-files
 ```
 
-Or run individual tasks:
+Or run individual tools:
 ```bash
-poetry run task format-isort    # Sort imports
-poetry run task format-black    # Format code
-poetry run task docformat       # Format docstrings
-poetry run task lint            # Flake8 + pydocstyle checks
-poetry run task type            # MyPy type-checking
-poetry run task docstyle        # Google-style docstring checks only
+uv run ruff check footix/    # Lint code
+uv run ruff format footix/   # Format code
+uv run mypy footix           # Type-checking
 ```
 
 ### Testing
 
 Run the test suite with coverage:
 ```bash
-poetry run task test
+uv run pytest -v --cov=footix
 ```
 
 This includes documentation build tests that verify Sphinx builds without warnings.
@@ -66,15 +60,15 @@ This includes documentation build tests that verify Sphinx builds without warnin
 
 Generate and build the documentation locally:
 ```bash
-poetry run sphinx-apidoc -o docs/source/api footix -f
-poetry run sphinx-build -b html -W docs/source docs/build/html
+uv run sphinx-apidoc -o docs/source/api footix -f
+uv run sphinx-build -b html -W docs/source docs/build/html
 ```
 
 Then open `docs/build/html/index.html` in your browser.
 
 Check for broken links:
 ```bash
-poetry run sphinx-build -b linkcheck docs/source docs/build/linkcheck
+uv run sphinx-build -b linkcheck docs/source docs/build/linkcheck
 ```
 
 ## Docstring Standards
@@ -206,17 +200,7 @@ def my_function(x: np.ndarray, y: int = 5) -> Tuple[float, np.ndarray]:
 
 Check docstring compliance with Google-style rules:
 ```bash
-poetry run task docstyle
-```
-
-Or directly:
-```bash
-pydocstyle --convention=google footix
-```
-
-Fix minor formatting issues automatically:
-```bash
-poetry run task docformat
+uv run pydocstyle --convention=google footix
 ```
 
 ## Submitting Changes
@@ -225,18 +209,18 @@ poetry run task docformat
 
 1. Ensure all tests pass:
    ```bash
-   poetry run task test
+   uv run pytest -v --cov=footix
    ```
 
 2. Ensure code is formatted and passes linting:
    ```bash
-   poetry run task precommit
+   uv run pre-commit run --all-files
    ```
 
 3. Build and check documentation:
    ```bash
-   poetry run sphinx-apidoc -o docs/source/api footix -f
-   poetry run sphinx-build -b html -W docs/source docs/build/html
+   uv run sphinx-apidoc -o docs/source/api footix -f
+   uv run sphinx-build -b html -W docs/source docs/build/html
    ```
 
 4. Update or add tests for your changes.
@@ -267,9 +251,9 @@ poetry run task docformat
 
 ## Code Style Guide
 
-- **Line length**: 99 characters (Black default)
-- **Python version**: 3.10+
-- **Import style**: Organized by isort (Black-compatible)
+- **Line length**: 99 characters (Ruff default)
+- **Python version**: 3.11+
+- **Import style**: Organized by Ruff (isort-compatible)
 - **Type hints**: Required for all public functions
 - **Docstrings**: Google-style (as described above)
 
@@ -277,7 +261,7 @@ poetry run task docformat
 
 The CI pipeline runs automatically on pull requests and includes:
 
-- **Linting**: Flake8 + pydocstyle (Google-style)
+- **Linting**: Ruff
 - **Type checking**: MyPy
 - **Tests**: Pytest with coverage
 - **Documentation**: Sphinx build with warnings-as-errors
@@ -290,4 +274,4 @@ If you have questions, feel free to open an issue or discussion on GitHub.
 
 ---
 
-Thank you for contributing to Footix! 🎉
+Thank you for contributing to Footix!

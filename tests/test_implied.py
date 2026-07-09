@@ -47,3 +47,14 @@ class TestImpliedProbsPower:
     def test_implied_probs_power_non_convergence(self, odds):
         with pytest.raises(RuntimeError, match="Power root-finder did not converge."):
             implied_odds.power_method(odds, max_iter=1)
+
+
+def test_multiplicative_method_odds_below_one():
+    with pytest.raises(ValueError, match="All odds must be greater then 1"):
+        implied_odds.multiplicative_method([0.5, 1.2, 3.0])
+
+
+def test_shin_method_extreme_odds():
+    proba, margin = implied_odds.shin_method([1.01, 10.0, 50.0])
+    assert np.isclose(sum(proba), 1.0, atol=1e-2)
+    assert all(p >= 0 for p in proba)

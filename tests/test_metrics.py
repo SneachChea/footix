@@ -5,7 +5,7 @@ import numpy as np
 import footix.metrics as metrics
 
 
-def test_entropy():
+def test_entropy_uniform():
     res = metrics.incertity(probas=[1.0 / 3, 1.0 / 3, 1.0 / 3], outcome_idx=0)
     assert np.isclose(res, 1.0)
 
@@ -24,3 +24,8 @@ def test_zscore():
     assert math.isclose(zscore, -0.6547, rel_tol=1e-3)
     assert math.isclose(mu, 0.23, rel_tol=1e-3)
     assert math.isclose(sigma, 0.09165, rel_tol=1e-3)
+
+
+def test_entropy_certain():
+    res = metrics.incertity(probas=[1.0, 0.0, 0.0], outcome_idx=0)
+    assert np.isclose(res, 0.0)
