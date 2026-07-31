@@ -7,15 +7,41 @@ import pandas as pd
 from footix.utils.decorators import verify_required_column
 
 MAPPING_COMPETITIONS: dict[str, dict[str, Any]] = {
-    "FRA Ligue 1": {"footballdata": {"slug": "F1"}, "understat": {"slug": "Ligue_1"}},
-    "FRA Ligue 2": {"footballdata": {"slug": "F2"}},
-    "ENG Premier League": {"footballdata": {"slug": "E0"}, "understat": {"slug": "EPL"}},
-    "ENG Championship": {"footballdata": {"slug": "E1"}},
-    "DEU Bundesliga 1": {"footballdata": {"slug": "D1"}, "understat": {"slug": "Bundesliga"}},
+    "FRA Ligue 1": {
+        "footballdata": {"slug": "F1"},
+        "understat": {"slug": "Ligue_1"},
+        "football_data_org": {"code": "FL1"},
+    },
+    "FRA Ligue 2": {
+        "footballdata": {"slug": "F2"},
+        "apifootball_com": {"league_id": "164"},
+    },
+    "ENG Premier League": {
+        "footballdata": {"slug": "E0"},
+        "understat": {"slug": "EPL"},
+        "football_data_org": {"code": "PL"},
+    },
+    "ENG Championship": {
+        "footballdata": {"slug": "E1"},
+        "football_data_org": {"code": "ELC"},
+    },
+    "DEU Bundesliga 1": {
+        "footballdata": {"slug": "D1"},
+        "understat": {"slug": "Bundesliga"},
+        "football_data_org": {"code": "BL1"},
+    },
     "DEU Bundesliga 2": {"footballdata": {"slug": "D2"}},
-    "ITA Serie A": {"footballdata": {"slug": "I1"}, "understat": {"slug": "Serie_A"}},
+    "ITA Serie A": {
+        "footballdata": {"slug": "I1"},
+        "understat": {"slug": "Serie_A"},
+        "football_data_org": {"code": "SA"},
+    },
     "ITA Serie B": {"footballdata": {"slug": "I2"}},
-    "SPA La Liga": {"footballdata": {"slug": "SP1"}, "understat": {"slug": "La_Liga"}},
+    "SPA La Liga": {
+        "footballdata": {"slug": "SP1"},
+        "understat": {"slug": "La_Liga"},
+        "football_data_org": {"code": "PD"},
+    },
     "SPA La Liga 2": {"footballdata": {"slug": "SP2"}},
 }
 

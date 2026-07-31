@@ -33,7 +33,7 @@ uv lock                       # regenerate lockfile
 ## Architecture
 
 - **models/**: `PoissonModel` (scipy optimize), `BayesianModel` (pymc MCMC), `EloDavidson` (rating system), `GoalMatrix` (score probability matrix)
-- **data_io/**: `ScrapFootballData` (football-data.co.uk CSV), `ScrapUnderstat` (understat.com), `prediction_export.py` (JSON export)
+- **data_io/**: `ScrapFootballData` (football-data.co.uk CSV), `ScrapUnderstat` (understat.com), `ScrapFootballDataOrg` (football-data.org REST, Ligue 1), `ScrapAPIFootballCom` (APIFootball.com REST, Ligue 2), `prediction_export.py` (JSON export)
 - **strategy/**: `Bet` dataclass (core domain — `edge_mean` auto-computed as `prob_mean * odds - 1`), Kelly criterion variants, portfolio optimization (torch/scipy)
 - **metrics/**: `rps`, `incertity`, `zscore`, confidence curve from MCMC samples
 - **implied_odds/**: multiplicative, power, and Shin normalization methods

@@ -64,3 +64,18 @@ def test_mapping_competitions_has_expected_keys():
     assert "ENG Premier League" in MAPPING_COMPETITIONS
     assert "DEU Bundesliga 1" in MAPPING_COMPETITIONS
     assert isinstance(MAPPING_COMPETITIONS["FRA Ligue 1"], dict)
+
+
+def test_football_data_org_codes():
+    expected_codes = {
+        "DEU Bundesliga 1": "BL1",
+        "SPA La Liga": "PD",
+        "FRA Ligue 1": "FL1",
+        "ENG Championship": "ELC",
+        "ITA Serie A": "SA",
+        "ENG Premier League": "PL",
+    }
+    assert {
+        competition: MAPPING_COMPETITIONS[competition]["football_data_org"]["code"]
+        for competition in expected_codes
+    } == expected_codes

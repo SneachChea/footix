@@ -4,6 +4,14 @@ footix.data\_io package
 Submodules
 ----------
 
+footix.data\_io.apifootball\_com module
+---------------------------------------
+
+.. automodule:: footix.data_io.apifootball_com
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 footix.data\_io.base\_scrapper module
 -------------------------------------
 
@@ -16,6 +24,14 @@ footix.data\_io.data\_reader module
 -----------------------------------
 
 .. automodule:: footix.data_io.data_reader
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+footix.data\_io.football\_data\_org module
+------------------------------------------
+
+.. automodule:: footix.data_io.football_data_org
    :members:
    :show-inheritance:
    :undoc-members:
