@@ -1,61 +1,107 @@
 Welcome to **footix**'s documentation!
 ======================================
 
-Footix is your intelligent companion for sports analysis and prediction. Leveraging advanced machine learning algorithms 
-and comprehensive data analysis, it helps you make data-driven decisions in sports betting and analysis.
+Footix is a Python package for football analytics and prediction. It ships
+statistical models for match scores, tools for odds analysis, and betting
+strategies, all on top of a small set of data providers.
 
 Features
 --------
 
-* **Advanced Data Analysis**
-    * Import data from multiple sports databases
-    * Clean and preprocess sports statistics
-    * Comprehensive historical data analysis
+* **Data import**
+    * Historical results from football-data.co.uk and understat.com
+    * Upcoming fixtures from football-data.org and APIFootball.com
+    * Team name normalization between sources
 
-* **Smart Prediction Engine**
-    * Machine learning-powered outcome prediction
+* **Prediction models**
+    * `EloDavidson` rating system (fast, chronological)
+    * `PoissonModel` (maximum-likelihood score model)
+    * `BayesianModel` (PyMC MCMC, with calibration and posterior samples)
 
-* **Strategic Betting Tools**
-    * Risk assessment algorithms
-    * Bankroll management system
-    * Multiple betting strategy templates
+* **Score and betting tools**
+    * `GoalMatrix`: joint score distribution and market probabilities
+    * Implied odds normalization (multiplicative, power, Shin)
+    * Bet selection and staking strategies (flat, Kelly, portfolio)
 
-Quick Start
+Quick start
 -----------
 
-.. code-block:: python
+No data download required — build a score matrix straight from expected
+goals and read off the 1X2 probabilities:
 
-    from footix.models.bayesian import BayesianModel
-    from footix.data_io.footballdata import ScrapFootballData
+.. testcode::
 
-    # Load match data (example: Ligue 1 fixtures)
-    dataset = ScrapFootballData(
-        competition="FRA Ligue 1", 
-        season="2024-2025", 
-        path="./data", 
-        force_reload=True
-    ).get_fixtures()
+   from footix.models.score_matrix import GoalMatrix
+   from footix.models.utils import poisson_proba
 
-    # Initialize and fit the Bayesian model
-    model = BayesianModel(n_teams=18, n_goals=20)
-    model.fit(X_train=dataset)
+   gm = GoalMatrix(
+       home_goals_probs=poisson_proba(lambda_param=1.5, k=20),
+       away_goals_probs=poisson_proba(lambda_param=1.2, k=20),
+   )
+   probas = gm.return_probas()
+   print(f"Home: {probas.proba_home:.2f}, Draw: {probas.proba_draw:.2f}, Away: {probas.proba_away:.2f}")
 
-    # Predict probabilities for a specific match
-    probas = model.predict(home_team="Marseille", away_team="Lyon").return_probas()
-    print(f"Home: {probas[0]:.2f}, Draw: {probas[1]:.2f}, Away: {probas[2]:.2f}")
+.. testoutput::
+
+   Home: 0.44, Draw: 0.25, Away: 0.30
+
+Want to train a model on real match data? Start with the
+:doc:`Elo tutorial <tutorials/elo>` or the :doc:`Poisson tutorial <tutorials/poisson>`.
+
+Which model should I use?
+-------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Model
+     - Required columns
+     - Output
+     - Runtime
+     - Best for
+   * - :class:`~footix.models.elo.EloDavidson`
+     - ``date``, ``home_team``, ``away_team``, ``fthg``, ``ftag``, ``ftr``
+     - :class:`~footix.utils.typing.ProbaResult` (1X2)
+     - seconds
+     - Fast rating-style probabilities, chronological updates
+   * - :class:`~footix.models.basic_poisson.PoissonModel`
+     - ``home_team``, ``away_team``, ``fthg``, ``ftag``, ``ftr``
+     - :class:`~footix.models.score_matrix.GoalMatrix`
+     - seconds
+     - Score distributions and market probabilities
+   * - :class:`~footix.models.bayesian.BayesianModel`
+     - ``home_team``, ``away_team``, ``fthg``, ``ftag``
+     - ``GoalMatrix`` + posterior samples
+     - minutes (MCMC)
+     - Calibrated probabilities with uncertainty
+
+The data contract for every provider is described in
+:doc:`Data sources and data contracts <guides/data_sources>`.
 
 .. toctree::
    :maxdepth: 2
-   :caption: How to start
-   :hidden:
+   :caption: Getting started
 
    installation
+   guides/data_sources
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials
+
+   tutorials/elo
+   tutorials/poisson
    prediction_export_tutorial
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Cookbook
+
+   cookbook/goal_matrix
+
+.. toctree::
    :maxdepth: 4
-   :caption: API information
-   :hidden:
+   :caption: API Reference
 
    api/index
 

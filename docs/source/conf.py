@@ -10,6 +10,10 @@ import sys
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 
+import matplotlib
+
+matplotlib.use("Agg")  # headless rendering for the plot directive
+
 sys.path.insert(0, os.path.abspath("../"))
 
 project = "footix"
@@ -28,6 +32,8 @@ extensions = [
     "sphinx.ext.napoleon",  # Google & NumPy style docstrings
     "sphinx.ext.viewcode",  # link to highlighted source
     "sphinx.ext.intersphinx",  # link to external docs (numpy, pandas, python)
+    "sphinx.ext.doctest",  # run short deterministic examples
+    "matplotlib.sphinxext.plot_directive",  # render GoalMatrix figures
 ]
 
 templates_path = ["_templates"]
@@ -45,7 +51,7 @@ html_theme_options = {
     # set to True to collapse navigation on initial load
     "collapse_navigation": False,
     # scroll depth for the left sidebar tree
-    "navigation_depth": 1,
+    "navigation_depth": 2,
     "style_nav_header_background": "#0C192A",
 }
 
@@ -104,3 +110,6 @@ nitpick_ignore = [
 
 # Enforce strict docstring and cross-reference checks
 nitpicky = True
+
+# Only run explicit .. testcode:: / .. doctest:: blocks, not docstring >>> examples
+doctest_test_doctest_blocks = ""

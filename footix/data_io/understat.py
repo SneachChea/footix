@@ -32,10 +32,13 @@ class ScrapUnderstat(Scraper):
     and normalizes team names. The data is returned as a processed pandas DataFrame.
 
     Args:
-        competition (str): The competition code (e.g., 'EPL' for Premier League).
+        competition (str): The competition key defined in
+            ``utils_scrapper.MAPPING_COMPETITIONS`` (e.g., ``'ENG Premier League'``).
         season (str): The season string (e.g., '2020/2021', '2020-2021', or '2021').
         path (str): Directory path for any required file operations.
-        force_reload (bool, optional): If True, forces re-download or reprocessing of data.
+        force_reload (bool, optional): Accepted for API compatibility with the other
+            scrapers. Fixture fetching is cached in-process with ``lru_cache``;
+            ``force_reload`` is currently ignored.
         mapping_teams (dict[str, str] | None, optional): Optional mapping for team name
         normalization.
 
@@ -43,7 +46,8 @@ class ScrapUnderstat(Scraper):
         base_url (str): Base URL for understat.com.
         scraper_name (str): Name identifier for the scraper.
         season (str): Processed season string.
-        force_reload (bool): Whether to force data reload.
+        force_reload (bool): Accepted for API compatibility; currently ignored
+            (caching is in-process via ``lru_cache``).
         slug (str): Slug for the competition used in URL construction.
 
     Methods:

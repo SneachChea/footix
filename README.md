@@ -51,22 +51,22 @@ pip install pyfootix
 
 ## 🎯 Quick Start
 
+Build a score matrix straight from expected goals and read off the 1X2 probabilities:
+
 ```python
-from footix.models.bayesian import BayesianModel
-from footix.data_io.footballdata import ScrapFootballData
+from footix.models.score_matrix import GoalMatrix
+from footix.models.utils import poisson_proba
 
-
-# Load match data (example: Ligue 1 fixtures)
-dataset = ScrapFootballData(competition="FRA Ligue 1", season="2024-2025", path ="./data", force_reload=True).get_fixtures()
-
-# Initialize and fit the Bayesian model
-model = BayesianModel(n_teams=18, n_goals=20)
-model.fit(X_train=dataset)
-
-# Predict probabilities for a specific match
-probas = model.predict(home_team="Marseille", away_team="Lyon").return_probas()
-print(f"Home: {probas[0]:.2f}, Draw: {probas[1]:.2f}, Away: {probas[2]:.2f}")
+gm = GoalMatrix(
+    home_goals_probs=poisson_proba(lambda_param=1.5, k=20),
+    away_goals_probs=poisson_proba(lambda_param=1.2, k=20),
+)
+probas = gm.return_probas()
+print(f"Home: {probas.proba_home:.2f}, Draw: {probas.proba_draw:.2f}, Away: {probas.proba_away:.2f}")
 ```
+
+Want to train a model on real match data? Follow the [Elo](docs/source/tutorials/elo.rst) or
+[Poisson](docs/source/tutorials/poisson.rst) tutorial.
 
 ## 📤 Exporting Predictions
 

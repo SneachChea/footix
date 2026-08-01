@@ -58,10 +58,12 @@ Example: predict + export in one call
     from pathlib import Path
 
     from footix.data_io.prediction_export import export_prediction_records_from_model
-    from footix.models.bayesian import BayesianModel
 
-    # model already fitted earlier
-    model = BayesianModel(n_goals=20, n_teams=18, calibrate=True, use_stats=True)
+    # ``model`` is any already-fitted model implementing the
+    # PredictionExportModel protocol: ``predict() -> GoalMatrix`` and
+    # ``get_samples() -> SampleProbaResult`` (for example a calibrated
+    # BayesianModel fitted on your training data, see the tutorials).
+    model = ...
 
     # Load a fixture payload from your own JSON file.
     payload = json.loads(Path("path/to/fixture_payload.json").read_text())

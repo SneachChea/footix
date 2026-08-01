@@ -28,7 +28,8 @@ class ScrapFootballData(Scraper):
     column sanitization, and team name mapping.
 
     Args:
-        competition (str): The competition code (e.g., 'E0' for Premier League).
+        competition (str): The competition key defined in
+            ``utils_scrapper.MAPPING_COMPETITIONS`` (e.g., ``'ENG Premier League'``).
         season (str): The season string (e.g., '2020/2021', '2020-2021', or '2021').
         path (str): Directory path to store the downloaded CSV files.
         force_reload (bool, optional): If True, forces re-download of data even if file exists.
@@ -38,7 +39,7 @@ class ScrapFootballData(Scraper):
     Attributes:
         base_url (str): Base URL for football-data.co.uk.
         scraper_name (str): Name identifier for the scraper.
-        competition (str): Competition code.
+        competition (str): Competition key.
         season (str): Processed season string.
         path (Path): Path object for data storage.
         force_reload (bool): Whether to force data reload.
@@ -67,8 +68,8 @@ class ScrapFootballData(Scraper):
         """Initialize the ScrapFootballData instance.
 
         Args:
-            competition (str): The competition code. The mapping of competition names to their
-            respective codes is defined in `utils_scrapper.MAPPING_COMPETITIONS`.
+            competition (str): The competition key defined in
+                ``utils_scrapper.MAPPING_COMPETITIONS`` (e.g., ``'ENG Premier League'``).
             season (str): The season string (e.g., '2020/2021', '2020-2021', or '2021').
             path (str): Directory path to store the downloaded CSV files.
             force_reload (bool, optional): If True, forces re-download of data even if the file

@@ -23,8 +23,10 @@ html/
 *.whl
 *.tar.gz
 
-# notebook folder
-notebooks/
+# notebook scratch data (the notebooks themselves are tracked)
+notebooks/data/
+notebooks/logo/
+notebooks/odds/
 
 # Virtual environment
 .venv/
