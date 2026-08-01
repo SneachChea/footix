@@ -60,11 +60,11 @@ def poisson_proba(lambda_param: float, k: int) -> np.ndarray:
 
     Args:
         lambda_param (float): The expected number of goals.
-        k (int): The number of goals to achieve.
+        k (int): Number of goal values to return, starting at zero.
 
     Returns:
         np.ndarray:  An array containing the probabilities of achieving each possible
-    number of goals from 0 to n_goals, inclusive.
+            number of goals from 0 through ``k - 1``.
 
     """
     poisson = stats.poisson(mu=lambda_param)

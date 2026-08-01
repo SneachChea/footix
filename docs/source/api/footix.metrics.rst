@@ -10,7 +10,7 @@ footix.metrics.confidence module
 .. automodule:: footix.metrics.confidence
    :members:
    :show-inheritance:
-   :undoc-members:
+   :exclude-members: confidence, sharpness, disagreement
 
 footix.metrics.metrics\_function module
 ---------------------------------------
@@ -18,7 +18,6 @@ footix.metrics.metrics\_function module
 .. automodule:: footix.metrics.metrics_function
    :members:
    :show-inheritance:
-   :undoc-members:
 
 footix.metrics.standings module
 -------------------------------
@@ -26,12 +25,3 @@ footix.metrics.standings module
 .. automodule:: footix.metrics.standings
    :members:
    :show-inheritance:
-   :undoc-members:
-
-Module contents
----------------
-
-.. automodule:: footix.metrics
-   :members:
-   :show-inheritance:
-   :undoc-members:

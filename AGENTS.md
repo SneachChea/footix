@@ -26,10 +26,6 @@ uv lock                       # regenerate lockfile
 - **type**: `uv run pre-commit run mypy --all-files` (needs `types-requests` + `types-PyYAML` as additional_dependencies in `.pre-commit-config.yaml`)
 - **test**: `uv run pytest -v --cov=footix` on py3.12, 3.13, 3.14
 
-## Known test failures
-
-`test_bayesian_calibration.py` and `test_bayesian_use_stats.py` fail with `ImportError: cannot import name 'concat' from 'arviz'`. This is a `pymc`/`arviz` version incompatibility — `pymc 5.x`'s `backends.arviz` imports `concat` which was removed in `arviz 1.x`. Skip these when verifying.
-
 ## Architecture
 
 - **models/**: `PoissonModel` (scipy optimize), `BayesianModel` (pymc MCMC), `EloDavidson` (rating system), `GoalMatrix` (score probability matrix)
@@ -55,4 +51,3 @@ A knowledge graph of the codebase lives in `graphify-out/` (710 nodes, 1044 edge
 - Sphinx, `docs/source/conf.py`, Google-style docstrings (napoleon extension)
 - ReadTheDocs: `.readthedocs.yaml` installs via pip (not uv) using `docs/requirements.txt`
 - Build locally: `uv run sphinx-build -b html -W docs/source docs/build/html`
-- `.streamlit/config.toml` exists (app runner config)

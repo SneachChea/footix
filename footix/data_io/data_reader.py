@@ -1,17 +1,9 @@
 import dataclasses
-from typing import Iterator, Protocol
+from typing import Iterator
 
 import pandas as pd
 
 from footix.utils.decorators import verify_required_column
-
-
-class DataProtocol(Protocol):
-    """Protocol for data readers."""
-
-    def __len__(self) -> int:
-        """Length of the data reader."""
-        ...
 
 
 @dataclasses.dataclass
@@ -38,20 +30,12 @@ class MatchupResult:
     def from_dict(dict_row: dict) -> "MatchupResult":
         """Factory method to create a MatchupResult object from a dictionary row.
 
-        Parameters
-        ----------
-            dict_row (dict): A dictionary containing the match results with keys:
-            - 'HomeTeam': The name of the home team.
-            - 'AwayTeam': The name of the away team.
-            - 'FTR': The final result
-                ('H' for Home Win, 'A' for Away Win, 'D' for Draw).
-            - 'FTAG': The number of goals scored by the away team.
-            - 'FTHG': The number of goals scored by the home team.
+        Args:
+            dict_row: Match result values using the canonical keys ``home_team``,
+                ``away_team``, ``ftr``, ``ftag``, and ``fthg``.
 
-        Returns
-        -------
-            MatchupResult: An instance of the MatchupResult class populated with data
-            from the dictionary row.
+        Returns:
+            A MatchupResult populated from the dictionary row.
 
         """
         return MatchupResult(
@@ -63,7 +47,7 @@ class MatchupResult:
         )
 
 
-class EloDataReader(DataProtocol):
+class EloDataReader:
     def __init__(self, df_data: pd.DataFrame):
         self.df_data = self._process_df(df_data)
         # Better performances for iteration over rows

@@ -1,5 +1,5 @@
 Prediction Export Tutorial
-=======================
+==========================
 
 This tutorial explains how to export ML predictions to a prediction JSON format
 from core Python code (scriptable workflow).
@@ -63,8 +63,8 @@ Example: predict + export in one call
     # model already fitted earlier
     model = BayesianModel(n_goals=20, n_teams=18, calibrate=True, use_stats=True)
 
-    # Example fixture payload (usually loaded from notebooks/odds/*.json)
-    payload = json.loads(Path("notebooks/odds/2026-02-12_ligue_1.json").read_text())
+    # Load a fixture payload from your own JSON file.
+    payload = json.loads(Path("path/to/fixture_payload.json").read_text())
     fixtures = payload.get("fixtures", [])
 
     payload_metadata = {

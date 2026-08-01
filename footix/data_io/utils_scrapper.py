@@ -48,9 +48,6 @@ MAPPING_COMPETITIONS: dict[str, dict[str, Any]] = {
 
 def to_snake_case(name: str) -> str:
     """Convert the string name into a snake case string.
-    Shamelessly copied from:
-    https://stackoverflow.com/questions/1175208/
-    elegant-python-function-to-convert-camelcase-to-snake-case
 
     Args:
         name (str): the name to convert

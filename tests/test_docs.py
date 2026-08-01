@@ -34,31 +34,14 @@ def test_sphinx_build() -> None:
     if docs_build_root.exists():
         shutil.rmtree(docs_build_root)
 
-    # Run sphinx-apidoc to regenerate API docs
-    apidoc_cmd = [
-        sys.executable,
-        "-m",
-        "sphinx.ext.apidoc",
-        "-o",
-        str(docs_source / "api"),
-        str(repo_root / "footix"),
-        "-f",
-    ]
-    result_apidoc = subprocess.run(apidoc_cmd, capture_output=True, text=True)
-    if result_apidoc.returncode != 0:
-        raise AssertionError(
-            f"sphinx-apidoc failed with code {result_apidoc.returncode}:\n"
-            f"stdout: {result_apidoc.stdout}\n"
-            f"stderr: {result_apidoc.stderr}"
-        )
-
-    # Run sphinx-build (without -W to avoid failing on benign cross-reference warnings)
+    # Treat every Sphinx warning as a test failure.
     build_cmd = [
         sys.executable,
         "-m",
         "sphinx",
         "-b",
         "html",
+        "-W",
         str(docs_source),
         str(docs_build),
     ]
@@ -69,7 +52,7 @@ def test_sphinx_build() -> None:
     print("==== Sphinx build output (stdout + stderr) ====")
     print(stderr_text)
 
-    # Fail only if Sphinx build actually failed (exit code != 0)
+    # Fail if Sphinx reports an error or warning.
     if result_build.returncode != 0:
         raise AssertionError(
             f"Sphinx build failed with exit code {result_build.returncode}.\n"

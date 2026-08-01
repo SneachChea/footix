@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import warnings
+from collections.abc import Hashable
 from functools import cache
 from typing import Any
 
@@ -11,7 +12,6 @@ import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
 import scipy.stats as stats
-from sklearn import preprocessing
 
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.decorators import verify_required_column
@@ -123,7 +123,7 @@ def _extract_optional_stats_data(df: pd.DataFrame) -> dict[str, Any]:
 
 
 class BayesianModel:
-    """Bayesian hierarchical model for football scores using a Negative Binomial likelihood.
+    """Bayesian hierarchical model for football scores using Poisson likelihoods.
 
     Attributes
     ----------
@@ -148,7 +148,7 @@ class BayesianModel:
         self.calibrate = calibrate
         self.use_stats = use_stats
         self.trace: az.InferenceData | None = None
-        self.label = preprocessing.LabelEncoder()
+        self._team_to_id: dict[Hashable, int] = {}
 
     @verify_required_column(column_names={"home_team", "away_team", "fthg", "ftag"})
     def fit(self, X_train: pd.DataFrame, sample_kwargs: dict[str, Any] | None = None):
@@ -162,9 +162,9 @@ class BayesianModel:
                 f"Expected: {self.n_teams}, got: {teams}."
             )
 
-        self.label.fit(teams)  # type: ignore
-        x_train_cop["home_team_id"] = self.label.transform(X_train["home_team"])
-        x_train_cop["away_team_id"] = self.label.transform(X_train["away_team"])
+        self._team_to_id = {team: team_id for team_id, team in enumerate(sorted(teams))}
+        x_train_cop["home_team_id"] = X_train["home_team"].map(self._team_to_id)
+        x_train_cop["away_team_id"] = X_train["away_team"].map(self._team_to_id)
 
         goals_home_obs = x_train_cop["fthg"].to_numpy()
         goals_away_obs = x_train_cop["ftag"].to_numpy()
@@ -231,8 +231,9 @@ class BayesianModel:
 
         return calibrated_probs
 
-    def predict(self, home_team: str, away_team: str) -> GoalMatrix:
-        home_id, away_id = self.label.transform([home_team, away_team])
+    def predict(self, home_team: Hashable, away_team: Hashable) -> GoalMatrix:
+        home_id = self._team_to_id[home_team]
+        away_id = self._team_to_id[away_team]
 
         home_mu, away_mu = self.goal_expectation(home_team_id=home_id, away_team_id=away_id)
 
@@ -287,11 +288,13 @@ class BayesianModel:
         home_mu = np.exp(intercept + home[home_team_id] + atts[home_team_id] + defs[away_team_id])
         away_mu = np.exp(intercept + atts[away_team_id] + defs[home_team_id])
 
-        # return both expectations and the dispersion α
+        # Return both expected goal rates.
         return home_mu, away_mu
 
     @cache
-    def get_samples(self, home_team: str, away_team: str, **kwargs: Any) -> SampleProbaResult:
+    def get_samples(
+        self, home_team: Hashable, away_team: Hashable, **kwargs: Any
+    ) -> SampleProbaResult:
         """Generates posterior predictive samples for the specified home and away teams based on
         the model.
 
@@ -315,7 +318,8 @@ class BayesianModel:
                 f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}", stacklevel=2
             )
 
-        home_team_id, away_team_id = self.label.transform([home_team, away_team])
+        home_team_id = self._team_to_id[home_team]
+        away_team_id = self._team_to_id[away_team]
 
         _posterior = self.trace.posterior  # type:ignore
         home = _posterior["home"].stack(sample=("chain", "draw")).values

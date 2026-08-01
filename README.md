@@ -10,6 +10,8 @@
 
 Footix is your intelligent companion for sports analysis and prediction. Leveraging advanced machine learning algorithms and comprehensive data analysis, it helps you make data-driven decisions in sports betting and analysis.
 
+Supports Python 3.12 through 3.14. The package is published as `pyfootix` and imported as `footix`.
+
 ## ✨ Features
 
 - 📊 **Advanced Data Analysis**

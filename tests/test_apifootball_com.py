@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -42,10 +42,6 @@ def _event(
     }
 
 
-def _payload(events: list[dict[str, str]]) -> list[dict[str, str]]:
-    return events
-
-
 def _make_scraper(
     tmp_path: Path,
     mapping_teams: dict[str, str] | None = None,
@@ -65,20 +61,14 @@ def _make_scraper(
 def _response(payload: object, status_code: int = 200) -> requests.Response:
     response = requests.Response()
     response.status_code = status_code
-    response._content = json.dumps(payload).encode()
+    response._content = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
     response.encoding = "utf-8"
     return response
 
 
 def _future_dates() -> tuple[str, str]:
-    start = datetime_now().date() + timedelta(days=2)
+    start = datetime.now(_PARIS_TZ).date() + timedelta(days=2)
     return start.isoformat(), (start + timedelta(days=1)).isoformat()
-
-
-def datetime_now():
-    from datetime import datetime
-
-    return datetime.now(_PARIS_TZ)
 
 
 def test_provider_is_ligue_2_only(tmp_path: Path) -> None:
@@ -98,9 +88,7 @@ def test_request_parameters_and_league_id(monkeypatch: pytest.MonkeyPatch, tmp_p
     def mock_get(url: str, **kwargs: object) -> requests.Response:
         calls.append({"url": url, **kwargs})
         return _response(
-            _payload(
-                [_event(match_id="1", match_date=first_date, match_time="20:00", match_round="1")]
-            )
+            [_event(match_id="1", match_date=first_date, match_time="20:00", match_round="1")]
         )
 
     monkeypatch.setattr(requests, "get", mock_get)
@@ -121,22 +109,20 @@ def test_next_matchday_is_selected(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
 
     def mock_get(url: str, **kwargs: object) -> requests.Response:
         return _response(
-            _payload(
-                [
-                    _event(
-                        match_id="2",
-                        match_date=second_date,
-                        match_time="20:00",
-                        match_round="Round 2",
-                    ),
-                    _event(
-                        match_id="1",
-                        match_date=first_date,
-                        match_time="19:00",
-                        match_round="Round 1",
-                    ),
-                ]
-            )
+            [
+                _event(
+                    match_id="2",
+                    match_date=second_date,
+                    match_time="20:00",
+                    match_round="Round 2",
+                ),
+                _event(
+                    match_id="1",
+                    match_date=first_date,
+                    match_time="19:00",
+                    match_round="Round 1",
+                ),
+            ]
         )
 
     monkeypatch.setattr(requests, "get", mock_get)
@@ -152,30 +138,28 @@ def test_terminal_and_live_statuses_are_excluded(
 
     def mock_get(url: str, **kwargs: object) -> requests.Response:
         return _response(
-            _payload(
-                [
-                    _event(
-                        match_id="finished",
-                        match_date=first_date,
-                        match_time="18:00",
-                        match_round="1",
-                        status="Finished",
-                    ),
-                    _event(
-                        match_id="live",
-                        match_date=first_date,
-                        match_time="19:00",
-                        match_round="1",
-                        status="23'",
-                    ),
-                    _event(
-                        match_id="upcoming",
-                        match_date=first_date,
-                        match_time="20:00",
-                        match_round="1",
-                    ),
-                ]
-            )
+            [
+                _event(
+                    match_id="finished",
+                    match_date=first_date,
+                    match_time="18:00",
+                    match_round="1",
+                    status="Finished",
+                ),
+                _event(
+                    match_id="live",
+                    match_date=first_date,
+                    match_time="19:00",
+                    match_round="1",
+                    status="23'",
+                ),
+                _event(
+                    match_id="upcoming",
+                    match_date=first_date,
+                    match_time="20:00",
+                    match_round="1",
+                ),
+            ]
         )
 
     monkeypatch.setattr(requests, "get", mock_get)
@@ -188,9 +172,7 @@ def test_tbd_kickoff_is_excluded(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 
     def mock_get(url: str, **kwargs: object) -> requests.Response:
         return _response(
-            _payload(
-                [_event(match_id="tbd", match_date=first_date, match_time="TBD", match_round="1")]
-            )
+            [_event(match_id="tbd", match_date=first_date, match_time="TBD", match_round="1")]
         )
 
     monkeypatch.setattr(requests, "get", mock_get)
@@ -200,16 +182,14 @@ def test_tbd_kickoff_is_excluded(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 def test_timezone_and_match_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def mock_get(url: str, **kwargs: object) -> requests.Response:
         return _response(
-            _payload(
-                [
-                    _event(
-                        match_id="1",
-                        match_date="2027-03-28",
-                        match_time="20:00",
-                        match_round="1",
-                    )
-                ]
-            )
+            [
+                _event(
+                    match_id="1",
+                    match_date="2027-03-28",
+                    match_time="20:00",
+                    match_round="1",
+                )
+            ]
         )
 
     monkeypatch.setattr(requests, "get", mock_get)
@@ -223,16 +203,14 @@ def test_team_mapping(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     def mock_get(url: str, **kwargs: object) -> requests.Response:
         return _response(
-            _payload(
-                [
-                    _event(
-                        match_id="1",
-                        match_date=first_date,
-                        match_time="20:00",
-                        match_round="1",
-                    )
-                ]
-            )
+            [
+                _event(
+                    match_id="1",
+                    match_date=first_date,
+                    match_time="20:00",
+                    match_round="1",
+                )
+            ]
         )
 
     monkeypatch.setattr(requests, "get", mock_get)
@@ -287,10 +265,7 @@ def test_error_payload_is_not_cached(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 
 def test_invalid_json_is_rejected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def mock_get(url: str, **kwargs: object) -> requests.Response:
-        response = requests.Response()
-        response.status_code = 200
-        response._content = b"not json"
-        return response
+        return _response(b"not json")
 
     monkeypatch.setattr(requests, "get", mock_get)
     with pytest.raises(APIFootballComError, match="Invalid JSON"):
@@ -312,9 +287,7 @@ def test_cache_hit_and_force_reload(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         nonlocal calls
         calls += 1
         return _response(
-            _payload(
-                [_event(match_id="1", match_date=first_date, match_time="20:00", match_round="1")]
-            )
+            [_event(match_id="1", match_date=first_date, match_time="20:00", match_round="1")]
         )
 
     monkeypatch.setattr(requests, "get", mock_get)
@@ -335,9 +308,7 @@ def test_cache_expiry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         nonlocal calls
         calls += 1
         return _response(
-            _payload(
-                [_event(match_id="1", match_date=first_date, match_time="20:00", match_round="1")]
-            )
+            [_event(match_id="1", match_date=first_date, match_time="20:00", match_round="1")]
         )
 
     monkeypatch.setattr(requests, "get", mock_get)

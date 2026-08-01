@@ -44,23 +44,17 @@ Quick Start
     probas = model.predict(home_team="Marseille", away_team="Lyon").return_probas()
     print(f"Home: {probas[0]:.2f}, Draw: {probas[1]:.2f}, Away: {probas[2]:.2f}")
 
-..
-    Documentation master file, created by sphinx-quickstart on Thu Jun  5 00:06:47 2025.
-    You can adapt this file completely to your liking, but it should at least
-    contain the root `toctree` directive.
-
-
 .. toctree::
    :maxdepth: 2
    :caption: How to start
    :hidden:
 
-    installation
-    prediction_export_tutorial
+   installation
+   prediction_export_tutorial
 
 .. toctree::
    :maxdepth: 4
-   :caption: API informations
+   :caption: API information
    :hidden:
 
    api/index

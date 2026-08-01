@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Footix! This document provides gu
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - [uv](https://docs.astral.sh/uv/) for dependency management
 
 ### Setting Up Your Development Environment
@@ -54,13 +54,12 @@ Run the test suite with coverage:
 uv run pytest -v --cov=footix
 ```
 
-This includes documentation build tests that verify Sphinx builds without warnings.
+This includes a strict Sphinx documentation build test.
 
 ### Building Documentation
 
-Generate and build the documentation locally:
+Build the documentation locally:
 ```bash
-uv run sphinx-apidoc -o docs/source/api footix -f
 uv run sphinx-build -b html -W docs/source docs/build/html
 ```
 
@@ -219,7 +218,6 @@ uv run pydocstyle --convention=google footix
 
 3. Build and check documentation:
    ```bash
-   uv run sphinx-apidoc -o docs/source/api footix -f
    uv run sphinx-build -b html -W docs/source docs/build/html
    ```
 
@@ -252,7 +250,7 @@ uv run pydocstyle --convention=google footix
 ## Code Style Guide
 
 - **Line length**: 99 characters (Ruff default)
-- **Python version**: 3.11+
+- **Python version**: 3.12+
 - **Import style**: Organized by Ruff (isort-compatible)
 - **Type hints**: Required for all public functions
 - **Docstrings**: Google-style (as described above)

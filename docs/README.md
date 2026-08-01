@@ -11,8 +11,9 @@ This directory contains the Sphinx configuration used to build Footix's document
    ```
 2. Generate the HTML documentation using the provided Makefile:
    ```bash
+   cd docs
    make html
    ```
-   The output will be available in `docs/_build/html`.
+   The output will be available in `docs/build/html`.
 
-Open `docs/_build/html/index.html` in your browser to preview the docs.
+Open `docs/build/html/index.html` in your browser to preview the docs.

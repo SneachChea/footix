@@ -45,3 +45,10 @@ Utils
    :maxdepth: 2
 
    footix.utils
+
+Visualization
+-------------
+.. toctree::
+   :maxdepth: 2
+
+   footix.vizu

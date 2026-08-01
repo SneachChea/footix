@@ -89,6 +89,14 @@ _MIXED_OFFSET_RESPONSE = {
 }
 
 
+def _response(payload: object, status_code: int = 200) -> requests.Response:
+    response = requests.Response()
+    response.status_code = status_code
+    response._content = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
+    response.encoding = "utf-8"
+    return response
+
+
 @pytest.fixture
 def mock_get(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
     """Replace ``requests.get`` with a call-recording mock."""
@@ -98,11 +106,7 @@ def mock_get(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
         calls.append(
             {"url": url, "headers": kwargs.get("headers"), "params": kwargs.get("params")}
         )
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = json.dumps(_SAMPLE_RESPONSE).encode()
-        resp.encoding = "utf-8"
-        return resp
+        return _response(_SAMPLE_RESPONSE)
 
     monkeypatch.setattr(requests, "get", _mock)
     return calls
@@ -165,11 +169,7 @@ def test_dataframe_columns(mock_get: list[dict], tmp_path: Path) -> None:
 
 def test_matchday_selection(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def _mock(url: str, **kwargs: object) -> requests.Response:
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = json.dumps(_TWO_MD_RESPONSE).encode()
-        resp.encoding = "utf-8"
-        return resp
+        return _response(_TWO_MD_RESPONSE)
 
     monkeypatch.setattr(requests, "get", _mock)
     df = _make_scraper(tmp_path).get_fixtures()
@@ -184,11 +184,7 @@ def test_gameweek_values(mock_get: list[dict], tmp_path: Path) -> None:
 
 def test_timed_fixtures_included(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def _mock(url: str, **kwargs: object) -> requests.Response:
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = json.dumps(_TIMED_RESPONSE).encode()
-        resp.encoding = "utf-8"
-        return resp
+        return _response(_TIMED_RESPONSE)
 
     monkeypatch.setattr(requests, "get", _mock)
     df = _make_scraper(tmp_path).get_fixtures()
@@ -210,11 +206,7 @@ def test_kickoff_paris_timezone(mock_get: list[dict], tmp_path: Path) -> None:
 
 def test_mixed_daylight_saving_offsets(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def _mock(url: str, **kwargs: object) -> requests.Response:
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = json.dumps(_MIXED_OFFSET_RESPONSE).encode()
-        resp.encoding = "utf-8"
-        return resp
+        return _response(_MIXED_OFFSET_RESPONSE)
 
     monkeypatch.setattr(requests, "get", _mock)
     df = _make_scraper(tmp_path).get_fixtures()
@@ -228,11 +220,7 @@ def test_match_id_present(mock_get: list[dict], tmp_path: Path) -> None:
 
 def test_team_mapping_applied(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def _mock(url: str, **kwargs: object) -> requests.Response:
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = json.dumps(_SAMPLE_RESPONSE).encode()
-        resp.encoding = "utf-8"
-        return resp
+        return _response(_SAMPLE_RESPONSE)
 
     monkeypatch.setattr(requests, "get", _mock)
     mapping = {"Paris Saint-Germain FC": "PSG", "Olympique de Marseille": "Marseille"}
@@ -248,9 +236,7 @@ def test_team_mapping_applied(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
 
 def test_http_error_raised(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def _mock(url: str, **kwargs: object) -> requests.Response:
-        resp = requests.Response()
-        resp.status_code = 403
-        return resp
+        return _response({}, status_code=403)
 
     monkeypatch.setattr(requests, "get", _mock)
     with pytest.raises(FootballDataOrgError, match="Request failed"):
@@ -259,11 +245,7 @@ def test_http_error_raised(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
 
 def test_invalid_json_raised(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def _mock(url: str, **kwargs: object) -> requests.Response:
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = b"not json"
-        resp.encoding = "utf-8"
-        return resp
+        return _response(b"not json")
 
     monkeypatch.setattr(requests, "get", _mock)
     with pytest.raises(FootballDataOrgError, match="Invalid JSON"):
@@ -272,13 +254,9 @@ def test_invalid_json_raised(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
 
 def test_empty_matches(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def _mock(url: str, **kwargs: object) -> requests.Response:
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = json.dumps(
+        return _response(
             {"competition": {"id": 2015, "name": "Ligue 1"}, "filters": {}, "matches": []}
-        ).encode()
-        resp.encoding = "utf-8"
-        return resp
+        )
 
     monkeypatch.setattr(requests, "get", _mock)
     df = _make_scraper(tmp_path).get_fixtures()
@@ -296,11 +274,7 @@ def test_cache_hit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     def _mock(url: str, **kwargs: object) -> requests.Response:
         calls.append(1)
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = json.dumps(_SAMPLE_RESPONSE).encode()
-        resp.encoding = "utf-8"
-        return resp
+        return _response(_SAMPLE_RESPONSE)
 
     monkeypatch.setattr(requests, "get", _mock)
     scraper = _make_scraper(tmp_path)
@@ -314,11 +288,7 @@ def test_cache_bypass_on_force_reload(monkeypatch: pytest.MonkeyPatch, tmp_path:
 
     def _mock(url: str, **kwargs: object) -> requests.Response:
         calls.append(1)
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = json.dumps(_SAMPLE_RESPONSE).encode()
-        resp.encoding = "utf-8"
-        return resp
+        return _response(_SAMPLE_RESPONSE)
 
     monkeypatch.setattr(requests, "get", _mock)
     scraper = _make_scraper(tmp_path, force_reload=True)
@@ -332,11 +302,7 @@ def test_cache_expiry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     def _mock(url: str, **kwargs: object) -> requests.Response:
         calls.append(1)
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = json.dumps(_SAMPLE_RESPONSE).encode()
-        resp.encoding = "utf-8"
-        return resp
+        return _response(_SAMPLE_RESPONSE)
 
     monkeypatch.setattr(requests, "get", _mock)
     scraper = _make_scraper(tmp_path, ttl=0)
@@ -350,11 +316,7 @@ def test_cache_invalid_file_skipped(monkeypatch: pytest.MonkeyPatch, tmp_path: P
 
     def _mock(url: str, **kwargs: object) -> requests.Response:
         calls.append(1)
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._content = json.dumps(_SAMPLE_RESPONSE).encode()
-        resp.encoding = "utf-8"
-        return resp
+        return _response(_SAMPLE_RESPONSE)
 
     monkeypatch.setattr(requests, "get", _mock)
     scraper = _make_scraper(tmp_path)

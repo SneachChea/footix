@@ -135,6 +135,48 @@ def test_bayesian_model_without_calibration(sample_data, monkeypatch: Any):
     assert "bias" not in model.trace.posterior
 
 
+def test_team_name_mapping_uses_sorted_names(sample_data, monkeypatch: Any):
+    """Map team names to the same deterministic order used by LabelEncoder."""
+    _patch_hierarchical_bayes(monkeypatch, sample_data)
+    model = BayesianModel(n_goals=5)
+    model.fit(sample_data)
+
+    teams = sorted(set(sample_data["home_team"]) | set(sample_data["away_team"]))
+    assert model._team_to_id == {team: index for index, team in enumerate(teams)}
+
+
+def test_numeric_team_ids_are_encoded(monkeypatch: Any):
+    """Preserve numeric team identifiers while encoding them for the model."""
+    sample_data = pd.DataFrame(
+        {
+            "home_team": [1, 2],
+            "away_team": [2, 1],
+            "fthg": [1, 0],
+            "ftag": [0, 1],
+        }
+    )
+
+    def fake_hierarchical_bayes(
+        self: BayesianModel,
+        goals_home_obs: np.ndarray,
+        goals_away_obs: np.ndarray,
+        home_team: np.ndarray,
+        away_team: np.ndarray,
+        optional_stats: dict[str, Any] | None = None,
+        sample_kwargs: dict[str, Any] | None = None,
+    ) -> az.InferenceData:
+        _ = goals_home_obs, goals_away_obs, optional_stats, sample_kwargs
+        assert np.array_equal(home_team, [0, 1])
+        assert np.array_equal(away_team, [1, 0])
+        return _build_fake_trace(calibrate=self.calibrate, n_teams=2, n_matches=len(sample_data))
+
+    monkeypatch.setattr(BayesianModel, "hierarchical_bayes", fake_hierarchical_bayes)
+    model = BayesianModel(n_goals=5)
+    model.fit(sample_data)
+
+    assert model._team_to_id == {1: 0, 2: 1}
+
+
 def test_bayesian_model_with_calibration(sample_data, monkeypatch: Any):
     """Test that model works with calibration enabled and includes calibration parameters."""
     _patch_hierarchical_bayes(monkeypatch, sample_data)

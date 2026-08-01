@@ -1,8 +1,4 @@
 import itertools
-import math
-
-import numpy as np
-from scipy.stats import skellam
 
 from footix.strategy.bets import Bet
 
@@ -65,48 +61,3 @@ def generate_bets_combination(
             book_odds.append(prod)
 
     return bets, book_odds
-
-
-def compute_stacks(
-    stakes: list[float],
-    bankroll: float,
-    combinations: list[list[int]],
-    winning_bets: dict[int, list[int]],
-    book_odds: list[float],
-    probs,
-    eps: float = 1e-9,
-):
-    """Compute the expected bankroll after placing bets.
-
-    Args:
-        stakes (list[float]): The amount of money placed on each bet.
-        bankroll (float): The initial amount of money available.
-        combinations (list[list[int]]): A list of combinations of bet indices.
-        winning_bets (dict[int, list[int]]): A dictionary where keys are bet indices and
-        values are lists of combination indices that win.
-        book_odds (list[float]): The odds provided by the bookmaker for each bet.
-        probs (list[float]): The probabilities of each combination occurring.
-        eps (float, optional): A small value to avoid log(0). Defaults to 1e-9.
-
-    Returns:
-        float: The negative sum of the expected log bankrolls.
-
-    """
-    end_bankrolls = np.array([bankroll - np.sum(stakes)] * len(combinations), dtype=float)
-    for index_bet, comb_indices in winning_bets.items():
-        for index in comb_indices:
-            end_bankrolls[index] += stakes[index_bet] * book_odds[index_bet]
-    # Avoid log(0) by adding a small epsilon.
-    return -np.sum([p * math.log(max(e, eps)) for p, e in zip(probs, end_bankrolls)])
-
-
-def _skellam_post_probs(
-    lh: np.ndarray, la: np.ndarray
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Probabilités a posteriori (vecteurs) : home‑win, draw, away‑win pour des échantillons
-    λ_home, λ_away de même longueur.
-    """
-    p_home = 1 - skellam.cdf(0, lh, la)  # P(diff > 0)
-    p_draw = skellam.pmf(0, lh, la)  # P(diff = 0)
-    p_away = skellam.cdf(-1, lh, la)  # P(diff < 0)
-    return p_home, p_draw, p_away

@@ -75,8 +75,9 @@ def confidence_1x2_from_samples_array(
     """Compute confidence from posterior 1X2 probability samples.
 
     The score combines:
-    - Sharpness: ``1 - H(mean_p) / log(3)``
-    - Posterior disagreement: ``MI / log(3)`` where
+
+    * Sharpness: ``1 - H(mean_p) / log(3)``
+    * Posterior disagreement: ``MI / log(3)`` where
       ``MI = H(mean_p) - E[H(p_s)]``
 
     Final score:

@@ -84,19 +84,17 @@ def power_method(
 
     Notes
     -----
-    1. When `margin` is already within `tol` of zero, the function treats the book as fair and
-        returns the normalized inverses of the odds directly.
-    2. Internally, we solve ``f(k) = sum((1/odds_i)**k) - 1 = 0`` by applying Newton's method
-      to the equivalent form ``f(k) = sum(exp(k * log(1/odds_i))) - 1``.
-       Working in log-space improves numerical stability, especially when odds are large
-       (inv-odds small).
-    3. The default initial guess for k is 1. For typical sportsbook margins (up to 10–15%),
-        convergence is very fast—often under 5 iterations.
+    * When ``margin`` is already within ``tol`` of zero, the function treats the book as fair and
+      returns the normalized inverses of the odds directly.
+    * Internally, Newton's method solves ``f(k) = sum((1/odds_i)**k) - 1 = 0`` in log-space.
+      This improves numerical stability when odds are large.
+    * The default initial guess for ``k`` is 1. For typical sportsbook margins, convergence is
+      usually reached in fewer than five iterations.
 
     Examples
     --------
     >>> odds = [1.80, 2.10, 4.00]
-    >>> probs, margin = implied_probs_power(odds)
+    >>> probs, margin = power_method(odds)
     >>> np.isclose(probs.sum(), 1.0)
     True
     >>> margin  # e.g., around 0.043 (4.3% over-round)

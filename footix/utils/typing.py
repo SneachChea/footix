@@ -1,15 +1,9 @@
-from typing import Any, NamedTuple, Protocol, Sequence, TypeAlias
+from typing import NamedTuple, Sequence, TypeAlias
 
 import numpy as np
 from numpy.typing import NDArray
 
 ArrayLikeF: TypeAlias = Sequence[float] | NDArray[np.floating]
-
-
-class ProtoModel(Protocol):
-    def fit(self, *args: Any, **kwargs: Any) -> Any: ...
-
-    def predict(self, HomeTeam: str, AwayTeam: str) -> Any: ...
 
 
 class RPSResult(NamedTuple):

@@ -86,7 +86,6 @@ class ScrapFootballData(Scraper):
         self.competition = competition
         slug = utils_scrapper.MAPPING_COMPETITIONS[self.competition]["footballdata"]["slug"]
         self.season = _process_season(season)
-        self.path = self.manage_path(path)
         self.force_reload = force_reload
         self.infered_url = self.base_url + self.season + "/" + slug + ".csv"
         self.df = self.load()
@@ -128,12 +127,10 @@ class ScrapFootballData(Scraper):
             effect of calling self.download().
 
         """
-        if self._check_if_file_exist() and not self.force_reload:
-            df = pd.read_csv(self.path / (self.competition + "_" + self.season + ".csv"))
-        else:
+        file_path = self.path / (self.competition + "_" + self.season + ".csv")
+        if not file_path.is_file() or self.force_reload:
             self.download()
-            df = pd.read_csv(self.path / (self.competition + "_" + self.season + ".csv"))
-        return df
+        return pd.read_csv(file_path)
 
     def sanitize_columns(self):
         """Convert DataFrame columns to snake_case."""
@@ -147,13 +144,6 @@ class ScrapFootballData(Scraper):
 
         """
         return self.df
-
-    def _check_if_file_exist(self) -> bool:
-        name = self.competition + "_" + self.season + ".csv"
-        expected_file = self.path / name
-        if not expected_file.is_file():
-            return False
-        return True
 
 
 def _process_season(season: str) -> str:
