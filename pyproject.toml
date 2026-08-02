@@ -8,6 +8,7 @@ readme = "README.md"
 requires-python = ">=3.12, <3.15"
 dependencies = [
     "numpy>=2.0.0,<3",
+    "pandas>=2.2.0,<3",
     "scipy>=1.10.1,<2",
     "tqdm>=4.65.0,<5",
     "pymc>=6.0,<7",

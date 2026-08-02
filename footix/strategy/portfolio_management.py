@@ -22,12 +22,21 @@ def stack_bets(bets: list[Bet]) -> tuple[np.ndarray, np.ndarray]:
     Returns:
         tuple[np.ndarray, np.ndarray]: A tuple containing two numpy arrays:
                                        - The first array contains the mean edge values.
-                                       - The second array contains the standard deviation
-                                         of the edge values, with missing values replaced by 0.0.
+                                          - The second array contains risk values.
+
+                                        Missing values use Bernoulli P&L risk.
 
     """
     mu = np.array([b.edge_mean for b in bets], dtype=float)
-    sigma = np.array([b.edge_std or 0.0 for b in bets], dtype=float)
+    sigma = np.array(
+        [
+            b.edge_std
+            if b.edge_std is not None
+            else b.odds * np.sqrt(b.prob_mean * (1.0 - b.prob_mean))
+            for b in bets
+        ],
+        dtype=float,
+    )
     return mu, sigma
 
 
@@ -67,7 +76,8 @@ def optimise_portfolio(
         max_fraction (float, optional): Maximum fraction of bankroll to stake. Defaults to 0.30.
         alpha (float, optional): Risk threshold for chance constraint (probability of loss).
             Defaults to 0.05.
-        gamma (float | None, optional): Entropy bonus weight. If None, defaults to 0.9 * stake_cap.
+        gamma (float | None, optional): Entropy bonus weight.
+            If None, defaults to 0.9 * stake_cap.
             Controls diversification strength.
 
     Returns:
@@ -154,7 +164,9 @@ def optimise_portfolio_torch(
         bankroll (float): Total available funds for betting.
         max_fraction (float, optional): Maximum fraction of bankroll to stake. Defaults to 0.30.
         alpha (float, optional): Risk threshold for chance constraint. Defaults to 0.05.
-        gamma (float | None, optional): Entropy bonus weight. If None, defaults to 0.9 * stake_cap.
+        gamma (float | None, optional): Entropy bonus weight.
+            If None, diversification is disabled.
+            Controls diversification strength when explicitly enabled.
         lr (float, optional): Learning rate for Adam optimizer. Defaults to 5e-2.
         iters (int, optional): Number of optimization iterations. Defaults to 5_000.
         penalty_lambda (float, optional): Weight of chance constraint penalty. Defaults to 1_000.0.
@@ -170,22 +182,38 @@ def optimise_portfolio_torch(
             1. Stakes positivity via softplus
             2. Total stakes via scaling
             3. Risk control via quadratic penalty
-        - Includes Shannon entropy term for diversification
+
+        - Includes Shannon entropy term for diversification when gamma is non-zero
         - Provides detailed diagnostics when verbose=True
 
     """
+    if not list_bets:
+        return list_bets
+    if bankroll <= 0:
+        raise ValueError("bankroll must be positive")
+    if not 0 < max_fraction <= 1:
+        raise ValueError("max_fraction must be in (0, 1]")
+    if not 0 < alpha < 1:
+        raise ValueError("alpha must be in (0, 1)")
+    if lr <= 0 or iters <= 0 or penalty_lambda < 0:
+        raise ValueError("lr, iters and penalty_lambda must be positive/non-negative")
+
     # ── 1. Static inputs ---------------------------------------------------
     mu_np, sigma_np = stack_bets(list_bets)
-    mu: Tensor = torch.tensor(mu_np, device=device, dtype=torch.float)
-    sigma: Tensor = torch.tensor(sigma_np, device=device, dtype=torch.float)
+    if not np.all(np.isfinite(mu_np)) or not np.all(np.isfinite(sigma_np)):
+        raise ValueError("Bet edges and risks must be finite")
+    if np.any(sigma_np < 0):
+        raise ValueError("Bet risks must be non-negative")
+    mu: Tensor = torch.tensor(mu_np, device=device, dtype=torch.float64)
+    sigma: Tensor = torch.tensor(sigma_np, device=device, dtype=torch.float64)
 
     n = mu.numel()
     stake_cap = bankroll * max_fraction
     z_alpha = float(norm.ppf(1.0 - alpha))
     if gamma is None:
-        gamma = 0.9 * stake_cap
+        gamma = 0.0
 
-    stake_raw = torch.zeros(n, device=device, requires_grad=True, dtype=torch.float)
+    stake_raw = torch.zeros(n, device=device, requires_grad=True, dtype=torch.float64)
 
     opt = torch.optim.Adam([stake_raw], lr=lr)
 
@@ -198,7 +226,7 @@ def optimise_portfolio_torch(
         ).float()
         return s_pos * scale
 
-    pbar = tqdm(range(iters))
+    pbar = tqdm(range(iters), disable=not verbose)
     for t in pbar:
         opt.zero_grad()
         s = stakes_from_raw()
@@ -211,18 +239,31 @@ def optimise_portfolio_torch(
         penalty = penalty_lambda * hinge.pow(2)
 
         loss = -(ev + gamma * H) + penalty
+        if not torch.isfinite(loss):
+            raise RuntimeError("Portfolio optimization produced a non-finite loss")
         loss.backward()
         opt.step()
-        pbar.set_postfix({"loss": loss.item(), "EV": ev.item()})
+        if verbose:
+            pbar.set_postfix({"loss": loss.item(), "EV": ev.item()})
 
     with torch.no_grad():
         final_stakes = stakes_from_raw().cpu().numpy()
 
-    for b, s in zip(list_bets, final_stakes):
-        b.stake = float(s.round())
+    rounded = np.rint(final_stakes).astype(int)
+    rounded = np.maximum(rounded, 0)
+    cap = int(np.floor(stake_cap))
+    excess = max(int(rounded.sum()) - cap, 0)
+    for index in np.argsort(-rounded):
+        if excess == 0:
+            break
+        reduction = min(excess, int(rounded[index]))
+        rounded[index] -= reduction
+        excess -= reduction
+    for b, s in zip(list_bets, rounded):
+        b.stake = float(s)
 
     if verbose:
-        stake_sum = final_stakes.sum()
+        stake_sum = rounded.sum()
         retmax = sum((b.stake * b.odds for b in list_bets))
         print(
             f"\nTotal stake used: {stake_sum:.2f} " f"({stake_sum/bankroll*100:.1f} % of bankroll)"

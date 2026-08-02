@@ -142,16 +142,21 @@ class BayesianModel:
         n_teams: int | None = None,
         calibrate: bool = False,
         use_stats: bool = False,
+        random_seed: int | None = 42,
     ):
         self.n_teams = n_teams
         self.n_goals = n_goals
         self.calibrate = calibrate
         self.use_stats = use_stats
+        self.random_seed = random_seed
         self.trace: az.InferenceData | None = None
         self._team_to_id: dict[Hashable, int] = {}
 
     @verify_required_column(column_names={"home_team", "away_team", "fthg", "ftag"})
     def fit(self, X_train: pd.DataFrame, sample_kwargs: dict[str, Any] | None = None):
+        self._posterior_means.cache_clear()
+        self.get_samples.cache_clear()
+        self.get_market_samples.cache_clear()
         x_train_cop = X_train.copy(deep=False)
         teams = pd.concat([X_train["home_team"], X_train["away_team"]]).unique()
         if self.n_teams is None:
@@ -318,61 +323,72 @@ class BayesianModel:
                 f"Ignoring unexpected keyword arguments: {list(kwargs.keys())}", stacklevel=2
             )
 
+        probabilities = self.get_market_samples(home_team, away_team, "1X2")
+        return SampleProbaResult(
+            proba_home=probabilities[:, 0],
+            proba_draw=probabilities[:, 1],
+            proba_away=probabilities[:, 2],
+        )
+
+    @cache
+    def get_market_samples(
+        self, home_team: Hashable, away_team: Hashable, market: str
+    ) -> np.ndarray:
+        """Return posterior probability samples for 1X2 or a total-goals market."""
+        if market not in {"1X2", "O/U2.5", "U2.5", "O2.5"}:
+            raise ValueError(f"Unsupported market: {market}")
+
         home_team_id = self._team_to_id[home_team]
         away_team_id = self._team_to_id[away_team]
-
-        _posterior = self.trace.posterior  # type:ignore
-        home = _posterior["home"].stack(sample=("chain", "draw")).values
-        atts = _posterior["atts"].stack(sample=("chain", "draw")).values
-        defs = _posterior["defs"].stack(sample=("chain", "draw")).values
-        intercept = _posterior["intercept"].stack(sample=("chain", "draw")).values
+        posterior = self.trace.posterior  # type:ignore
+        home = posterior["home"].stack(sample=("chain", "draw")).values
+        atts = posterior["atts"].stack(sample=("chain", "draw")).values
+        defs = posterior["defs"].stack(sample=("chain", "draw")).values
+        intercept = posterior["intercept"].stack(sample=("chain", "draw")).values
         n_samples = intercept.shape[0]
+        rng = np.random.default_rng(self.random_seed)
 
-        # Extract calibration parameters if enabled
+        tau_samples = bias_samples = None
         if self.calibrate:
-            tau_samples = _posterior["tau"].stack(sample=("chain", "draw")).values
-            bias_samples = _posterior["bias"].stack(sample=("chain", "draw")).values
+            tau_samples = posterior["tau"].stack(sample=("chain", "draw")).values
+            bias_samples = posterior["bias"].stack(sample=("chain", "draw")).values
 
-        prob_H_list = []
-        prob_D_list = []
-        prob_A_list = []
-
-        for i in range(n_samples):
+        result: list[np.ndarray] = []
+        for index in range(n_samples):
             mu_home = np.exp(
-                intercept[i]
-                + home[home_team_id, i]
-                + atts[home_team_id, i]
-                + defs[away_team_id, i]
+                intercept[index]
+                + home[home_team_id, index]
+                + atts[home_team_id, index]
+                + defs[away_team_id, index]
             )
-            mu_away = np.exp(intercept[i] + atts[away_team_id, i] + defs[home_team_id, i])
-
-            home_goals = np.random.poisson(mu_home, 150)
-            away_goals = np.random.poisson(mu_away, 150)
-            prob_H = np.mean(home_goals > away_goals)
-            prob_D = np.mean(home_goals == away_goals)
-            prob_A = np.mean(home_goals < away_goals)
-
-            # Apply calibration if enabled
+            mu_away = np.exp(
+                intercept[index] + atts[away_team_id, index] + defs[home_team_id, index]
+            )
+            home_goals = rng.poisson(mu_home, 150)
+            away_goals = rng.poisson(mu_away, 150)
+            raw_probs = np.asarray(
+                [
+                    np.mean(home_goals > away_goals),
+                    np.mean(home_goals == away_goals),
+                    np.mean(home_goals < away_goals),
+                ],
+                dtype=float,
+            )
             if self.calibrate:
-                raw_probs = np.array([prob_H, prob_D, prob_A])
-                calibrated_probs = self._apply_calibration(
-                    raw_probs, tau_samples[i], bias_samples[:, i]
-                )
-                prob_H, prob_D, prob_A = (
-                    calibrated_probs[0],
-                    calibrated_probs[1],
-                    calibrated_probs[2],
+                assert tau_samples is not None and bias_samples is not None
+                raw_probs = self._apply_calibration(
+                    raw_probs,
+                    tau_samples[index],
+                    bias_samples[:, index],
                 )
 
-            prob_H_list.append(prob_H)
-            prob_D_list.append(prob_D)
-            prob_A_list.append(prob_A)
+            if market == "1X2":
+                result.append(raw_probs)
+                continue
+            under = float(np.mean(home_goals + away_goals <= 2))
+            result.append(np.asarray([under, 1.0 - under]))
 
-        return SampleProbaResult(
-            proba_home=np.asarray(prob_H_list),
-            proba_draw=np.asarray(prob_D_list),
-            proba_away=np.asarray(prob_A_list),
-        )
+        return np.asarray(result)
 
     def hierarchical_bayes(
         self,
@@ -502,6 +518,19 @@ class BayesianModel:
                     observed=optional_stats["corners_away_log"],
                 )
 
+            inference_kwargs: dict[str, Any] = {
+                "draws": 2000,
+                "tune": 1000,
+                "cores": min(4, os.cpu_count() or 1),
+                "nuts_sampler": "nutpie",
+                "target_accept": 0.95,
+                "return_inferencedata": True,
+            }
+            if sample_kwargs is not None:
+                inference_kwargs.update(sample_kwargs)
+            if self.random_seed is not None:
+                inference_kwargs.setdefault("random_seed", self.random_seed)
+
             if self.calibrate:
                 match_res_data = pm.Data("match_res", match_obs)
 
@@ -529,18 +558,7 @@ class BayesianModel:
                 )
 
                 pm.Categorical("match_outcomes", p=match_probs, observed=match_res_data)
-                inference_kwargs: dict[str, Any] = {
-                    "draws": 2000,
-                    "tune": 1000,
-                    "cores": min(4, os.cpu_count() or 1),
-                    "nuts_sampler": "nutpie",
-                    "init": "adapt_diag_grad",
-                    "target_accept": 0.95,
-                    "return_inferencedata": True,
-                }
-                if sample_kwargs is not None:
-                    inference_kwargs.update(sample_kwargs)
-                trace = pm.sample(**inference_kwargs)
+            trace = pm.sample(**inference_kwargs)
         return trace
 
 

@@ -269,6 +269,20 @@ def test_prediction_works_with_calibration(sample_data, monkeypatch: Any):
     assert 0 <= samples.proba_away <= 1
 
 
+def test_posterior_samples_cover_total_goals(sample_data, monkeypatch: Any):
+    """Posterior samples expose the same binary ordering as the O/U markets."""
+    _patch_hierarchical_bayes(monkeypatch, sample_data)
+    model = BayesianModel(n_goals=5, random_seed=7)
+    model.fit(sample_data)
+
+    teams = sorted(set(sample_data["home_team"]) | set(sample_data["away_team"]))
+    samples = model.get_market_samples(teams[0], teams[1], "U2.5")
+
+    assert samples.ndim == 2
+    assert samples.shape[1] == 2
+    assert np.allclose(samples.sum(axis=1), 1.0)
+
+
 def test_calibration_improves_model_fit(sample_data, monkeypatch: Any):
     """Test that calibration doesn't break the model (basic sanity check)."""
     _patch_hierarchical_bayes(monkeypatch, sample_data)

@@ -30,6 +30,7 @@ to football-data.co.uk, later runs reuse the cached CSV.
 | `elo.ipynb`           | `docs/source/tutorials/elo.rst`     | Deterministic (Elo fitting).      |
 | `poisson.ipynb`       | `docs/source/tutorials/poisson.rst` | Deterministic (scipy optimize).   |
 | `bayesian.ipynb`      | deferred                     | MCMC: slow, not yet reproducible. |
+| `model_performance.ipynb` | `docs/source/tutorials/model_evaluation.rst` | Friday-to-Friday walk-forward comparison. |
 
 Do not commit notebook outputs containing credentials, live API responses,
 or absolute local paths.

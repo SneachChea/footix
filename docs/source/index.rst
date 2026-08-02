@@ -47,6 +47,8 @@ goals and read off the 1X2 probabilities:
 
 Want to train a model on real match data? Start with the
 :doc:`Elo tutorial <tutorials/elo>` or the :doc:`Poisson tutorial <tutorials/poisson>`.
+For chronological model comparisons, see the
+:doc:`walk-forward evaluation tutorial <tutorials/model_evaluation>`.
 
 Which model should I use?
 -------------------------
@@ -91,6 +93,7 @@ The data contract for every provider is described in
 
    tutorials/elo
    tutorials/poisson
+   tutorials/model_evaluation
    prediction_export_tutorial
 
 .. toctree::
