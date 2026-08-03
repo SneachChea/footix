@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
+import pytest
 
 from footix.evaluation import BacktestConfig, ModelSpec, run_backtest
 from footix.models.score_matrix import GoalMatrix
@@ -34,6 +36,17 @@ class StatelessModel:
     def predict(self, home_team: str, away_team: str) -> ProbaResult:
         _ = home_team, away_team
         return ProbaResult(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0)
+
+
+def _window_samples(model: object, matches: list[tuple[str, str]], market: str) -> np.ndarray:
+    """Toy joint sampler: constant probabilities across 4 shared draws."""
+    _ = model
+    n_draws = 4
+    if market == "1X2":
+        probs = np.asarray([[0.6, 0.2, 0.2]] * n_draws)
+        return np.broadcast_to(probs[:, None, :], (n_draws, len(matches), 3)).copy()
+    probs = np.asarray([[0.5, 0.5]] * n_draws)
+    return np.broadcast_to(probs[:, None, :], (n_draws, len(matches), 2)).copy()
 
 
 def _matches() -> pd.DataFrame:
@@ -103,3 +116,55 @@ def test_stateless_model_does_not_require_fit() -> None:
 
     assert set(result.windows["status"]) == {"ok"}
     assert len(result.predictions) == len(_matches())
+
+
+def test_portfolio_torch_staking_uses_window_scenarios() -> None:
+    result = run_backtest(
+        _matches(),
+        [
+            ModelSpec(
+                "scenario",
+                ToyModel,
+                markets=("1X2",),
+                staking="portfolio_torch",
+                window_samples=_window_samples,
+            )
+        ],
+        BacktestConfig(markets=("1X2",), bankroll=100.0, min_stake=0.0, n_scenarios=200),
+    )
+
+    assert result.bets["match_id"].nunique() == len(result.bets)
+    assert result.windows.iloc[-1]["total_stake"] <= 30.0
+
+
+def test_portfolio_torch_requires_window_samples() -> None:
+    with pytest.raises(ValueError, match="window_samples"):
+        run_backtest(
+            _matches(),
+            [ModelSpec("scenario", ToyModel, markets=("1X2",), staking="portfolio_torch")],
+            BacktestConfig(markets=("1X2",), bankroll=100.0, min_stake=0.0),
+        )
+
+
+def test_flat_staking_uses_robust_selection_and_fixed_stake() -> None:
+    result = run_backtest(
+        _matches(),
+        [
+            ModelSpec(
+                "scenario",
+                ToyModel,
+                markets=("1X2",),
+                staking="flat",
+                window_samples=_window_samples,
+            )
+        ],
+        BacktestConfig(
+            markets=("1X2",),
+            bankroll=100.0,
+            min_stake=0.0,
+            flat_fraction=0.01,
+        ),
+    )
+
+    assert set(result.bets["stake"]) == {1.0}
+    assert result.bets["match_id"].nunique() == len(result.bets)

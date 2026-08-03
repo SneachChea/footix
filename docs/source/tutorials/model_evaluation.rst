@@ -65,14 +65,27 @@ Betting simulation
 
 The evaluator assumes the opening B365 columns are available at the cutoff.
 Missing or invalid odds remove a match from the betting table, not from the
-prediction metrics. Only one selection is kept per match: the candidate with
-the highest positive edge among the enabled markets.
+prediction metrics. At most one selection is kept per match.
 
-Poisson and Elo use quarter Kelly with a configurable total bankroll cap.
-Bayesian uses the posterior-aware ``optimise_portfolio_torch`` path. The
-initial defaults are a 1,000-unit bankroll, 30% weekly exposure and a 5%
-risk parameter. The portfolio currently assumes independence between
-different matches by selecting at most one bet per match.
+Poisson and Elo keep the candidate with the highest positive point edge and
+stake quarter Kelly with a configurable total bankroll cap. Bayesian
+selection is posterior-aware (``select_bets_posterior``): a bet is kept only
+if its 10% pessimistic edge bound is positive, and within a match the
+selection with the largest robust Kelly fraction wins, provided it is the
+best edge of the match in more than 60% of the posterior draws. Stakes then
+maximise the expected log-growth of the bankroll over joint P&L scenarios
+(``optimise_portfolio_torch``, 10,000 scenarios by default): discrete
+payoffs, asymmetry and the dependence induced by the common posterior
+uncertainty are all kept, and outcomes are simulated independently between
+matches conditional on the posterior draw.
+
+The ``flat`` staking mode applies the same robust posterior selection but
+stakes a fixed fraction of the bankroll per bet (``flat_fraction``, 1% by
+default). Use it to evaluate the quality of the selection alone with fixed
+stakes before interpreting portfolio results. ``select_bets_diagnostics``
+returns per-candidate statistics (``q_edge``, ``robust_kelly``, ``rho``,
+``rejection_reason``) for tuning ``select_alpha``, ``select_delta`` and
+``select_rho_min`` on a walk-forward grid instead of the final season.
 
 Interpretation
 --------------

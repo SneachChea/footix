@@ -390,6 +390,84 @@ class BayesianModel:
 
         return np.asarray(result)
 
+    def get_market_samples_batch(
+        self, matches: list[tuple[Hashable, Hashable]], market: str
+    ) -> np.ndarray:
+        """Return aligned posterior probability samples for several matches.
+
+        Every row of the returned array is computed from the *same* posterior
+        draw, so probabilities across matches can be combined jointly, e.g. to
+        simulate correlated portfolio scenarios. Per-match calls to
+        ``get_market_samples`` iterate the posterior in the same order, but
+        this batch method makes the shared draw axis explicit.
+
+        Args:
+            matches: List of ``(home_team, away_team)`` pairs.
+            market: "1X2" or "O/U2.5".
+
+        Returns:
+            Array of shape ``(n_draws, n_matches, n_outcomes)`` where axis 0
+            is the shared posterior draw index and ``n_outcomes`` is 3 for
+            "1X2" and 2 (under, over) otherwise.
+        """
+        if market not in {"1X2", "O/U2.5", "U2.5", "O2.5"}:
+            raise ValueError(f"Unsupported market: {market}")
+
+        home_team_ids = [self._team_to_id[home] for home, _ in matches]
+        away_team_ids = [self._team_to_id[away] for _, away in matches]
+        posterior = self.trace.posterior  # type:ignore
+        home = posterior["home"].stack(sample=("chain", "draw")).values
+        atts = posterior["atts"].stack(sample=("chain", "draw")).values
+        defs = posterior["defs"].stack(sample=("chain", "draw")).values
+        intercept = posterior["intercept"].stack(sample=("chain", "draw")).values
+        n_draws = intercept.shape[0]
+        rng = np.random.default_rng(self.random_seed)
+
+        tau_samples = bias_samples = None
+        if self.calibrate:
+            tau_samples = posterior["tau"].stack(sample=("chain", "draw")).values
+            bias_samples = posterior["bias"].stack(sample=("chain", "draw")).values
+
+        n_outcomes = 3 if market == "1X2" else 2
+        result = np.empty((n_draws, len(matches), n_outcomes), dtype=float)
+        for index in range(n_draws):
+            for match_index, (home_team_id, away_team_id) in enumerate(
+                zip(home_team_ids, away_team_ids)
+            ):
+                mu_home = np.exp(
+                    intercept[index]
+                    + home[home_team_id, index]
+                    + atts[home_team_id, index]
+                    + defs[away_team_id, index]
+                )
+                mu_away = np.exp(
+                    intercept[index] + atts[away_team_id, index] + defs[home_team_id, index]
+                )
+                home_goals = rng.poisson(mu_home, 150)
+                away_goals = rng.poisson(mu_away, 150)
+                raw_probs = np.asarray(
+                    [
+                        np.mean(home_goals > away_goals),
+                        np.mean(home_goals == away_goals),
+                        np.mean(home_goals < away_goals),
+                    ],
+                    dtype=float,
+                )
+                if self.calibrate:
+                    assert tau_samples is not None and bias_samples is not None
+                    raw_probs = self._apply_calibration(
+                        raw_probs,
+                        tau_samples[index],
+                        bias_samples[:, index],
+                    )
+                if market == "1X2":
+                    result[index, match_index] = raw_probs
+                    continue
+                under = float(np.mean(home_goals + away_goals <= 2))
+                result[index, match_index] = np.asarray([under, 1.0 - under])
+
+        return result
+
     def hierarchical_bayes(
         self,
         goals_home_obs: np.ndarray,

@@ -6,7 +6,7 @@ competition/season so that a training window can never cross a season boundary.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -17,18 +17,37 @@ from footix.metrics import accuracy, brier_score, log_loss, rps
 from footix.models.score_matrix import GoalMatrix
 from footix.strategy.bets import Bet
 from footix.strategy.kelly_strategies import fractional_kelly
-from footix.strategy.portfolio_management import optimise_portfolio_torch
+from footix.strategy.portfolio_management import PortfolioScenarios, optimise_portfolio_torch
+from footix.strategy.select_bets import select_bets_posterior
+from footix.strategy.simple_strategy import flat_staking
 from footix.utils.typing import ProbaResult
 
 Market = Literal["1X2", "O/U2.5", "U2.5", "O2.5"]
 CanonicalMarket = Literal["1X2", "O/U2.5"]
-Staking = Literal["fractional_kelly", "portfolio_torch", "none"]
+Staking = Literal["fractional_kelly", "portfolio_torch", "flat", "none"]
 MARKETS: tuple[CanonicalMarket, ...] = ("1X2", "O/U2.5")
+SELECTION_COLUMN: dict[str, int] = {"H": 0, "D": 1, "A": 2, "U2.5": 0, "O2.5": 1}
 
 
 @dataclass(frozen=True)
 class ModelSpec:
-    """Describe how the evaluator creates, fits and queries one model."""
+    """Describe how the evaluator creates, fits and queries one model.
+
+    Attributes:
+        name: Label used in the result tables.
+        factory: Callable returning a fresh model instance per window.
+        markets: Markets the model can predict.
+        staking: Staking rule applied to the weekly candidates.
+        fit: Optional override for model fitting.
+        samples: Optional per-match posterior *probability* samples
+            ``(n_draws, n_outcomes)`` used for diagnostic summaries only.
+        window_samples: Optional joint window-level posterior *probability*
+            sampler ``(n_draws, n_matches, n_outcomes)`` sharing a common
+            draw axis across all matches. Required when ``staking`` is
+            "portfolio_torch".
+        requires_training: Whether a training set must be available.
+
+    """
 
     name: str
     factory: Callable[[], Any]
@@ -36,6 +55,9 @@ class ModelSpec:
     staking: Staking = "fractional_kelly"
     fit: Callable[[Any, pd.DataFrame], None] | None = None
     samples: Callable[[Any, str, str, Market], np.ndarray] | None = None
+    window_samples: (
+        Callable[[Any, Sequence[tuple[str, str]], CanonicalMarket], np.ndarray] | None
+    ) = None
     requires_training: bool = True
 
 
@@ -49,11 +71,14 @@ class BacktestConfig:
     bankroll: float = 1_000.0
     max_fraction: float = 0.30
     fraction_kelly: float = 0.25
-    optimizer_alpha: float = 0.05
-    optimizer_gamma: float | None = 0.0
     optimizer_lr: float = 0.05
     optimizer_iters: int = 5_000
-    optimizer_penalty_lambda: float = 1_000.0
+    n_scenarios: int = 10_000
+    scenarios_seed: int = 42
+    select_alpha: float = 0.10
+    select_delta: float = 0.0
+    select_rho_min: float = 0.60
+    flat_fraction: float = 0.01
     markets: tuple[Market, ...] = MARKETS
     odds_columns: Mapping[str, str] = field(
         default_factory=lambda: {
@@ -77,10 +102,18 @@ class BacktestConfig:
             raise ValueError("max_fraction must be in (0, 1]")
         if not 0 <= self.fraction_kelly <= 1:
             raise ValueError("fraction_kelly must be in [0, 1]")
-        if not 0 < self.optimizer_alpha < 1:
-            raise ValueError("optimizer_alpha must be in (0, 1)")
         if self.optimizer_iters <= 0:
             raise ValueError("optimizer_iters must be positive")
+        if self.n_scenarios <= 0:
+            raise ValueError("n_scenarios must be positive")
+        if not 0 < self.select_alpha < 1:
+            raise ValueError("select_alpha must be in (0, 1)")
+        if self.select_delta < 0:
+            raise ValueError("select_delta must be non-negative")
+        if not 0 < self.select_rho_min <= 1:
+            raise ValueError("select_rho_min must be in (0, 1]")
+        if not 0 < self.flat_fraction <= 1:
+            raise ValueError("flat_fraction must be in (0, 1]")
         if self.min_stake < 0:
             raise ValueError("min_stake must be non-negative")
 
@@ -225,11 +258,11 @@ def _bet_candidates(
     frame: pd.DataFrame,
     config: BacktestConfig,
 ) -> list[Bet]:
+    """Every selection with a positive point edge (several per match allowed)."""
     by_match = {str(row["match_id"]): row for _, row in frame.iterrows()}
     candidates: list[Bet] = []
     for match_id, rows in _group_prediction_rows(prediction_rows).items():
         row = by_match[match_id]
-        choices: list[Bet] = []
         for prediction in rows:
             odds = _odds(row, prediction["selection"], config.odds_columns)
             if odds is None:
@@ -237,7 +270,7 @@ def _bet_candidates(
             edge = prediction["probability"] * odds - 1.0
             if edge <= config.edge_floor:
                 continue
-            choices.append(
+            candidates.append(
                 Bet(
                     match_id=match_id,
                     market=prediction["selection"],
@@ -247,9 +280,17 @@ def _bet_candidates(
                     prob_edge_pos=prediction.get("prob_edge_pos"),
                 )
             )
-        if choices:
-            candidates.append(max(choices, key=lambda bet: bet.edge_mean))
     return candidates
+
+
+def _one_bet_per_match(candidates: list[Bet]) -> list[Bet]:
+    """Keep the highest-edge candidate per match."""
+    best_by_match: dict[str, Bet] = {}
+    for bet in candidates:
+        current = best_by_match.get(bet.match_id)
+        if current is None or bet.edge_mean > current.edge_mean:
+            best_by_match[bet.match_id] = bet
+    return list(best_by_match.values())
 
 
 def _group_prediction_rows(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -266,23 +307,99 @@ def _fit(spec: ModelSpec, model: Any, train: pd.DataFrame) -> None:
         spec.fit(model, train)
 
 
+def _window_probability_map(
+    bets: Sequence[Bet],
+    spec: ModelSpec,
+    model: Any,
+    target: pd.DataFrame,
+) -> dict[tuple[str, str], np.ndarray]:
+    """Posterior probability samples per ``(match_id, market)``.
+
+    Probabilities for every match come from the same draws
+    (``spec.window_samples`` keeps a shared draw axis), so the returned
+    arrays can be combined jointly across bets.
+
+    """
+    if spec.window_samples is None:
+        raise ValueError(f"ModelSpec '{spec.name}' provides no window_samples scenario source")
+    by_match = {str(row["match_id"]): row for _, row in target.iterrows()}
+    groups: dict[CanonicalMarket, list[tuple[int, Bet]]] = {}
+    for index, bet in enumerate(bets):
+        market = "1X2" if bet.market in {"H", "D", "A"} else "O/U2.5"
+        groups.setdefault(market, []).append((index, bet))
+
+    result: dict[tuple[str, str], np.ndarray] = {}
+    n_draws: int | None = None
+    for market, group in groups.items():
+        matches = [
+            (by_match[bet.match_id]["home_team"], by_match[bet.match_id]["away_team"])
+            for _, bet in group
+        ]
+        probs = np.asarray(spec.window_samples(model, matches, market), dtype=float)
+        if probs.ndim != 3 or probs.shape[1] != len(group):
+            raise ValueError("window_samples must return (n_draws, n_matches, n_outcomes)")
+        if n_draws is None:
+            n_draws = probs.shape[0]
+        elif probs.shape[0] != n_draws:
+            raise ValueError("window_samples must share the same draw axis across markets")
+        if not np.allclose(probs.sum(axis=2), 1.0, atol=1e-6):
+            raise ValueError("window_samples probabilities must sum to 1 for each draw")
+        for position, (_, bet) in enumerate(group):
+            result[(bet.match_id, bet.market)] = probs[:, position, SELECTION_COLUMN[bet.market]]
+    return result
+
+
+def _build_scenarios(
+    candidates: list[Bet],
+    probability_map: Mapping[tuple[str, str], np.ndarray],
+    config: BacktestConfig,
+) -> PortfolioScenarios:
+    """Build joint per-euro P&L scenarios for the selected bets.
+
+    Draws are resampled from the shared posterior axis, then outcomes are
+    simulated conditionally independently between matches, with at most one
+    selection per match.
+
+    """
+    prob_matrix = np.column_stack(
+        [probability_map[(bet.match_id, bet.market)] for bet in candidates]
+    )
+    n_draws = prob_matrix.shape[0]
+    odds = np.array([bet.odds for bet in candidates], dtype=float)
+    rng = np.random.default_rng(config.scenarios_seed)
+    draw_index = rng.integers(0, n_draws, size=config.n_scenarios)
+    win = rng.random((config.n_scenarios, len(candidates))) < prob_matrix[draw_index]
+    returns = odds[None, :] * win - 1.0
+    bet_keys = tuple((bet.match_id, bet.market) for bet in candidates)
+    return PortfolioScenarios(returns=returns, bet_keys=bet_keys)
+
+
 def _model_bets(
-    candidates: list[Bet], spec: ModelSpec, bankroll: float, config: BacktestConfig
+    candidates: list[Bet],
+    spec: ModelSpec,
+    bankroll: float,
+    config: BacktestConfig,
+    scenarios: PortfolioScenarios | None = None,
 ) -> list[Bet]:
     if not candidates or spec.staking == "none":
         return candidates
     if spec.staking == "portfolio_torch":
+        if scenarios is None:
+            raise ValueError(
+                f"ModelSpec '{spec.name}' uses 'portfolio_torch' staking but provides "
+                "no window_samples scenario source"
+            )
         return optimise_portfolio_torch(
             candidates,
             bankroll=bankroll,
+            scenarios=scenarios,
             max_fraction=config.max_fraction,
-            alpha=config.optimizer_alpha,
-            gamma=config.optimizer_gamma,
             lr=config.optimizer_lr,
             iters=config.optimizer_iters,
-            penalty_lambda=config.optimizer_penalty_lambda,
             verbose=False,
         )
+    if spec.staking == "flat":
+        return flat_staking(candidates, bankroll, config.flat_fraction)
     return fractional_kelly(
         candidates,
         bankroll=bankroll,
@@ -402,8 +519,25 @@ def run_backtest(
                     except Exception:
                         errors += 1
 
-            candidates = _bet_candidates(window_predictions, target, config)
-            selected = _model_bets(candidates, spec, bankroll_before, config)
+            raw_candidates = _bet_candidates(window_predictions, target, config)
+            if spec.staking in {"portfolio_torch", "flat"}:
+                probability_map = _window_probability_map(raw_candidates, spec, model, target)
+                candidates = select_bets_posterior(
+                    raw_candidates,
+                    probability_map,
+                    alpha=config.select_alpha,
+                    delta=config.select_delta,
+                    rho_min=config.select_rho_min,
+                )
+                scenarios = (
+                    _build_scenarios(candidates, probability_map, config)
+                    if candidates and spec.staking == "portfolio_torch"
+                    else None
+                )
+            else:
+                candidates = _one_bet_per_match(raw_candidates)
+                scenarios = None
+            selected = _model_bets(candidates, spec, bankroll_before, config, scenarios)
             selected_by_key = {(bet.match_id, bet.market): bet for bet in selected}
             profit = 0.0
             total_stake = 0.0
@@ -501,6 +635,11 @@ def bayesian_spec(
             return np.column_stack((result.proba_home, result.proba_draw, result.proba_away))
         return model.get_market_samples(home, away, market)
 
+    def window_samples(
+        model: BayesianModel, matches: Sequence[tuple[str, str]], market: CanonicalMarket
+    ) -> np.ndarray:
+        return model.get_market_samples_batch(list(matches), market)
+
     return ModelSpec(
         name="bayesian",
         factory=lambda: BayesianModel(
@@ -513,6 +652,7 @@ def bayesian_spec(
         markets=("1X2", "O/U2.5"),
         staking="portfolio_torch",
         samples=samples,
+        window_samples=window_samples,
     )
 
 
