@@ -228,3 +228,122 @@ def test_backtest_calibrator_learns_out_of_sample() -> None:
     ou_calibrated = _probs_by_cutoff(with_cal, "O/U2.5")
     for cutoff in cutoffs:
         assert np.allclose(ou_calibrated[cutoff], ou_raw[cutoff])
+
+
+def test_probability_sample_positive_edge_uses_odds() -> None:
+    """prob_edge_pos must use the bet's own break-even probability 1/o."""
+    from footix.evaluation.backtest import _probability_sample
+
+    def samples(model: object, home: str, away: str, market: str) -> np.ndarray:
+        _ = model, home, away, market
+        return np.asarray([[0.4], [0.51], [0.7]])
+
+    spec = ModelSpec("s", object, markets=("1X2",), samples=samples)
+
+    # odds = 2.0 => break-even p = 0.5 => P(edge > 0) = 2/3
+    std, prob_edge_pos = _probability_sample(spec, object(), "A", "B", "1X2", 0, 2.0)
+    assert np.isclose(prob_edge_pos, 2.0 / 3.0)
+    assert std is not None and std > 0.0
+
+    # odds = 1.5 => break-even p = 2/3; a sample at 0.55 beats the old 1/K
+    # threshold (1/3) but not the true break-even: P(edge > 0) must be 0.
+    def low_samples(model: object, home: str, away: str, market: str) -> np.ndarray:
+        _ = model, home, away, market
+        return np.asarray([[0.4], [0.51], [0.55]])
+
+    low_spec = ModelSpec("s", object, markets=("1X2",), samples=low_samples)
+    _, prob_edge_pos = _probability_sample(low_spec, object(), "A", "B", "1X2", 0, 1.5)
+    assert prob_edge_pos == 0.0
+
+    # missing odds => no positive-edge statistic
+    _, prob_edge_pos = _probability_sample(spec, object(), "A", "B", "1X2", 0, None)
+    assert prob_edge_pos is None
+
+
+class InvalidMcmcModel(ToyModel):
+    def get_diagnostics(self) -> dict[str, object]:
+        return {
+            "status": "invalid_mcmc",
+            "max_rhat": 1.2,
+            "divergences": 5,
+            "min_ess_bulk": 40.0,
+            "min_ess_tail": 30.0,
+            "reason": "max_rhat=1.200 > 1.01",
+        }
+
+
+class FailedDiagnosticsModel(ToyModel):
+    def get_diagnostics(self) -> dict[str, object]:
+        return {"status": "failed", "reason": "sample_stats missing"}
+
+
+def test_backtest_gates_invalid_mcmc_windows() -> None:
+    """Windows whose fit did not converge are flagged and never scored."""
+    result = run_backtest(
+        _matches(),
+        [ModelSpec("bad", InvalidMcmcModel, markets=("1X2",))],
+        BacktestConfig(markets=("1X2",), bankroll=100.0, min_stake=0.0),
+    )
+
+    assert set(result.windows["status"]) == {"ineligible", "invalid_mcmc"}
+    assert result.predictions.empty
+    assert result.bets.empty
+    reason = result.windows.iloc[-1]["reason"]
+    assert "max_rhat=1.200" in reason and "divergences=5" in reason
+
+
+def test_backtest_gates_failed_diagnostics() -> None:
+    result = run_backtest(
+        _matches(),
+        [ModelSpec("bad", FailedDiagnosticsModel, markets=("1X2",))],
+        BacktestConfig(markets=("1X2",), bankroll=100.0, min_stake=0.0),
+    )
+
+    assert set(result.windows["status"]) == {"ineligible", "failed"}
+    assert result.predictions.empty
+
+
+def test_backtest_reports_mcmc_status_for_valid_runs() -> None:
+    result = run_backtest(
+        _matches(),
+        [ModelSpec("toy", ToyModel, markets=("1X2",))],
+        BacktestConfig(markets=("1X2",), bankroll=100.0, min_stake=0.0),
+    )
+
+    ok = result.windows[result.windows["status"] == "ok"]
+    assert not ok.empty
+    assert set(ok["mcmc_status"]) == {"n/a"}
+
+
+def test_backtest_calibrator_current_window_is_never_used_for_itself() -> None:
+    """Outcomes of the current cutoff cannot alter its own calibrator."""
+    frame = _matches_calibration()
+    spec = ModelSpec("goals", ToyGoalModel, markets=("1X2",))
+    base = BacktestConfig(markets=("1X2",), bankroll=100.0, min_stake=0.0)
+    result = run_backtest(
+        frame, [spec], replace(base, calibrator_factory=lambda: OutcomeCalibrator(warmup=4))
+    )
+
+    raw = _probs_by_cutoff(run_backtest(frame, [spec], base), "1X2")
+    calibrated = _probs_by_cutoff(result, "1X2")
+    cutoffs = sorted(raw)
+
+    # Replay the calibrator as the evaluator does: fit at the start of every
+    # window on strictly earlier outcomes, then predict the whole window.
+    expected = {}
+    calibrator = OutcomeCalibrator(warmup=4)
+    for cutoff in cutoffs:
+        calibrator.fit()
+        expected[cutoff] = np.asarray([calibrator.apply(p) for p in raw[cutoff]])
+        for probs, actual in zip(
+            raw[cutoff], result.predictions[result.predictions["cutoff"] == cutoff]["actual"]
+        ):
+            calibrator.accumulate(probs, int(actual))
+
+    for cutoff in cutoffs:
+        assert np.allclose(calibrated[cutoff], expected[cutoff])
+
+    # The last window's own outcomes are only in the calibrator afterwards:
+    # re-running the run with one less window changes nothing for earlier
+    # windows' predictions.
+    assert np.allclose(calibrated[cutoffs[0]], raw[cutoffs[0]])

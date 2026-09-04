@@ -18,23 +18,27 @@ pytestmark = pytest.mark.bayesian
 
 
 def _build_fake_trace(n_teams: int, n_matches: int) -> az.InferenceData:
-    """Create a lightweight posterior object for deterministic model tests."""
+    """Create a lightweight posterior object for deterministic model tests.
+
+    Uses the baseline posterior variable names: scalar ``home``, ``intercept``,
+    ``attack_strength`` and ``defence_strength`` (positive = better defence).
+    """
     draws = 8
     draw_axis = np.arange(draws, dtype=float)
 
-    home = np.full((1, draws, n_teams), 0.1, dtype=float)
+    home = np.full((1, draws), 0.2, dtype=float)
     intercept = np.linspace(0.2, 0.35, draws, dtype=float).reshape(1, draws)
 
-    atts_base = np.linspace(-0.15, 0.15, n_teams, dtype=float)
-    defs_base = np.linspace(0.12, -0.12, n_teams, dtype=float)
-    atts = (atts_base.reshape(1, n_teams) + 0.01 * draw_axis.reshape(draws, 1))[None, :, :]
-    defs = (defs_base.reshape(1, n_teams) + 0.005 * draw_axis.reshape(draws, 1))[None, :, :]
+    attack_base = np.linspace(-0.15, 0.15, n_teams, dtype=float)
+    defence_base = np.linspace(0.12, -0.12, n_teams, dtype=float)
+    attack = (attack_base.reshape(1, n_teams) + 0.01 * draw_axis.reshape(draws, 1))[None, :, :]
+    defence = (defence_base.reshape(1, n_teams) + 0.005 * draw_axis.reshape(draws, 1))[None, :, :]
 
     posterior: dict[str, np.ndarray] = {
         "home": home,
         "intercept": intercept,
-        "atts": atts,
-        "defs": defs,
+        "attack_strength": attack,
+        "defence_strength": defence,
     }
 
     return az.from_dict({"posterior": posterior})
@@ -107,8 +111,8 @@ def test_bayesian_model_fits_without_calibration(sample_data, monkeypatch: Any):
     assert model.trace is not None
     assert "home" in model.trace.posterior
     assert "intercept" in model.trace.posterior
-    assert "atts" in model.trace.posterior
-    assert "defs" in model.trace.posterior
+    assert "attack_strength" in model.trace.posterior
+    assert "defence_strength" in model.trace.posterior
 
 
 def test_team_name_mapping_uses_sorted_names(sample_data, monkeypatch: Any):
@@ -144,6 +148,9 @@ def test_numeric_team_ids_are_encoded(monkeypatch: Any):
         _ = goals_home_obs, goals_away_obs, optional_stats, sample_kwargs
         assert np.array_equal(home_team, [0, 1])
         assert np.array_equal(away_team, [1, 0])
+        assert home_team.dtype == np.int64
+        assert away_team.dtype == np.int64
+        assert goals_home_obs.dtype == np.float64
         return _build_fake_trace(n_teams=2, n_matches=len(sample_data))
 
     monkeypatch.setattr(BayesianModel, "hierarchical_bayes", fake_hierarchical_bayes)
@@ -165,16 +172,16 @@ def test_posterior_samples_cover_total_goals(sample_data, monkeypatch: Any):
     away_id = model._team_to_id[teams[1]]
     posterior = model.trace.posterior  # type: ignore[union-attr]
     home = posterior["home"].stack(sample=("chain", "draw")).values
-    atts = posterior["atts"].stack(sample=("chain", "draw")).values
-    defs = posterior["defs"].stack(sample=("chain", "draw")).values
+    attack = posterior["attack_strength"].stack(sample=("chain", "draw")).values
+    defence = posterior["defence_strength"].stack(sample=("chain", "draw")).values
     intercept = posterior["intercept"].stack(sample=("chain", "draw")).values
     goals = np.arange(model.n_goals)
     expected_under = []
     for index in range(intercept.size):
         mu_home = np.exp(
-            intercept[index] + home[home_id, index] + atts[home_id, index] + defs[away_id, index]
+            intercept[index] + home[index] + attack[home_id, index] - defence[away_id, index]
         )
-        mu_away = np.exp(intercept[index] + atts[away_id, index] + defs[home_id, index])
+        mu_away = np.exp(intercept[index] + attack[away_id, index] - defence[home_id, index])
         expected_under.append(
             GoalMatrix(
                 stats.poisson.pmf(goals, mu_home), stats.poisson.pmf(goals, mu_away)

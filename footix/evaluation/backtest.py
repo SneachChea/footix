@@ -251,14 +251,21 @@ def _probability_sample(
     away: str,
     market: CanonicalMarket,
     index: int,
+    odds: float | None,
     calibrator: OutcomeCalibrator | None = None,
 ) -> tuple[float | None, float | None]:
+    """Per-selection posterior draw summary (std and positive-edge share).
+
+    The probability of a positive edge for decimal odds ``o`` is
+    ``P(edge > 0) = P(p > 1 / o)``: the break-even probability is the
+    inverse of the *odds of the bet*, not ``1 / K`` where ``K`` is the
+    number of market categories.
+    """
     if spec.samples is None:
         return None, None
     samples = np.asarray(spec.samples(model, home, away, market), dtype=float)
     if calibrator is not None and market == "1X2":
         samples = calibrator.apply(samples)
-    category_count = samples.shape[1] if samples.ndim == 2 else 3
     if samples.ndim == 2:
         if index >= samples.shape[1]:
             return None, None
@@ -267,7 +274,9 @@ def _probability_sample(
     if samples.size == 0:
         return None, None
     std = float(np.std(samples, ddof=1)) if samples.size > 1 else 0.0
-    return std, float(np.mean(samples > 1.0 / category_count))
+    # ``_odds`` yields None or a finite odds > 1, so no further guard needed.
+    prob_edge_pos = None if odds is None else float(np.mean(samples > 1.0 / odds))
+    return std, prob_edge_pos
 
 
 def _bet_candidates(
@@ -429,6 +438,22 @@ def _model_bets(
     )
 
 
+def _format_diagnostics(diagnostics: dict[str, Any], status: str) -> str:
+    """One-line reason string for an invalid MCMC window."""
+    fields = [
+        f"max_rhat={diagnostics['max_rhat']:.3f}"
+        if isinstance(diagnostics.get("max_rhat"), float)
+        else None,
+        f"divergences={diagnostics['divergences']}" if "divergences" in diagnostics else None,
+        f"min_ess_bulk={diagnostics['min_ess_bulk']:.0f}"
+        if isinstance(diagnostics.get("min_ess_bulk"), float)
+        else None,
+        str(diagnostics.get("reason")) if diagnostics.get("reason") else None,
+    ]
+    note = " ".join(field for field in fields if field)
+    return f"{status}: {note}".rstrip(": ")
+
+
 def run_backtest(
     data: pd.DataFrame, model_specs: Iterable[ModelSpec], config: BacktestConfig | None = None
 ) -> BacktestResult:
@@ -467,6 +492,7 @@ def run_backtest(
                 "target_matches": len(target),
                 "bankroll_before": bankroll_before,
                 "final_window": window_end > frame["kickoff"].max(),
+                "mcmc_status": "n/a",
             }
             if train.empty and spec.requires_training:
                 windows.append(
@@ -487,6 +513,29 @@ def run_backtest(
                     }
                 )
                 continue
+
+            # MCMC gate: a fit with insufficient convergence must never be
+            # scored as if it came from a converged posterior. Models exposing
+            # get_diagnostics() report "valid" / "invalid_mcmc" / "failed".
+            mcmc_status: str | None = None
+            diagnostics_fn = getattr(model, "get_diagnostics", None)
+            if callable(diagnostics_fn):
+                try:
+                    diagnostics: dict[str, Any] = diagnostics_fn()
+                    mcmc_status = str(diagnostics.get("status", "valid"))
+                except Exception as exc:
+                    diagnostics = {"reason": f"{type(exc).__name__}: {exc}"}
+                    mcmc_status = "failed"
+                if mcmc_status != "valid":
+                    windows.append(
+                        {
+                            **window_base,
+                            "status": mcmc_status,
+                            "mcmc_status": mcmc_status,
+                            "reason": _format_diagnostics(diagnostics, mcmc_status),
+                        }
+                    )
+                    continue
 
             calibrator = calibrators[spec.name] if calibrators is not None else None
             if calibrator is not None:
@@ -548,6 +597,7 @@ def run_backtest(
                                 match["away_team"],
                                 market,
                                 idx,
+                                _odds(match, label, config.odds_columns),
                                 calibrator,
                             )
                             prediction_row["edge_std"] = sample_std
@@ -608,6 +658,7 @@ def run_backtest(
                         "probability": bet.prob_mean,
                         "edge": bet.edge_mean,
                         "edge_std": bet.edge_std,
+                        "prob_edge_pos": bet.prob_edge_pos,
                         "stake": stake,
                         "won": won,
                         "profit": stake * (bet.odds - 1.0 if won else -1.0),
@@ -620,6 +671,7 @@ def run_backtest(
                     **window_base,
                     "status": "ok",
                     "reason": None,
+                    "mcmc_status": mcmc_status if mcmc_status is not None else "n/a",
                     "predicted_rows": len(window_predictions),
                     "prediction_errors": errors,
                     "bets": len([bet for bet in selected if bet.stake > 0]),
