@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 import pytest
 
-from footix.evaluation import BacktestConfig, ModelSpec, run_backtest
+from footix.evaluation import BacktestConfig, BacktestResult, ModelSpec, run_backtest
+from footix.models.calibration import OutcomeCalibrator
 from footix.models.score_matrix import GoalMatrix
 from footix.utils.typing import ProbaResult
 
@@ -168,3 +171,60 @@ def test_flat_staking_uses_robust_selection_and_fixed_stake() -> None:
 
     assert set(result.bets["stake"]) == {1.0}
     assert result.bets["match_id"].nunique() == len(result.bets)
+
+
+def _matches_calibration() -> pd.DataFrame:
+    """Four weekly windows of the same four matches, so a calibrator can learn."""
+    weeks = []
+    for week in range(4):
+        frame = _matches()
+        dates = pd.to_datetime(frame["date"], dayfirst=True) + pd.Timedelta(days=7 * week)
+        frame["date"] = dates.dt.strftime("%d/%m/%Y")
+        weeks.append(frame)
+    return pd.concat(weeks, ignore_index=True)
+
+
+def _probs_by_cutoff(result: BacktestResult, market: str) -> dict[pd.Timestamp, np.ndarray]:
+    rows = result.predictions[result.predictions["market"] == market]
+    return {
+        cutoff: np.asarray(group["probabilities"].tolist())
+        for cutoff, group in rows.groupby("cutoff")
+    }
+
+
+def test_backtest_calibrator_learns_out_of_sample() -> None:
+    """The 1X2 calibrator is fitted on strictly past windows and never touches O/U."""
+    frame = _matches_calibration()
+    spec = ModelSpec("goals", ToyGoalModel, markets=("1X2", "O/U2.5"))
+    base = BacktestConfig(markets=("1X2", "O/U2.5"), bankroll=100.0, min_stake=0.0)
+    without = run_backtest(frame, [spec], base)
+    with_cal = run_backtest(
+        frame,
+        [spec],
+        replace(base, calibrator_factory=lambda: OutcomeCalibrator(warmup=4)),
+    )
+
+    raw = _probs_by_cutoff(without, "1X2")
+    calibrated = _probs_by_cutoff(with_cal, "1X2")
+    cutoffs = sorted(raw)
+
+    # First predicted window has no past data to learn from: identity
+    assert np.allclose(calibrated[cutoffs[0]], raw[cutoffs[0]])
+
+    # Later windows are recalibrated from earlier windows only
+    calibrator = OutcomeCalibrator(warmup=4)
+    rows = without.predictions
+    first = rows[(rows["market"] == "1X2") & (rows["cutoff"] == cutoffs[0])]
+    for row in first.itertuples():
+        calibrator.accumulate(row.probabilities, row.actual)
+    calibrator.fit()
+    second = rows[(rows["market"] == "1X2") & (rows["cutoff"] == cutoffs[1])]
+    expected = np.asarray([calibrator.apply(row.probabilities) for row in second.itertuples()])
+    assert not np.allclose(calibrated[cutoffs[1]], raw[cutoffs[1]])
+    assert np.allclose(calibrated[cutoffs[1]], expected)
+
+    # O/U2.5 is never touched by the 1X2 calibrator
+    ou_raw = _probs_by_cutoff(without, "O/U2.5")
+    ou_calibrated = _probs_by_cutoff(with_cal, "O/U2.5")
+    for cutoff in cutoffs:
+        assert np.allclose(ou_calibrated[cutoff], ou_raw[cutoff])

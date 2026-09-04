@@ -10,7 +10,6 @@ import arviz as az
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as pt
 import scipy.stats as stats
 
 from footix.models.score_matrix import GoalMatrix
@@ -140,13 +139,11 @@ class BayesianModel:
         self,
         n_goals: int,
         n_teams: int | None = None,
-        calibrate: bool = False,
         use_stats: bool = False,
         random_seed: int | None = 42,
     ):
         self.n_teams = n_teams
         self.n_goals = n_goals
-        self.calibrate = calibrate
         self.use_stats = use_stats
         self.random_seed = random_seed
         self.trace: az.InferenceData | None = None
@@ -197,44 +194,7 @@ class BayesianModel:
             "atts": p["atts"].mean(("chain", "draw")).values,
             "defs": p["defs"].mean(("chain", "draw")).values,
         }
-        if self.calibrate:
-            self._cached_means["tau"] = p["tau"].mean(("chain", "draw")).values.item()
-            self._cached_means["bias"] = p["bias"].mean(("chain", "draw")).values
         return self._cached_means
-
-    def _apply_calibration(
-        self, probs: np.ndarray, tau: np.ndarray | float, bias: np.ndarray
-    ) -> np.ndarray:
-        """Apply calibration transformation to match outcome probabilities.
-
-        Parameters
-        ----------
-        probs : np.ndarray
-            Raw probabilities for [Home, Draw, Away], shape (3,) or (n, 3)
-        tau : float
-            Temperature parameter for scaling
-        bias : np.ndarray
-            Class-wise bias for [Home, Draw, Away], shape (3,)
-
-        Returns
-        -------
-        np.ndarray
-            Calibrated probabilities with same shape as input
-        """
-        eps = 1e-12
-        probs = np.clip(probs, eps, 1.0)
-
-        # Convert to logits
-        logits = np.log(probs + eps)
-
-        # Apply calibration: tau * logits + bias
-        calibrated_logits = tau * logits + bias
-
-        # Softmax to get calibrated probabilities
-        exp_logits = np.exp(calibrated_logits - np.max(calibrated_logits, axis=-1, keepdims=True))
-        calibrated_probs = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
-
-        return calibrated_probs
 
     def predict(self, home_team: Hashable, away_team: Hashable) -> GoalMatrix:
         home_id = self._team_to_id[home_team]
@@ -246,49 +206,14 @@ class BayesianModel:
         home_pmf = stats.poisson.pmf(ks, home_mu)
         away_pmf = stats.poisson.pmf(ks, away_mu)
 
-        goal_matrix = GoalMatrix(home_pmf, away_pmf)
-
-        # Apply calibration if enabled
-        if self.calibrate:
-            # Get raw match probabilities
-            raw_probas = goal_matrix.return_probas()
-            raw_probs = np.array(
-                [raw_probas.proba_home, raw_probas.proba_draw, raw_probas.proba_away]
-            )
-
-            # Get calibration parameters and apply transformation
-            means = self._posterior_means()
-            calibrated_probs = self._apply_calibration(raw_probs, means["tau"], means["bias"])
-
-            # Create a correlation matrix that adjusts the outcome probabilities
-            # to match the calibrated values while preserving the goal distribution shape
-            home_win_mask = np.tril(np.ones((self.n_goals, self.n_goals)), -1)
-            draw_mask = np.diag(np.ones(self.n_goals))
-            away_win_mask = np.triu(np.ones((self.n_goals, self.n_goals)), 1)
-
-            # Calculate scaling factors for each outcome
-            scale_home = calibrated_probs[0] / (raw_probs[0] + 1e-12)
-            scale_draw = calibrated_probs[1] / (raw_probs[1] + 1e-12)
-            scale_away = calibrated_probs[2] / (raw_probs[2] + 1e-12)
-
-            # Build correlation matrix
-            correlation_matrix = (
-                scale_home * home_win_mask + scale_draw * draw_mask + scale_away * away_win_mask
-            )
-
-            # Create new GoalMatrix with correlation applied
-            goal_matrix = GoalMatrix(home_pmf, away_pmf, correlation_matrix=correlation_matrix)
-
-        return goal_matrix
+        return GoalMatrix(home_pmf, away_pmf)
 
     def goal_expectation(self, home_team_id: int, away_team_id: int):
-        posterior = self.trace.posterior  # type:ignore
-
-        # posterior means
-        home = posterior["home"].mean(dim=["chain", "draw"]).values
-        intercept = posterior["intercept"].mean(dim=["chain", "draw"]).values
-        atts = posterior["atts"].mean(dim=["chain", "draw"]).values
-        defs = posterior["defs"].mean(dim=["chain", "draw"]).values
+        means = self._posterior_means()
+        home = means["home"]
+        intercept = means["intercept"]
+        atts = means["atts"]
+        defs = means["defs"]
         # linear predictors → expected counts
         home_mu = np.exp(intercept + home[home_team_id] + atts[home_team_id] + defs[away_team_id])
         away_mu = np.exp(intercept + atts[away_team_id] + defs[home_team_id])
@@ -340,55 +265,7 @@ class BayesianModel:
 
         home_team_id = self._team_to_id[home_team]
         away_team_id = self._team_to_id[away_team]
-        posterior = self.trace.posterior  # type:ignore
-        home = posterior["home"].stack(sample=("chain", "draw")).values
-        atts = posterior["atts"].stack(sample=("chain", "draw")).values
-        defs = posterior["defs"].stack(sample=("chain", "draw")).values
-        intercept = posterior["intercept"].stack(sample=("chain", "draw")).values
-        n_samples = intercept.shape[0]
-        rng = np.random.default_rng(self.random_seed)
-
-        tau_samples = bias_samples = None
-        if self.calibrate:
-            tau_samples = posterior["tau"].stack(sample=("chain", "draw")).values
-            bias_samples = posterior["bias"].stack(sample=("chain", "draw")).values
-
-        result: list[np.ndarray] = []
-        for index in range(n_samples):
-            mu_home = np.exp(
-                intercept[index]
-                + home[home_team_id, index]
-                + atts[home_team_id, index]
-                + defs[away_team_id, index]
-            )
-            mu_away = np.exp(
-                intercept[index] + atts[away_team_id, index] + defs[home_team_id, index]
-            )
-            home_goals = rng.poisson(mu_home, 150)
-            away_goals = rng.poisson(mu_away, 150)
-            raw_probs = np.asarray(
-                [
-                    np.mean(home_goals > away_goals),
-                    np.mean(home_goals == away_goals),
-                    np.mean(home_goals < away_goals),
-                ],
-                dtype=float,
-            )
-            if self.calibrate:
-                assert tau_samples is not None and bias_samples is not None
-                raw_probs = self._apply_calibration(
-                    raw_probs,
-                    tau_samples[index],
-                    bias_samples[:, index],
-                )
-
-            if market == "1X2":
-                result.append(raw_probs)
-                continue
-            under = float(np.mean(home_goals + away_goals <= 2))
-            result.append(np.asarray([under, 1.0 - under]))
-
-        return np.asarray(result)
+        return self._market_probs([home_team_id], [away_team_id], market)[:, 0, :]
 
     def get_market_samples_batch(
         self, matches: list[tuple[Hashable, Hashable]], market: str
@@ -413,58 +290,76 @@ class BayesianModel:
         if market not in {"1X2", "O/U2.5", "U2.5", "O2.5"}:
             raise ValueError(f"Unsupported market: {market}")
 
-        home_team_ids = [self._team_to_id[home] for home, _ in matches]
-        away_team_ids = [self._team_to_id[away] for _, away in matches]
+        home_ids = [self._team_to_id[home] for home, _ in matches]
+        away_ids = [self._team_to_id[away] for _, away in matches]
+        return self._market_probs(home_ids, away_ids, market)
+
+    def _market_probs(
+        self,
+        home_ids: list[int],
+        away_ids: list[int],
+        market: str,
+        chunk_size: int = 512,
+    ) -> np.ndarray:
+        """Exact per-draw market probabilities from the truncated score matrix.
+
+        Each draw's ``(mu_home, mu_away)`` pair yields the same truncated
+        Poisson score matrix as ``predict``, so point and sample outputs use
+        one consistent definition and no Monte Carlo noise is involved.
+
+        Args:
+            home_ids: Home team ids, one per match.
+            away_ids: Away team ids, one per match.
+            market: "1X2" or a total-goals market.
+            chunk_size: Draws processed per vectorized chunk.
+
+        Returns:
+            Array of shape ``(n_draws, n_matches, n_outcomes)``.
+        """
         posterior = self.trace.posterior  # type:ignore
         home = posterior["home"].stack(sample=("chain", "draw")).values
         atts = posterior["atts"].stack(sample=("chain", "draw")).values
         defs = posterior["defs"].stack(sample=("chain", "draw")).values
         intercept = posterior["intercept"].stack(sample=("chain", "draw")).values
-        n_draws = intercept.shape[0]
-        rng = np.random.default_rng(self.random_seed)
+        home_ids = np.asarray(home_ids, dtype=int)
+        away_ids = np.asarray(away_ids, dtype=int)
+        n_draws, n_matches = intercept.shape[0], home_ids.size
+        ks = np.arange(self.n_goals)
 
-        tau_samples = bias_samples = None
-        if self.calibrate:
-            tau_samples = posterior["tau"].stack(sample=("chain", "draw")).values
-            bias_samples = posterior["bias"].stack(sample=("chain", "draw")).values
+        if market == "1X2":
+            masks: tuple[np.ndarray, ...] = (
+                np.tril(np.ones((self.n_goals, self.n_goals)), -1),
+                np.eye(self.n_goals),
+                np.triu(np.ones((self.n_goals, self.n_goals)), 1),
+            )
+            n_outcomes = 3
+        else:
+            over = (ks[:, None] + ks[None, :]) >= 3
+            masks = (np.logical_not(over), over)
+            n_outcomes = 2
 
-        n_outcomes = 3 if market == "1X2" else 2
-        result = np.empty((n_draws, len(matches), n_outcomes), dtype=float)
-        for index in range(n_draws):
-            for match_index, (home_team_id, away_team_id) in enumerate(
-                zip(home_team_ids, away_team_ids)
-            ):
-                mu_home = np.exp(
-                    intercept[index]
-                    + home[home_team_id, index]
-                    + atts[home_team_id, index]
-                    + defs[away_team_id, index]
-                )
-                mu_away = np.exp(
-                    intercept[index] + atts[away_team_id, index] + defs[home_team_id, index]
-                )
-                home_goals = rng.poisson(mu_home, 150)
-                away_goals = rng.poisson(mu_away, 150)
-                raw_probs = np.asarray(
-                    [
-                        np.mean(home_goals > away_goals),
-                        np.mean(home_goals == away_goals),
-                        np.mean(home_goals < away_goals),
-                    ],
-                    dtype=float,
-                )
-                if self.calibrate:
-                    assert tau_samples is not None and bias_samples is not None
-                    raw_probs = self._apply_calibration(
-                        raw_probs,
-                        tau_samples[index],
-                        bias_samples[:, index],
-                    )
-                if market == "1X2":
-                    result[index, match_index] = raw_probs
-                    continue
-                under = float(np.mean(home_goals + away_goals <= 2))
-                result[index, match_index] = np.asarray([under, 1.0 - under])
+        result = np.empty((n_draws, n_matches, n_outcomes), dtype=float)
+        for start in range(0, n_draws, chunk_size):
+            stop = min(start + chunk_size, n_draws)
+            intercept_c = intercept[start:stop]
+            home_c = home[home_ids][:, start:stop]
+            atts_c = atts[home_ids][:, start:stop]
+            defs_away_c = defs[away_ids][:, start:stop]
+            atts_away_c = atts[away_ids][:, start:stop]
+            defs_home_c = defs[home_ids][:, start:stop]
+
+            mu_home = np.exp(intercept_c[None, :] + home_c + atts_c + defs_away_c)
+            mu_away = np.exp(intercept_c[None, :] + atts_away_c + defs_home_c)
+            home_pmf = stats.poisson.pmf(ks[None, None, :], mu_home[..., None])
+            away_pmf = stats.poisson.pmf(ks[None, None, :], mu_away[..., None])
+            # Renormalize the truncated marginals, like GoalMatrix does.
+            home_pmf /= home_pmf.sum(axis=-1, keepdims=True)
+            away_pmf /= away_pmf.sum(axis=-1, keepdims=True)
+            matrix = home_pmf[..., :, None] * away_pmf[..., None, :]
+
+            for outcome, mask in enumerate(masks):
+                probs = np.sum(matrix * mask[None, None], axis=(2, 3))
+                result[start:stop, :, outcome] = probs.T
 
         return result
 
@@ -478,9 +373,6 @@ class BayesianModel:
         sample_kwargs: dict[str, Any] | None = None,
     ) -> az.InferenceData:
         optional_stats = optional_stats or {}
-        match_obs = np.where(
-            goals_home_obs > goals_away_obs, 0, np.where(goals_home_obs == goals_away_obs, 1, 2)
-        )
         with pm.Model():
             # Use pm.Data for the observed data and covariates
             goals_home_data = pm.Data("goals_home", goals_home_obs)
@@ -609,56 +501,5 @@ class BayesianModel:
             if self.random_seed is not None:
                 inference_kwargs.setdefault("random_seed", self.random_seed)
 
-            if self.calibrate:
-                match_res_data = pm.Data("match_res", match_obs)
-
-                eps = 1e-12  # tiny floor
-
-                p_H = pm.Deterministic(
-                    "p_H", var=p_skellam_gt0_continuity(mu1=home_theta, mu2=away_theta)
-                )
-                p_D = pm.Deterministic("p_D", var=p_skellam_eq0(mu1=home_theta, mu2=away_theta))
-                p_A = pm.Deterministic("p_A", var=1 - p_H - p_D)
-
-                match_probs_raw = pt.stack([p_H, p_D, p_A], axis=1)
-                match_probs_raw = pt.clip(match_probs_raw, eps, 1.0)  # strictly > 0
-                match_probs_raw = match_probs_raw / match_probs_raw.sum(axis=1, keepdims=True)
-
-                # Calibration layer: temperature scaling + class-wise bias
-                tau = pm.Normal("tau", mu=1.0, sigma=0.3)  # temperature parameter
-                bias = pm.Normal("bias", mu=0.0, sigma=0.3, shape=3)  # class-wise bias (H, D, A)
-
-                # Apply calibration: tau * log(probs) + bias, then softmax
-                logit_raw = pm.math.log(match_probs_raw + eps)  # safe log
-                calibrated_logits = tau * logit_raw + bias
-                match_probs = pm.Deterministic(
-                    "match_probs", pt.special.softmax(calibrated_logits, axis=1)
-                )
-
-                pm.Categorical("match_outcomes", p=match_probs, observed=match_res_data)
             trace = pm.sample(**inference_kwargs)
         return trace
-
-
-def p_skellam_gt0_continuity(mu1, mu2, eps=1e-9):
-    """Approx P(K>0) for K ~ Skellam(mu1, mu2) using normal approx + continuity correction.
-
-    Returns a PyTensor node usable inside a PyMC model.
-
-    """
-    var = pm.math.maximum(mu1 + mu2, eps)  # stabilité num.
-    z = (mu1 - mu2 - 0.5) / pm.math.sqrt(var)  # correction de continuité
-    # Φ(z) : CDF normale standard
-    return (1.0 + pm.math.erf(z / pm.math.sqrt(2.0))) / 2.0
-
-
-def p_skellam_eq0(mu1, mu2, eps=1e-9):
-    """Probabilité exacte P(K = 0) pour K ~ Skellam(mu1, mu2) =  exp(-(mu1+mu2)) * I0(
-    2*sqrt(mu1*mu2) )
-
-    - mu1, mu2 peuvent être scalaires ou tenseurs aléatoires (stochastiques du modèle)
-    - eps évite les problèmes de dérivées pour mu1*mu2 = 0
-
-    """
-    x = 2.0 * pm.math.sqrt(pm.math.maximum(mu1 * mu2, eps))
-    return pm.math.exp(-(mu1 + mu2)) * pt.i0(x)  # pt.i0 : Bessel I0

@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from footix.metrics import accuracy, brier_score, log_loss, rps
+from footix.models.calibration import OutcomeCalibrator
 from footix.models.score_matrix import GoalMatrix
 from footix.strategy.bets import Bet
 from footix.strategy.kelly_strategies import fractional_kelly
@@ -63,7 +64,14 @@ class ModelSpec:
 
 @dataclass
 class BacktestConfig:
-    """Configuration for the Friday-to-Friday walk-forward evaluation."""
+    """Configuration for the Friday-to-Friday walk-forward evaluation.
+
+    ``calibrator_factory`` optionally creates one out-of-sample 1X2
+    calibrator per model spec. Each calibrator is fitted at every cutoff on
+    the raw predictions and results accumulated from strictly earlier windows
+    only, then applied to the 1X2 point probabilities and posterior draws of
+    the current window. O/U2.5 probabilities are never touched.
+    """
 
     cutoff_weekday: int = 4
     horizon_days: int = 7
@@ -90,6 +98,7 @@ class BacktestConfig:
         }
     )
     min_stake: float = 1.0
+    calibrator_factory: Callable[[], OutcomeCalibrator] | None = None
 
     def __post_init__(self) -> None:
         if not 0 <= self.cutoff_weekday <= 6:
@@ -236,11 +245,19 @@ def _odds(row: pd.Series, selection: str, columns: Mapping[str, str]) -> float |
 
 
 def _probability_sample(
-    spec: ModelSpec, model: Any, home: str, away: str, market: CanonicalMarket, index: int
+    spec: ModelSpec,
+    model: Any,
+    home: str,
+    away: str,
+    market: CanonicalMarket,
+    index: int,
+    calibrator: OutcomeCalibrator | None = None,
 ) -> tuple[float | None, float | None]:
     if spec.samples is None:
         return None, None
     samples = np.asarray(spec.samples(model, home, away, market), dtype=float)
+    if calibrator is not None and market == "1X2":
+        samples = calibrator.apply(samples)
     category_count = samples.shape[1] if samples.ndim == 2 else 3
     if samples.ndim == 2:
         if index >= samples.shape[1]:
@@ -312,6 +329,7 @@ def _window_probability_map(
     spec: ModelSpec,
     model: Any,
     target: pd.DataFrame,
+    calibrator: OutcomeCalibrator | None = None,
 ) -> dict[tuple[str, str], np.ndarray]:
     """Posterior probability samples per ``(match_id, market)``.
 
@@ -336,6 +354,8 @@ def _window_probability_map(
             for _, bet in group
         ]
         probs = np.asarray(spec.window_samples(model, matches, market), dtype=float)
+        if calibrator is not None and market == "1X2":
+            probs = calibrator.apply(probs)
         if probs.ndim != 3 or probs.shape[1] != len(group):
             raise ValueError("window_samples must return (n_draws, n_matches, n_outcomes)")
         if n_draws is None:
@@ -424,6 +444,11 @@ def run_backtest(
     bets: list[dict[str, Any]] = []
     bankrolls = {spec.name: config.bankroll for spec in specs}
     configured_markets = _canonical_markets(config.markets)
+    calibrators = (
+        {spec.name: config.calibrator_factory() for spec in specs}
+        if config.calibrator_factory is not None
+        else None
+    )
 
     for cutoff in _friday_cutoffs(frame, config):
         window_end = cutoff + pd.Timedelta(days=config.horizon_days)
@@ -463,16 +488,27 @@ def run_backtest(
                 )
                 continue
 
+            calibrator = calibrators[spec.name] if calibrators is not None else None
+            if calibrator is not None:
+                calibrator.fit()
+
             window_predictions: list[dict[str, Any]] = []
             errors = 0
             for _, match in target.iterrows():
+                try:
+                    prediction = model.predict(match["home_team"], match["away_team"])
+                except Exception:
+                    errors += 1
+                    continue
                 for market in configured_markets:
                     if market not in {_canonical_market(value) for value in spec.markets}:
                         continue
                     try:
-                        prediction = model.predict(match["home_team"], match["away_team"])
                         probabilities = _market_probabilities(prediction, market)
                         actual_idx = _actual_index(match, market)
+                        if calibrator is not None and market == "1X2":
+                            calibrator.accumulate(probabilities, actual_idx)
+                            probabilities = calibrator.apply(probabilities)
                         metric_row = {
                             "model": spec.name,
                             "cutoff": cutoff,
@@ -512,6 +548,7 @@ def run_backtest(
                                 match["away_team"],
                                 market,
                                 idx,
+                                calibrator,
                             )
                             prediction_row["edge_std"] = sample_std
                             prediction_row["prob_edge_pos"] = prob_edge_pos
@@ -521,7 +558,9 @@ def run_backtest(
 
             raw_candidates = _bet_candidates(window_predictions, target, config)
             if spec.staking in {"portfolio_torch", "flat"}:
-                probability_map = _window_probability_map(raw_candidates, spec, model, target)
+                probability_map = _window_probability_map(
+                    raw_candidates, spec, model, target, calibrator
+                )
                 candidates = select_bets_posterior(
                     raw_candidates,
                     probability_map,
@@ -622,7 +661,6 @@ def elo_spec(**kwargs: Any) -> ModelSpec:
 def bayesian_spec(
     n_goals: int = 20,
     n_teams: int | None = None,
-    calibrate: bool = False,
     use_stats: bool = False,
     random_seed: int | None = 42,
 ) -> ModelSpec:
@@ -645,7 +683,6 @@ def bayesian_spec(
         factory=lambda: BayesianModel(
             n_goals=n_goals,
             n_teams=n_teams,
-            calibrate=calibrate,
             use_stats=use_stats,
             random_seed=random_seed,
         ),

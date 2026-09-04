@@ -18,6 +18,13 @@ footix.models.bayesian module
    :members:
    :show-inheritance:
 
+footix.models.calibration module
+--------------------------------
+
+.. automodule:: footix.models.calibration
+   :members:
+   :show-inheritance:
+
 footix.models.elo module
 ------------------------
 
