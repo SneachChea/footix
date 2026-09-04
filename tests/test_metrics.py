@@ -29,3 +29,11 @@ def test_zscore():
 def test_entropy_certain():
     res = metrics.incertity(probas=[1.0, 0.0, 0.0], outcome_idx=0)
     assert np.isclose(res, 0.0)
+
+
+def test_common_classification_metrics():
+    probas = [0.7, 0.2, 0.1]
+    assert np.isclose(metrics.log_loss(probas, 0), -np.log(0.7))
+    expected = np.mean(np.square(np.array(probas) - [1, 0, 0]))
+    assert np.isclose(metrics.brier_score(probas, 0), expected)
+    assert metrics.accuracy(probas, 0) == 1.0

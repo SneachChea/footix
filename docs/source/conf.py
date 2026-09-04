@@ -83,6 +83,8 @@ nitpick_ignore = [
     ("py:class", "np.array"),
     ("py:class", "np.ndarray"),
     ("py:class", "pd.DataFrame"),
+    ("py:class", "pandas.core.frame.DataFrame"),
+    ("py:class", "pandas.core.series.Series"),
     ("py:class", "matplotlib.figure.Figure"),
     ("py:class", "xarray.core.datatree.DataTree"),
     ("py:class", "arviz.InferenceData"),

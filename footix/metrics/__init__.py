@@ -16,12 +16,15 @@ from .confidence import (
     confidence_1x2_from_samples_array,
     confidence_curve,
 )
-from .metrics_function import incertity, rps, zscore
+from .metrics_function import accuracy, brier_score, incertity, log_loss, rps, zscore
 
 __all__ = [
     "incertity",
     "rps",
     "zscore",
+    "log_loss",
+    "brier_score",
+    "accuracy",
     "ConfidenceComponents",
     "confidence_curve",
     "confidence_1x2_from_samples",

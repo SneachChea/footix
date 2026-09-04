@@ -24,6 +24,13 @@ Metrics
 
    footix.metrics
 
+Evaluation
+----------
+.. toctree::
+   :maxdepth: 2
+
+   footix.evaluation
+
 
 Prediction Models
 -----------------

@@ -25,6 +25,7 @@ footix.strategy.portfolio\_management module
 .. automodule:: footix.strategy.portfolio_management
    :members:
    :show-inheritance:
+   :exclude-members: returns, bet_keys
 
 footix.strategy.select\_bets module
 -----------------------------------

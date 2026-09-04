@@ -34,3 +34,6 @@ notebooks/odds/
 # Knowledge graph artifacts
 graphify-out/
 notebooks_dev/
+# Auto-research sandbox
+/experimentation/
+

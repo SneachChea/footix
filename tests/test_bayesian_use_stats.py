@@ -93,7 +93,7 @@ def test_fit_passes_optional_stats_when_enabled(monkeypatch: Any) -> None:
     monkeypatch.setattr(BayesianModel, "hierarchical_bayes", fake_hierarchical_bayes)
 
     df = _base_frame().assign(hs=[10, 9, 8, 7], **{"as": [6, 5, 4, 3]})
-    model = BayesianModel(n_goals=6, use_stats=True, calibrate=False)
+    model = BayesianModel(n_goals=6, use_stats=True)
     model.fit(df)
 
     assert model.trace == "trace"
@@ -119,7 +119,7 @@ def test_fit_disables_optional_stats_when_flag_false(monkeypatch: Any) -> None:
     monkeypatch.setattr(BayesianModel, "hierarchical_bayes", fake_hierarchical_bayes)
 
     df = _base_frame().assign(hs=[10, 9, 8, 7], **{"as": [6, 5, 4, 3]})
-    model = BayesianModel(n_goals=6, use_stats=False, calibrate=False)
+    model = BayesianModel(n_goals=6, use_stats=False)
     model.fit(df)
 
     assert model.trace == "trace"
