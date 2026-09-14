@@ -1,5 +1,3 @@
-import logging
-
 import numpy as np
 import pandas as pd
 import scipy.optimize as optimize
@@ -7,8 +5,6 @@ import scipy.optimize as optimize
 import footix.models.score_matrix as score_matrix
 import footix.models.utils as model_utils
 from footix.utils.decorators import verify_required_column
-
-logger = logging.getLogger(name=__name__)
 
 __all__ = ["PoissonModel"]
 
@@ -28,8 +24,12 @@ class PoissonModel:
 
         This method trains the model by estimating the parameters (gamma, alphas, betas)
         that maximize the likelihood of the observed goals in the training data.
-        It performs optimization using scipy's minimize function with constraints
-        on the sum of alpha and beta parameters.
+        It performs optimization using scipy's minimize function with a single
+        identification constraint on the sum of the alpha parameters. Only one
+        constraint is needed (and only one is valid): shifting every alpha by a
+        constant and every beta by the opposite constant leaves both goal
+        expectations unchanged. Constraining the betas too pins the away scoring
+        level to an arbitrary value instead of letting the data set it.
 
         Args:
             X_train: DataFrame containing match data with columns:
@@ -46,6 +46,10 @@ class PoissonModel:
             - betas: Away team strength parameters
             - dict_teams: Mapping of team names to indices
 
+        Raises:
+            ValueError: If the observed goals are not finite and non-negative.
+            RuntimeError: If the maximum-likelihood optimization does not converge.
+
         """
         self.dict_teams = self.mapping_team_index(X_train["home_team"])
         self._sanity_check(X_train["away_team"])
@@ -55,6 +59,10 @@ class PoissonModel:
         goals_away, basis_away = model_utils.compute_goals_away_vectors(
             X_train, map_teams=self.dict_teams, nbr_team=self.n_teams
         )
+        if not (np.isfinite(goals_home).all() and np.isfinite(goals_away).all()):
+            raise ValueError("Goals must be finite numbers")
+        if (goals_home < 0).any() or (goals_away < 0).any():
+            raise ValueError("Goals must be non-negative")
         optimization_result = optimize.minimize(
             self.basic_poisson_likelihood,
             x0=np.zeros(2 * self.n_teams + 1),
@@ -64,14 +72,12 @@ class PoissonModel:
                     "type": "eq",
                     "fun": lambda x: np.sum(x[1 : self.n_teams + 1]) - self.n_teams,
                 },
-                {
-                    "type": "eq",
-                    "fun": lambda x: np.sum(x[self.n_teams + 1 :]) + self.n_teams,
-                },
             ],
         )
         if not optimization_result.success:
-            logger.warning("Minimization routine was not successful.")
+            raise RuntimeError(
+                f"Minimization routine was not successful: {optimization_result.message}"
+            )
         model_params = optimization_result.x
         self.gamma = model_params[0]
         self.alphas = tuple(model_params[1 : self.n_teams + 1])

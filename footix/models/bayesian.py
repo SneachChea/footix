@@ -181,8 +181,9 @@ def _log_goal_submodel(
     """Auxiliary log-shots/SOT/corners channels (EXPERIMENTAL, off by default).
 
     These channels share the attack/defence skills with the goals
-    likelihood and are fed exclusively with match statistics from the
-    training window (the same matches that produced the goals), so they
+    likelihood, with the same sign convention (a larger ``defence_strength``
+    lowers the opponent's rate), and are fed exclusively with match statistics
+    from the training window (the same matches that produced the goals), so they
     introduce no temporal leakage. They are kept for future ablation
     studies only; the baseline model is goals-only and the sub-model is not
     meant to be activated in production benchmarks.
@@ -202,10 +203,10 @@ def _log_goal_submodel(
         shots_away_team = away_team[shots_idx]
 
         mu_shots_home = (
-            beta_shots + attack_strength[shots_home_team] + defence_strength[shots_away_team]
+            beta_shots + attack_strength[shots_home_team] - defence_strength[shots_away_team]
         )
         mu_shots_away = (
-            beta_shots + attack_strength[shots_away_team] + defence_strength[shots_home_team]
+            beta_shots + attack_strength[shots_away_team] - defence_strength[shots_home_team]
         )
 
         pm.Normal(
@@ -234,13 +235,13 @@ def _log_goal_submodel(
         mu_sot_home = (
             beta_sot
             + attack_strength[sot_home_team]
-            + defence_strength[sot_away_team]
+            - defence_strength[sot_away_team]
             + theta[sot_home_team]
         )
         mu_sot_away = (
             beta_sot
             + attack_strength[sot_away_team]
-            + defence_strength[sot_home_team]
+            - defence_strength[sot_home_team]
             + theta[sot_away_team]
         )
 
@@ -265,10 +266,10 @@ def _log_goal_submodel(
         corners_away_team = away_team[corners_idx]
 
         mu_corners_home = (
-            beta_corners + attack_strength[corners_home_team] + defence_strength[corners_away_team]
+            beta_corners + attack_strength[corners_home_team] - defence_strength[corners_away_team]
         )
         mu_corners_away = (
-            beta_corners + attack_strength[corners_away_team] + defence_strength[corners_home_team]
+            beta_corners + attack_strength[corners_away_team] - defence_strength[corners_home_team]
         )
 
         pm.Normal(
@@ -407,9 +408,12 @@ def prior_predictive_draws(
     )
     with model:
         prior = pm.sample_prior_predictive(draws=draws, random_seed=random_seed)
-    home = prior.prior_predictive["home_goals"].stack(sample=("chain", "draw")).values
-    away = prior.prior_predictive["away_goals"].stack(sample=("chain", "draw")).values
-    return home.astype(float), away.astype(float)
+    home = prior.prior_predictive["home_goals"].stack(sample=("chain", "draw"))
+    away = prior.prior_predictive["away_goals"].stack(sample=("chain", "draw"))
+    return (
+        home.transpose("sample", ...).values.astype(float),
+        away.transpose("sample", ...).values.astype(float),
+    )
 
 
 class BayesianModel:
@@ -444,6 +448,8 @@ class BayesianModel:
         use_stats: bool = False,
         random_seed: int | None = 42,
     ):
+        if n_goals < 1:
+            raise ValueError("n_goals must be at least 1")
         self.n_teams = n_teams
         self.n_goals = n_goals
         self.use_stats = use_stats
@@ -458,7 +464,10 @@ class BayesianModel:
 
         Any cached prediction from a previous fit is dropped: every fit
         invalidates ``predict``/``get_samples``/``get_market_samples`` caches
-        so a refitted instance can never serve stale posterior values.
+        so a refitted instance can never serve stale posterior values. If the
+        sampler raises, the instance is restored to its previous state (the
+        team mapping and the posterior of the last successful fit), so a failed
+        fit can never pair a new team mapping with an old posterior.
 
         Args:
             X_train: Training dataframe with columns home_team, away_team,
@@ -470,17 +479,16 @@ class BayesianModel:
         self._diagnostics = None
         x_train_cop = X_train.copy(deep=False)
         teams = pd.concat([X_train["home_team"], X_train["away_team"]]).unique()
-        if self.n_teams is None:
-            self.n_teams = len(teams)
-        elif self.n_teams != len(teams):
+        n_teams = len(teams)
+        if self.n_teams is not None and self.n_teams != n_teams:
             raise ValueError(
                 f"Teams in training data do not match the initialized teams. "
                 f"Expected: {self.n_teams}, got: {teams}."
             )
 
-        self._team_to_id = {team: team_id for team_id, team in enumerate(sorted(teams))}
-        x_train_cop["home_team_id"] = X_train["home_team"].map(self._team_to_id)
-        x_train_cop["away_team_id"] = X_train["away_team"].map(self._team_to_id)
+        team_to_id = {team: team_id for team_id, team in enumerate(sorted(teams))}
+        x_train_cop["home_team_id"] = X_train["home_team"].map(team_to_id)
+        x_train_cop["away_team_id"] = X_train["away_team"].map(team_to_id)
 
         # Series.map can return float64 even with all-int values; PyMC
         # requires integer dtypes for indexing (advanced_subtensor).
@@ -493,13 +501,21 @@ class BayesianModel:
         if sample_kwargs is not None:
             hierarchical_kwargs["sample_kwargs"] = sample_kwargs
 
-        self.trace = self.hierarchical_bayes(
-            goals_home_obs,
-            goals_away_obs,
-            home_team,
-            away_team,
-            **hierarchical_kwargs,
-        )
+        previous_state = (self.n_teams, self._team_to_id, self.trace)
+        self.n_teams = n_teams
+        self._team_to_id = team_to_id
+        try:
+            trace = self.hierarchical_bayes(
+                goals_home_obs,
+                goals_away_obs,
+                home_team,
+                away_team,
+                **hierarchical_kwargs,
+            )
+        except Exception:
+            self.n_teams, self._team_to_id, self.trace = previous_state
+            raise
+        self.trace = trace
 
     def predict(self, home_team: Hashable, away_team: Hashable) -> GoalMatrix:
         """Posterior-predictive score matrix for one match.
@@ -819,7 +835,7 @@ class BayesianModel:
             return dict(self._diagnostics)
 
         try:
-            summary = az.summary(self.trace.posterior, kind="diagnostics")
+            summary = az.summary(self.trace.posterior, kind="diagnostics", round_to="none")
             divergences = int(self.trace.sample_stats["diverging"].sum().item())
             max_rhat = float(np.max(summary["r_hat"].to_numpy()))
             min_ess_bulk = float(np.min(summary["ess_bulk"].to_numpy()))

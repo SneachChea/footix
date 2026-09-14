@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 import scipy.stats as stats
 
-from footix.models.bayesian import BayesianModel, prior_predictive_draws
+from footix.models.bayesian import R_HAT_MAX, BayesianModel, prior_predictive_draws
 
 pytestmark = pytest.mark.bayesian
 
@@ -295,6 +295,13 @@ def test_prior_predictive_is_reproducible() -> None:
     assert np.allclose(away_a, away_b)
 
 
+def test_prior_predictive_shape_is_draws_by_matches() -> None:
+    """The documented contract is ``(draws, n_matches)`` for both arrays."""
+    home, away = prior_predictive_draws(4, 7, draws=11, random_seed=1)
+    assert home.shape == (11, 7)
+    assert away.shape == (11, 7)
+
+
 # ---------------------------------------------------------------------------
 # Posterior predictive checks
 # ---------------------------------------------------------------------------
@@ -436,6 +443,31 @@ def test_diagnostics_serializable() -> None:
     json.dumps(diagnostics)  # must not raise
 
 
+def test_diagnostics_use_unrounded_rhat(monkeypatch: Any) -> None:
+    """An r_hat that rounds down to the threshold must still fail the check.
+
+    1.0106 rounds to 1.01 at the display precision of the default
+    ``az.summary`` output, which used to silently accept a non-converged fit.
+    """
+    model = BayesianModel(n_goals=6)
+    model.trace = _diag_trace([0.0, 0.0, 0.0])
+    seen: dict[str, Any] = {}
+    real_summary = az.summary
+
+    def spy(data: Any, **kwargs: Any):
+        seen.update(kwargs)
+        summary = real_summary(data, **kwargs)
+        summary.loc[summary.index[0], "r_hat"] = 1.0106
+        return summary
+
+    monkeypatch.setattr(az, "summary", spy)
+    diagnostics = model.get_diagnostics()
+
+    assert seen.get("round_to") == "none"
+    assert R_HAT_MAX < diagnostics["max_rhat"] < 1.015
+    assert diagnostics["status"] == "invalid_mcmc"
+
+
 # ---------------------------------------------------------------------------
 # Reproducibility with real MCMC
 # ---------------------------------------------------------------------------
@@ -444,7 +476,10 @@ def test_diagnostics_serializable() -> None:
 def test_two_fits_same_seed_agree():
     """Two fits on the same data and seed give compatible predictions."""
     data = _sample_data(seed=11, n_matches=40)
-    sample_kwargs = {"draws": 250, "tune": 200, "chains": 2, "cores": 2}
+    # Large enough for the strict max_rhat <= 1.01 check: with two chains and
+    # 250 draws the raw r_hat of this small league sits right above the
+    # threshold and the fit is legitimately reported as invalid_mcmc.
+    sample_kwargs = {"draws": 500, "tune": 500, "chains": 4, "cores": 4}
 
     first = BayesianModel(n_goals=8, random_seed=5)
     first.fit(data, sample_kwargs=sample_kwargs)
@@ -463,7 +498,49 @@ def test_two_fits_same_seed_agree():
     # Posterior predictive totals roughly match the observed goal rate.
     pp = first.posterior_predictive_distribution(teams[0], teams[1])
     goals = np.arange(first.n_goals)
-    expected_goals = goals @ pp @ goals
+    expected_goals = float(np.sum((goals[:, None] + goals[None, :]) * pp))
     observed_rate = float((data["fthg"].to_numpy()[data["home_team"] == teams[0]].mean() or 1.0))
     assert 0.3 < expected_goals < 5.0
     _ = observed_rate  # sanity bound only, no league-specific hardcoding
+
+
+# ---------------------------------------------------------------------------
+# Failed refit
+# ---------------------------------------------------------------------------
+
+
+def test_failed_refit_keeps_the_previous_fit_consistent(monkeypatch: Any) -> None:
+    """A sampler failure must not leave a new team mapping on an old posterior."""
+    _patch_fit(monkeypatch, None)
+    model = BayesianModel(n_goals=6)
+    model.fit(_sample_data())
+    teams = sorted(set(_sample_data()["home_team"]) | set(_sample_data()["away_team"]))
+    before = model.predict(teams[0], teams[1]).return_probas()
+    renamed = _sample_data().replace({team: f"{team}_new" for team in teams})
+
+    def failing_fit(self: BayesianModel, *args: Any, **kwargs: Any) -> az.InferenceData:
+        raise RuntimeError("sampling failed")
+
+    monkeypatch.setattr(BayesianModel, "hierarchical_bayes", failing_fit)
+    with pytest.raises(RuntimeError, match="sampling failed"):
+        model.fit(renamed)
+
+    assert set(model._team_to_id) == set(teams)
+    after = model.predict(teams[0], teams[1]).return_probas()
+    assert np.allclose(
+        np.asarray([after.proba_home, after.proba_draw, after.proba_away]),
+        np.asarray([before.proba_home, before.proba_draw, before.proba_away]),
+    )
+    with pytest.raises(KeyError):
+        model.predict(f"{teams[0]}_new", f"{teams[1]}_new")
+
+
+# ---------------------------------------------------------------------------
+# Constructor validation
+# ---------------------------------------------------------------------------
+
+
+def test_n_goals_must_be_positive() -> None:
+    """A zero-sized goal grid produced all-zero, non-normalized market samples."""
+    with pytest.raises(ValueError, match="n_goals"):
+        BayesianModel(n_goals=0)

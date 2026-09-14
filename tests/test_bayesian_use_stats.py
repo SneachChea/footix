@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from footix.models.bayesian import BayesianModel, _extract_optional_stats_data
+from footix.models.bayesian import BayesianModel, _extract_optional_stats_data, _generative_model
 
 pytestmark = pytest.mark.bayesian
 
@@ -124,3 +124,45 @@ def test_fit_disables_optional_stats_when_flag_false(monkeypatch: Any) -> None:
 
     assert model.trace == "trace"
     assert captured["optional_stats"] is None
+
+
+@pytest.mark.parametrize(
+    ("home_col", "away_col"),
+    [("hs", "AS"), ("hst", "AST"), ("hc", "AC")],
+)
+def test_stats_channels_use_the_goals_defence_sign(home_col: str, away_col: str) -> None:
+    """A stronger defence must lower the opponent's shots, as it does for goals.
+
+    Both teams score the same in both fixtures, so the goals likelihood is
+    invariant when the two defence values are swapped. Only the statistics
+    channel under test can then prefer a side, and its sign decides which swap
+    wins.
+    """
+    df = pd.DataFrame(
+        {
+            "home_team": ["A", "B"],
+            "away_team": ["B", "A"],
+            "fthg": [1, 1],
+            "ftag": [1, 1],
+            home_col: [10, 8],
+            away_col: [2, 10],
+        }
+    )
+    model = _generative_model(
+        goals_home_obs=df["fthg"].to_numpy(dtype=float),
+        goals_away_obs=df["ftag"].to_numpy(dtype=float),
+        home_team=np.array([0, 1]),
+        away_team=np.array([1, 0]),
+        n_teams=2,
+        use_stats=True,
+        optional_stats=_extract_optional_stats_data(df),
+    )
+    logp = model.compile_logp()
+
+    def log_density(defence: list[float]) -> float:
+        point = model.initial_point()
+        point["raw_defence"] = np.asarray(defence, dtype=float)
+        return float(logp(point))
+
+    # A shoots a lot and concedes few: its own defence must be the strong one.
+    assert log_density([3.0, -3.0]) > log_density([-3.0, 3.0])
