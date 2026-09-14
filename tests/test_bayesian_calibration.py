@@ -1,4 +1,4 @@
-"""Tests for Bayesian model calibration functionality."""
+"""Tests for Bayesian model and out-of-sample 1X2 calibration."""
 
 from __future__ import annotations
 
@@ -8,53 +8,38 @@ import arviz as az
 import numpy as np
 import pandas as pd
 import pytest
+import scipy.stats as stats
 
 from footix.models.bayesian import BayesianModel
+from footix.models.calibration import OutcomeCalibrator
+from footix.models.score_matrix import GoalMatrix
 
 pytestmark = pytest.mark.bayesian
 
 
-def _build_fake_trace(calibrate: bool, n_teams: int, n_matches: int) -> az.InferenceData:
-    """Create a lightweight posterior object for deterministic calibration tests."""
+def _build_fake_trace(n_teams: int, n_matches: int) -> az.InferenceData:
+    """Create a lightweight posterior object for deterministic model tests.
+
+    Uses the baseline posterior variable names: scalar ``home``, ``intercept``,
+    ``attack_strength`` and ``defence_strength`` (positive = better defence).
+    """
     draws = 8
     draw_axis = np.arange(draws, dtype=float)
 
-    home = np.full((1, draws, n_teams), 0.1, dtype=float)
+    home = np.full((1, draws), 0.2, dtype=float)
     intercept = np.linspace(0.2, 0.35, draws, dtype=float).reshape(1, draws)
 
-    atts_base = np.linspace(-0.15, 0.15, n_teams, dtype=float)
-    defs_base = np.linspace(0.12, -0.12, n_teams, dtype=float)
-    atts = (atts_base.reshape(1, n_teams) + 0.01 * draw_axis.reshape(draws, 1))[None, :, :]
-    defs = (defs_base.reshape(1, n_teams) + 0.005 * draw_axis.reshape(draws, 1))[None, :, :]
+    attack_base = np.linspace(-0.15, 0.15, n_teams, dtype=float)
+    defence_base = np.linspace(0.12, -0.12, n_teams, dtype=float)
+    attack = (attack_base.reshape(1, n_teams) + 0.01 * draw_axis.reshape(draws, 1))[None, :, :]
+    defence = (defence_base.reshape(1, n_teams) + 0.005 * draw_axis.reshape(draws, 1))[None, :, :]
 
     posterior: dict[str, np.ndarray] = {
         "home": home,
         "intercept": intercept,
-        "atts": atts,
-        "defs": defs,
+        "attack_strength": attack,
+        "defence_strength": defence,
     }
-
-    if calibrate:
-        tau = np.linspace(0.8, 1.2, draws, dtype=float).reshape(1, draws)
-        bias = np.stack(
-            (
-                np.linspace(0.05, 0.20, draws, dtype=float),
-                np.linspace(-0.10, 0.05, draws, dtype=float),
-                np.linspace(-0.02, 0.08, draws, dtype=float),
-            ),
-            axis=-1,
-        )[None, :, :]
-        match_probs = np.tile(
-            np.array([0.55, 0.20, 0.25], dtype=float),
-            (1, draws, n_matches, 1),
-        )
-        posterior.update(
-            {
-                "tau": tau,
-                "bias": bias,
-                "match_probs": match_probs,
-            }
-        )
 
     return az.from_dict({"posterior": posterior})
 
@@ -73,7 +58,6 @@ def _patch_hierarchical_bayes(monkeypatch: Any, sample_data: pd.DataFrame) -> No
     ) -> az.InferenceData:
         _ = goals_home_obs, goals_away_obs, home_team, away_team, optional_stats, sample_kwargs
         return _build_fake_trace(
-            calibrate=self.calibrate,
             n_teams=int(self.n_teams or 0),
             n_matches=len(sample_data),
         )
@@ -118,21 +102,17 @@ def sample_data():
     )
 
 
-def test_bayesian_model_without_calibration(sample_data, monkeypatch: Any):
-    """Test that model works without calibration enabled."""
+def test_bayesian_model_fits_without_calibration(sample_data, monkeypatch: Any):
+    """Test that the model fits and exposes the base posterior parameters."""
     _patch_hierarchical_bayes(monkeypatch, sample_data)
-    model = BayesianModel(n_goals=5, calibrate=False)
+    model = BayesianModel(n_goals=5)
     model.fit(sample_data)
 
     assert model.trace is not None
     assert "home" in model.trace.posterior
     assert "intercept" in model.trace.posterior
-    assert "atts" in model.trace.posterior
-    assert "defs" in model.trace.posterior
-
-    # Calibration parameters should not be present
-    assert "tau" not in model.trace.posterior
-    assert "bias" not in model.trace.posterior
+    assert "attack_strength" in model.trace.posterior
+    assert "defence_strength" in model.trace.posterior
 
 
 def test_team_name_mapping_uses_sorted_names(sample_data, monkeypatch: Any):
@@ -168,7 +148,10 @@ def test_numeric_team_ids_are_encoded(monkeypatch: Any):
         _ = goals_home_obs, goals_away_obs, optional_stats, sample_kwargs
         assert np.array_equal(home_team, [0, 1])
         assert np.array_equal(away_team, [1, 0])
-        return _build_fake_trace(calibrate=self.calibrate, n_teams=2, n_matches=len(sample_data))
+        assert home_team.dtype == np.int64
+        assert away_team.dtype == np.int64
+        assert goals_home_obs.dtype == np.float64
+        return _build_fake_trace(n_teams=2, n_matches=len(sample_data))
 
     monkeypatch.setattr(BayesianModel, "hierarchical_bayes", fake_hierarchical_bayes)
     model = BayesianModel(n_goals=5)
@@ -177,145 +160,148 @@ def test_numeric_team_ids_are_encoded(monkeypatch: Any):
     assert model._team_to_id == {1: 0, 2: 1}
 
 
-def test_bayesian_model_with_calibration(sample_data, monkeypatch: Any):
-    """Test that model works with calibration enabled and includes calibration parameters."""
+def test_posterior_samples_cover_total_goals(sample_data, monkeypatch: Any):
+    """Posterior samples retain the U2.5/O2.5 ordering used by GoalMatrix."""
     _patch_hierarchical_bayes(monkeypatch, sample_data)
-    model = BayesianModel(n_goals=5, calibrate=True)
+    model = BayesianModel(n_goals=5, random_seed=7)
     model.fit(sample_data)
 
-    assert model.trace is not None
+    teams = sorted(set(sample_data["home_team"]) | set(sample_data["away_team"]))
+    samples = model.get_market_samples(teams[0], teams[1], "U2.5")
+    home_id = model._team_to_id[teams[0]]
+    away_id = model._team_to_id[teams[1]]
+    posterior = model.trace.posterior  # type: ignore[union-attr]
+    home = posterior["home"].stack(sample=("chain", "draw")).values
+    attack = posterior["attack_strength"].stack(sample=("chain", "draw")).values
+    defence = posterior["defence_strength"].stack(sample=("chain", "draw")).values
+    intercept = posterior["intercept"].stack(sample=("chain", "draw")).values
+    goals = np.arange(model.n_goals)
+    expected_under = []
+    for index in range(intercept.size):
+        mu_home = np.exp(
+            intercept[index] + home[index] + attack[home_id, index] - defence[away_id, index]
+        )
+        mu_away = np.exp(intercept[index] + attack[away_id, index] - defence[home_id, index])
+        expected_under.append(
+            GoalMatrix(
+                stats.poisson.pmf(goals, mu_home), stats.poisson.pmf(goals, mu_away)
+            ).less_25_goals()
+        )
 
-    # Check that all base parameters exist
-    assert "home" in model.trace.posterior
-    assert "intercept" in model.trace.posterior
-    assert "atts" in model.trace.posterior
-    assert "defs" in model.trace.posterior
-
-    # Check that calibration parameters exist
-    assert model.trace is not None
-    assert "tau" in model.trace.posterior, "Temperature parameter should be present"
-    assert "bias" in model.trace.posterior, "Bias parameters should be present"
-
-    # Check calibration parameter shapes
-    tau_samples = model.trace.posterior["tau"]
-    bias_samples = model.trace.posterior["bias"]
-
-    assert tau_samples.ndim == 2  # (chain, draw)
-    assert bias_samples.ndim == 3  # (chain, draw, 3 classes)
-    assert bias_samples.shape[-1] == 3, "Bias should have 3 components (H, D, A)"
+    assert samples.ndim == 2
+    assert samples.shape[1] == 2
+    assert np.allclose(samples.sum(axis=1), 1.0)
+    assert np.allclose(samples[:, 0], expected_under)
+    assert np.allclose(samples[:, 1], 1.0 - np.asarray(expected_under))
 
 
-def test_calibration_parameter_priors(sample_data, monkeypatch: Any):
-    """Test that calibration parameters are close to their prior means."""
+def test_posterior_samples_are_valid_1x2_probabilities(sample_data, monkeypatch: Any):
+    """1X2 posterior samples are per-draw probabilities summing to one."""
     _patch_hierarchical_bayes(monkeypatch, sample_data)
-    model = BayesianModel(n_goals=5, calibrate=True)
+    model = BayesianModel(n_goals=5)
     model.fit(sample_data)
 
-    # Extract posterior means
-    assert model.trace is not None
-    tau_mean = model.trace.posterior["tau"].mean().values
-    bias_mean = model.trace.posterior["bias"].mean(dim=["chain", "draw"]).values
+    teams = sorted(set(sample_data["home_team"]) | set(sample_data["away_team"]))
+    samples = model.get_market_samples(teams[0], teams[1], "1X2")
 
-    # Temperature should be close to 1.0 (prior mean)
-    assert 0.5 < tau_mean < 2.0, f"Temperature {tau_mean} is far from prior mean of 1.0"
-
-    # Bias should be close to 0.0 (prior mean)
-    assert np.all(np.abs(bias_mean) < 1.5), "Bias values are far from prior mean of 0.0"
+    assert samples.ndim == 2
+    assert samples.shape[1] == 3
+    assert np.allclose(samples.sum(axis=1), 1.0)
+    assert np.all((samples >= 0) & (samples <= 1))
 
 
-def test_calibrated_probabilities_sum_to_one(sample_data, monkeypatch: Any):
-    """Test that calibrated match probabilities sum to 1."""
+def test_posterior_samples_batch_matches_per_match_calls(sample_data, monkeypatch: Any):
+    """The batch sampler and the per-match sampler share the draw axis."""
     _patch_hierarchical_bayes(monkeypatch, sample_data)
-    model = BayesianModel(n_goals=5, calibrate=True)
+    model = BayesianModel(n_goals=5)
     model.fit(sample_data)
 
-    # Check match_probs deterministic
-    assert model.trace is not None
-    match_probs = model.trace.posterior["match_probs"]
+    teams = sorted(set(sample_data["home_team"]) | set(sample_data["away_team"]))
+    pairs = [(teams[0], teams[1]), (teams[2], teams[3])]
+    batch = model.get_market_samples_batch(pairs, "1X2")
+    single = model.get_market_samples(teams[0], teams[1], "1X2")
 
-    # Sum over the last dimension (H, D, A classes)
-    prob_sums = match_probs.sum(dim="match_probs_dim_1")
-
-    # All probabilities should sum to 1 (within numerical tolerance)
-    assert np.allclose(prob_sums.values, 1.0, atol=1e-6)
+    assert batch.shape == (8, 2, 3)
+    assert np.allclose(batch[:, 0, :], single)
 
 
-def test_prediction_works_with_calibration(sample_data, monkeypatch: Any):
-    """Test that prediction works correctly when calibration is enabled."""
-    _patch_hierarchical_bayes(monkeypatch, sample_data)
-    model = BayesianModel(n_goals=5, calibrate=True)
-    model.fit(sample_data)
-
-    # Get unique teams from sample data
-    teams = pd.concat([sample_data["home_team"], sample_data["away_team"]]).unique()
-    home_team = teams[0]
-    away_team = teams[1]
-
-    # Test predict method
-    goal_matrix = model.predict(home_team, away_team)
-    samples = goal_matrix.return_probas()
-
-    assert goal_matrix is not None
-    assert hasattr(goal_matrix, "home_goals_probs")
-    assert hasattr(goal_matrix, "away_goals_probs")
-    assert hasattr(goal_matrix, "matrix_array")
-    assert samples.proba_home is not None
-    assert samples.proba_draw is not None
-    assert samples.proba_away is not None
-
-    # Probabilities should be valid
-    assert 0 <= samples.proba_home <= 1
-    assert 0 <= samples.proba_draw <= 1
-    assert 0 <= samples.proba_away <= 1
-
-
-def test_calibration_improves_model_fit(sample_data, monkeypatch: Any):
-    """Test that calibration doesn't break the model (basic sanity check)."""
-    _patch_hierarchical_bayes(monkeypatch, sample_data)
-    # Fit both models
-    model_no_calib = BayesianModel(n_goals=5, calibrate=False)
-    model_with_calib = BayesianModel(n_goals=5, calibrate=True)
-
-    model_no_calib.fit(sample_data)
-    model_with_calib.fit(sample_data)
-
-    # Both should produce valid traces
-    assert model_no_calib.trace is not None
-    assert model_with_calib.trace is not None
-
-    # Both should have similar base parameters
-    teams_in_data = len(pd.concat([sample_data["home_team"], sample_data["away_team"]]).unique())
-
-    assert model_no_calib.trace.posterior["atts"].shape[-1] == teams_in_data
-    assert model_with_calib.trace.posterior["atts"].shape[-1] == teams_in_data
-
-
-def test_calibration_parameters_are_learnable(sample_data, monkeypatch: Any):
-    """Test that calibration parameters vary across posterior samples (not stuck)."""
-    _patch_hierarchical_bayes(monkeypatch, sample_data)
-    model = BayesianModel(n_goals=5, calibrate=True)
-    model.fit(sample_data)
-
-    # Check that tau varies
-    assert model.trace is not None
-    tau_samples = model.trace.posterior["tau"].values.flatten()
-    tau_std = np.std(tau_samples)
-    assert tau_std > 0.01, "Temperature parameter shows no variation"
-
-    # Check that bias varies
-    bias_samples = model.trace.posterior["bias"].values
-    bias_std = np.std(bias_samples, axis=(0, 1))
-    assert np.all(bias_std > 0.01), "Bias parameters show no variation"
-
-
-@pytest.mark.parametrize("calibrate", [False, True])
 @pytest.mark.parametrize("use_stats", [False, True])
-def test_model_initialization(calibrate, use_stats):
-    """Test model initialization with and without calibration."""
-    model = BayesianModel(n_goals=10, n_teams=20, calibrate=calibrate, use_stats=use_stats)
+def test_model_initialization(use_stats):
+    """Test model initialization."""
+    model = BayesianModel(n_goals=10, n_teams=20, use_stats=use_stats)
 
     assert model.n_goals == 10
     assert model.n_teams == 20
-    assert model.calibrate == calibrate
     assert model.use_stats == use_stats
     assert model.trace is None
+
+
+def test_calibrator_identity_before_warmup():
+    """The calibrator is the exact identity before enough observations."""
+    calibrator = OutcomeCalibrator(warmup=10)
+    calibrator.accumulate(np.asarray([[0.7, 0.2, 0.1], [0.5, 0.3, 0.2]]), [0, 1])
+    calibrator.fit()
+
+    assert calibrator.tau == 1.0
+    assert np.allclose(calibrator.bias, 0.0)
+    probs = np.asarray([0.7, 0.2, 0.1])
+    assert np.allclose(calibrator.apply(probs), probs)
+
+
+def test_calibrator_learns_on_biased_model():
+    """On an overconfident model, calibration pulls probabilities toward reality."""
+    rng = np.random.default_rng(0)
+    n = 300
+    probs = np.tile([0.8, 0.1, 0.1], (n, 1))
+    outcomes = rng.choice(3, size=n, p=[0.6, 0.2, 0.2])
+
+    calibrator = OutcomeCalibrator(warmup=0, reg=1e-2)
+    calibrator.accumulate(probs, outcomes)
+    calibrator.fit()
+
+    calibrated = calibrator.apply([0.8, 0.1, 0.1])
+    assert not np.allclose(calibrated, [0.8, 0.1, 0.1])
+    assert calibrated[0] < 0.8  # overconfident home win pulled down
+
+    # Out-of-sample log-loss improves on a held-out sample
+    held_out = rng.choice(3, size=200, p=[0.6, 0.2, 0.2])
+    raw_ll = -np.log([0.8, 0.1, 0.1])[held_out].mean()
+    calibrated_ll = -np.log(calibrator.apply(probs[:200])[np.arange(200), held_out]).mean()
+    assert calibrated_ll < raw_ll
+
+
+def test_calibrator_sums_to_one():
+    """Calibrated probabilities are normalized whatever the input shape."""
+    rng = np.random.default_rng(1)
+    probs = rng.dirichlet(np.ones(3), size=100)
+    outcomes = rng.choice(3, size=100)
+
+    calibrator = OutcomeCalibrator(warmup=0)
+    calibrator.accumulate(probs, outcomes)
+    calibrator.fit()
+
+    assert np.allclose(calibrator.apply(probs).sum(axis=1), 1.0)
+    assert np.isclose(calibrator.apply(probs[0]).sum(), 1.0)
+
+
+def test_calibrator_apply_broadcasts_over_draws():
+    """Point and draw application of the calibrator are the same transform."""
+    rng = np.random.default_rng(2)
+    probs = rng.dirichlet(np.ones(3), size=50)
+    outcomes = rng.choice(3, size=50)
+
+    calibrator = OutcomeCalibrator(warmup=10)
+    calibrator.accumulate(probs, outcomes)
+    calibrator.fit()
+
+    draws = rng.dirichlet(np.ones(3), size=24)
+    applied = calibrator.apply(draws)
+    expected = np.stack([calibrator.apply(draw) for draw in draws])
+    assert np.allclose(applied, expected)
+
+
+def test_calibrator_accumulate_validates_shapes():
+    """One outcome per probability row is enforced."""
+    calibrator = OutcomeCalibrator()
+    with pytest.raises(ValueError, match="outcomes"):
+        calibrator.accumulate(np.ones((5, 3)), [0, 1])

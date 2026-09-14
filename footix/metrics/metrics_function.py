@@ -60,6 +60,44 @@ def rps(probas: ArrayLikeF, outcome_idx: int) -> float:
     return np.sum(squared_diffs) / (n_categories - 1)  # type: ignore
 
 
+def _validated_probabilities(probas: ArrayLikeF) -> np.ndarray:
+    values = np.asarray(probas, dtype=float)
+    if values.ndim != 1 or values.size < 2:
+        raise ValueError("probas must be a one-dimensional array with at least two values")
+    if not np.all(np.isfinite(values)) or np.any(values < 0.0):
+        raise ValueError("Probabilities must be finite and non-negative")
+    total = float(values.sum())
+    if total <= 0.0:
+        raise ValueError("Probabilities must have positive total mass")
+    return values / total
+
+
+def log_loss(probas: ArrayLikeF, outcome_idx: int, eps: float = 1e-15) -> float:
+    """Compute the negative log-likelihood of one categorical forecast."""
+    values = _validated_probabilities(probas)
+    if not 0 <= outcome_idx < values.size:
+        raise ValueError(f"outcome_idx must be between 0 and {values.size - 1}")
+    return float(-np.log(np.clip(values[outcome_idx], eps, 1.0)))
+
+
+def brier_score(probas: ArrayLikeF, outcome_idx: int) -> float:
+    """Compute the multiclass Brier score for one categorical forecast."""
+    values = _validated_probabilities(probas)
+    if not 0 <= outcome_idx < values.size:
+        raise ValueError(f"outcome_idx must be between 0 and {values.size - 1}")
+    outcome = np.zeros(values.size, dtype=float)
+    outcome[outcome_idx] = 1.0
+    return float(np.mean((values - outcome) ** 2))
+
+
+def accuracy(probas: ArrayLikeF, outcome_idx: int) -> float:
+    """Return 1.0 when the most probable category is the observed one."""
+    values = _validated_probabilities(probas)
+    if not 0 <= outcome_idx < values.size:
+        raise ValueError(f"outcome_idx must be between 0 and {values.size - 1}")
+    return float(int(np.argmax(values) == outcome_idx))
+
+
 def zscore(
     probas: ArrayLikeF, rps_observed: float, n_iter: int = 10_000, seed: int | None = None
 ) -> RPSResult:

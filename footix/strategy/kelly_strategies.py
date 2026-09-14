@@ -42,6 +42,55 @@ def classic_kelly(list_bets: list[Bet], bankroll: float) -> list[Bet]:
     return list_bets
 
 
+def fractional_kelly(
+    list_bets: list[Bet],
+    bankroll: float,
+    fraction_kelly: float = 0.25,
+    max_fraction: float = 0.30,
+    min_stake: float = 1.0,
+) -> list[Bet]:
+    """Apply a fractional Kelly stake and enforce one bankroll cap.
+
+    This is intentionally separate from ``classic_kelly`` so the historical full-Kelly
+    behavior remains unchanged for existing callers.
+    """
+    if bankroll <= 0:
+        raise ValueError("bankroll must be positive")
+    if not 0 <= fraction_kelly <= 1:
+        raise ValueError("fraction_kelly must be in [0, 1]")
+    if not 0 < max_fraction <= 1:
+        raise ValueError("max_fraction must be in (0, 1]")
+    if min_stake < 0:
+        raise ValueError("min_stake must be non-negative")
+
+    stake_cap = bankroll * max_fraction
+    raw_stakes = []
+    for bet in list_bets:
+        if bet.odds <= 1:
+            raise ValueError("decimal odds must be greater than 1")
+        full_fraction = max(bet.edge_mean / (bet.odds - 1.0), 0.0)
+        raw_stakes.append(min(bankroll * fraction_kelly * full_fraction, stake_cap))
+
+    total = sum(raw_stakes)
+    if total > stake_cap and total > 0:
+        scale = stake_cap / total
+        raw_stakes = [stake * scale for stake in raw_stakes]
+
+    rounded = [float(round(stake)) if stake >= min_stake else 0.0 for stake in raw_stakes]
+    rounded_total = sum(rounded)
+    if rounded_total > np.floor(stake_cap):
+        excess = int(rounded_total - np.floor(stake_cap))
+        for index in sorted(range(len(rounded)), key=rounded.__getitem__, reverse=True):
+            reduction = min(excess, int(rounded[index]))
+            rounded[index] -= reduction
+            excess -= reduction
+            if excess == 0:
+                break
+    for bet, stake in zip(list_bets, rounded):
+        bet.stake = stake
+    return list_bets
+
+
 def realKelly(
     list_bets: list[Bet],
     bankroll: float,

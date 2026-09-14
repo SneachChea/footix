@@ -2,8 +2,14 @@ import numpy as np
 import pytest
 
 from footix import SampleProbaResult
-from footix.strategy.bets import OddsInput
-from footix.strategy.select_bets import EdgeFloorConfig, OddsRange, select_matches_posterior
+from footix.strategy.bets import Bet, OddsInput
+from footix.strategy.select_bets import (
+    EdgeFloorConfig,
+    OddsRange,
+    select_bets_diagnostics,
+    select_bets_posterior,
+    select_matches_posterior,
+)
 
 
 @pytest.fixture
@@ -195,3 +201,130 @@ def test_invalid_match_id():
 
     with pytest.raises(KeyError):
         select_matches_posterior(odds_input=odds_input, lambda_samples=lambda_samples)
+
+
+def _norm_samples(mean: float, std: float, seed: int = 0, n: int = 10_000) -> np.ndarray:
+    """Posterior probability samples with controlled dispersion."""
+    return np.clip(np.random.default_rng(seed).normal(mean, std, n), 1e-6, 1.0)
+
+
+def test_select_posterior_rejects_big_favorite() -> None:
+    """A heavy favorite with a negative conservative edge is rejected."""
+    bet = Bet("m1", "H", 1.35, 0.78)
+    samples = {("m1", "H"): _norm_samples(0.78, 0.08)}
+
+    selected = select_bets_posterior([bet], samples)
+
+    assert selected == []
+
+
+def test_select_posterior_keeps_value_bet() -> None:
+    """A bet whose 10% lower edge bound is positive is kept."""
+    bet = Bet("m1", "H", 1.80, 0.64)
+    samples = {("m1", "H"): _norm_samples(0.64, 0.03)}
+
+    selected = select_bets_posterior([bet], samples)
+
+    assert len(selected) == 1
+    assert selected[0] == bet
+
+
+def test_select_posterior_picks_best_robust_kelly_per_match() -> None:
+    """Within a match the highest robust Kelly score wins."""
+    home = Bet("m1", "H", 2.0, 0.65)
+    away = Bet("m1", "A", 4.0, 0.30)
+    samples = {
+        ("m1", "H"): _norm_samples(0.65, 0.03, seed=1),
+        ("m1", "A"): _norm_samples(0.30, 0.03, seed=2),
+    }
+
+    selected = select_bets_posterior([home, away], samples)
+
+    assert len(selected) == 1
+    assert selected[0].market == "H"
+
+
+def test_select_posterior_ignores_ambiguous_match() -> None:
+    """A match with two near-identical selections is left alone."""
+    home = Bet("m1", "H", 2.0, 0.50)
+    away = Bet("m1", "A", 2.0, 0.50)
+    samples = {
+        ("m1", "H"): _norm_samples(0.50, 0.04, seed=3),
+        ("m1", "A"): _norm_samples(0.50, 0.04, seed=4),
+    }
+
+    selected = select_bets_posterior([home, away], samples, rho_min=0.60)
+
+    assert selected == []
+
+
+def test_select_posterior_requires_samples() -> None:
+    bet = Bet("m1", "H", 2.0, 0.60)
+
+    with pytest.raises(KeyError):
+        select_bets_posterior([bet], {})
+
+
+def test_select_posterior_rejects_canonical_market_as_selection() -> None:
+    """'1X2'/'O/U2.5' as market would collapse distinct selections onto one key."""
+    bet = Bet("m1", "1X2", 2.0, 0.60)
+    samples = {("m1", "H"): _norm_samples(0.60, 0.03)}
+
+    with pytest.raises(ValueError, match="selection"):
+        select_bets_posterior([bet], samples)
+
+
+def test_select_posterior_rejects_duplicate_keys() -> None:
+    first = Bet("m1", "H", 2.0, 0.60)
+    duplicate = Bet("m1", "H", 2.2, 0.60)
+    samples = {("m1", "H"): _norm_samples(0.60, 0.03)}
+
+    with pytest.raises(ValueError, match="Duplicate"):
+        select_bets_posterior([first, duplicate], samples)
+
+
+def test_select_posterior_rejects_misaligned_draws() -> None:
+    """Comparisons inside a match are draw by draw: lengths must match."""
+    home = Bet("m1", "H", 2.0, 0.60)
+    away = Bet("m1", "A", 2.0, 0.30)
+    samples = {
+        ("m1", "H"): _norm_samples(0.60, 0.03, n=10_000),
+        ("m1", "A"): _norm_samples(0.30, 0.03, n=5_000),
+    }
+
+    with pytest.raises(ValueError, match="same draw axis"):
+        select_bets_posterior([home, away], samples)
+
+
+def test_select_diagnostics_reports_rejection_reasons() -> None:
+    favorite = Bet("m1", "H", 1.35, 0.78)
+    value = Bet("m2", "H", 1.80, 0.64)
+    amb_home = Bet("m3", "H", 2.0, 0.55)
+    amb_away = Bet("m3", "A", 2.0, 0.55)
+    samples = {
+        ("m1", "H"): _norm_samples(0.78, 0.08, seed=5),
+        ("m2", "H"): _norm_samples(0.64, 0.03, seed=6),
+        ("m3", "H"): _norm_samples(0.55, 0.02, seed=7),
+        ("m3", "A"): _norm_samples(0.55, 0.02, seed=8),
+    }
+
+    report = select_bets_diagnostics([favorite, value, amb_home, amb_away], samples, rho_min=0.60)
+
+    assert list(report.columns) == [
+        "match_id",
+        "market",
+        "selection",
+        "q_edge",
+        "mean_edge",
+        "prob_edge_positive",
+        "robust_kelly",
+        "rho",
+        "passed_edge_filter",
+        "passed_ambiguity_filter",
+        "rejection_reason",
+    ]
+    report = report.set_index(["match_id", "selection"])
+    assert report.loc[("m1", "H"), "rejection_reason"] == "edge_bound"
+    assert report.loc[("m2", "H"), "rejection_reason"] is None
+    reasons_m3 = sorted(str(r) for r in report.loc["m3"]["rejection_reason"])
+    assert reasons_m3 == ["ambiguity", "not_best"]
