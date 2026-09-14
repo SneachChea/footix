@@ -807,7 +807,7 @@ class BayesianModel:
         and both ESS values are at least ``max(100, 5% of total draws)``
         (400 with the default 4 x 2000 draws). Predictions of an
         ``invalid_mcmc`` fit must never be compared as if they came from a
-        converged posterior; the walk-forward evaluator drops such windows.
+        converged posterior.
 
         Returns:
             A JSON-serializable dictionary.

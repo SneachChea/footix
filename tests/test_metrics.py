@@ -1,6 +1,7 @@
 import math
 
 import numpy as np
+import pytest
 
 import footix.metrics as metrics
 
@@ -37,3 +38,20 @@ def test_common_classification_metrics():
     expected = np.mean(np.square(np.array(probas) - [1, 0, 0]))
     assert np.isclose(metrics.brier_score(probas, 0), expected)
     assert metrics.accuracy(probas, 0) == 1.0
+
+
+@pytest.mark.parametrize("fn", [metrics.log_loss, metrics.brier_score, metrics.accuracy])
+@pytest.mark.parametrize(
+    "probas",
+    [[], [0.5], [0.5, 0.5, -0.1], [0.5, np.nan], [float("inf"), 0.5], [0.0, 0.0]],
+)
+def test_classification_metrics_reject_invalid_probabilities(fn, probas):
+    with pytest.raises(ValueError):
+        fn(np.asarray(probas), 0)
+
+
+@pytest.mark.parametrize("fn", [metrics.log_loss, metrics.brier_score, metrics.accuracy])
+@pytest.mark.parametrize("outcome_idx", [-1, 5])
+def test_classification_metrics_reject_out_of_range_outcome(fn, outcome_idx):
+    with pytest.raises(ValueError):
+        fn([0.5, 0.2, 0.3], outcome_idx)

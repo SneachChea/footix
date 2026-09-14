@@ -41,11 +41,6 @@ on Ubuntu, plus Python 3.12 on macOS. The documentation build is covered by
     temperature-and-bias calibration.
   - `utils.py`: Poisson vectors, goal expectations and bookmaker-implied Poisson
     rates.
-- **`footix/evaluation/`** — strict chronological walk-forward evaluation:
-  `ModelSpec`, `BacktestConfig`, `BacktestResult`, `run_backtest`, and model
-  spec helpers for Poisson, Elo, Bayesian and uniform baselines. Windows are
-  Friday-to-Friday, training uses only matches before the cutoff, and betting
-  supports 1X2/O-U 2.5 plus flat, fractional-Kelly and portfolio staking.
 - **`footix/data_io/`** — data providers and export:
   - `footballdata.py`: historical CSVs from football-data.co.uk.
   - `understat.py`: Understat results, xG, forecasts and shot data.
@@ -70,8 +65,8 @@ on Ubuntu, plus Python 3.12 on macOS. The documentation build is covered by
 - **`footix/vizu/`** — Matplotlib visualization of a `GoalMatrix`.
 
 The package's top-level exports are the core bet, odds, threshold and
-probability types. Use the subpackage APIs for models, data providers,
-evaluation and strategies.
+probability types. Use the subpackage APIs for models, data providers and
+strategies.
 
 ## Data and experiments
 
@@ -96,7 +91,7 @@ evaluation and strategies.
 ## Documentation
 
 Sphinx sources live in `docs/source/`: installation and data-source guides,
-Elo/Poisson/walk-forward tutorials, the prediction-export tutorial, the
+Elo/Poisson tutorials, the prediction-export tutorial, the
 `GoalMatrix` cookbook, and autodoc API pages for all `footix` subpackages.
 Public code follows Google-style docstrings.
 

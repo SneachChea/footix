@@ -47,8 +47,6 @@ goals and read off the 1X2 probabilities:
 
 Want to train a model on real match data? Start with the
 :doc:`Elo tutorial <tutorials/elo>` or the :doc:`Poisson tutorial <tutorials/poisson>`.
-For chronological model comparisons, see the
-:doc:`walk-forward evaluation tutorial <tutorials/model_evaluation>`.
 
 Which model should I use?
 -------------------------
@@ -75,25 +73,7 @@ Which model should I use?
      - ``home_team``, ``away_team``, ``fthg``, ``ftag``
      - ``GoalMatrix`` + posterior samples
      - minutes (MCMC)
-     - Posterior probabilities with uncertainty; calibrate 1X2 causally in ``run_backtest`` with ``OutcomeCalibrator``
-
-Calibration migration
----------------------
-
-``BayesianModel(calibrate=True)`` and ``bayesian_spec(calibrate=True)`` were
-removed because they fitted calibration parameters on the same results as the
-goal model. Calibrate only through chronological evaluation instead:
-
-.. code-block:: python
-
-   from footix.evaluation import BacktestConfig, bayesian_spec, run_backtest
-   from footix.models.calibration import OutcomeCalibrator
-
-   result = run_backtest(
-       matches,
-       [bayesian_spec()],
-       BacktestConfig(calibrator_factory=OutcomeCalibrator),
-   )
+     - Posterior probabilities with uncertainty; calibrate 1X2 out-of-sample with ``OutcomeCalibrator``
 
 The data contract for every provider is described in
 :doc:`Data sources and data contracts <guides/data_sources>`.
@@ -111,7 +91,6 @@ The data contract for every provider is described in
 
    tutorials/elo
    tutorials/poisson
-   tutorials/model_evaluation
    prediction_export_tutorial
 
 .. toctree::
