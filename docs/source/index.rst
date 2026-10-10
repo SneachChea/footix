@@ -73,7 +73,7 @@ Which model should I use?
      - ``home_team``, ``away_team``, ``fthg``, ``ftag``
      - ``GoalMatrix`` + posterior samples
      - minutes (MCMC)
-     - Calibrated probabilities with uncertainty
+     - Posterior probabilities with uncertainty; calibrate 1X2 out-of-sample with ``OutcomeCalibrator``
 
 The data contract for every provider is described in
 :doc:`Data sources and data contracts <guides/data_sources>`.
