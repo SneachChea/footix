@@ -17,7 +17,7 @@ matplotlib.use("Agg")  # headless rendering for the plot directive
 sys.path.insert(0, os.path.abspath("../"))
 
 project = "footix"
-copyright = "2025, Shaheen Acheche"
+copyright = "2025-2026, Shaheen Acheche"
 author = "Shaheen Acheche"
 try:
     release = package_version("pyfootix")
@@ -34,6 +34,7 @@ extensions = [
     "sphinx.ext.intersphinx",  # link to external docs (numpy, pandas, python)
     "sphinx.ext.doctest",  # run short deterministic examples
     "matplotlib.sphinxext.plot_directive",  # render GoalMatrix figures
+    "sphinx_design",  # cards and grids for the landing page
 ]
 
 templates_path = ["_templates"]
@@ -44,15 +45,47 @@ exclude_patterns = []
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_static_path = ["_static"]
-html_theme = "sphinx_rtd_theme"
+html_css_files = ["css/footix.css"]
+html_theme = "pydata_sphinx_theme"
 html_logo = "_static/logo_footix.png"
+html_short_title = "footix"
 html_theme_options = {
-    "logo_only": False,
-    # set to True to collapse navigation on initial load
+    "logo": {
+        "text": "footix",
+    },
+    "github_url": "https://github.com/SneachChea/footix",
+    "icon_links": [
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/pyfootix/",
+            "icon": "fa-solid fa-box",
+            "type": "fontawesome",
+        },
+    ],
+    # Logo on the left, section links in the middle, theme and icon links right.
+    "navbar_start": ["navbar-logo"],
+    "navbar_center": ["navbar-nav"],
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "navbar_persistent": ["search-button"],
+    "header_links_before_dropdown": 5,
+    # Left sidebar holds the navigation tree and the page outline.
+    "navigation_depth": 3,
     "collapse_navigation": False,
-    # scroll depth for the left sidebar tree
-    "navigation_depth": 2,
-    "style_nav_header_background": "#0C192A",
+    "show_prev_next": True,
+    "use_edit_page_button": True,
+    "secondary_sidebar_items": [],
+    "footer_start": ["copyright"],
+    "footer_end": ["theme-version"],
+}
+html_sidebars = {
+    "installation": ["page-toc", "edit-this-page"],
+    "**": ["sidebar-nav-bs", "page-toc", "edit-this-page"],
+}
+html_context = {
+    "github_user": "SneachChea",
+    "github_repo": "footix",
+    "github_version": "main",
+    "doc_path": "docs/source",
 }
 
 # Napoleon (Google-style docstring support)

@@ -1,0 +1,111 @@
+/* Footix documentation theme.
+ *
+ * The palette is drawn from the logo: deep navy, lagoon blue and a warm
+ * orange accent.  Only the small set of PyData theme variables is overridden
+ * so that light and dark modes keep working out of the box.
+ */
+
+html[data-theme="light"] {
+  --pst-color-primary: #0b6e99;
+  --pst-color-secondary: #c2410c;
+  --pst-color-accent: #e8590c;
+  --pst-color-link: #0b6e99;
+  --pst-color-link-hover: #b54708;
+}
+
+html[data-theme="dark"] {
+  --pst-color-primary: #6cc5e6;
+  --pst-color-secondary: #ff8a5b;
+  --pst-color-accent: #ff8a5b;
+  --pst-color-link: #7fd1ee;
+  --pst-color-link-hover: #ffb08a;
+}
+
+/* A thin orange rule under the header echoes the logo without making the
+ * navigation bar heavy. */
+.bd-header {
+  border-bottom: 2px solid var(--pst-color-accent);
+}
+
+.navbar-brand img {
+  max-height: 42px;
+  width: auto;
+}
+
+/* Landing page ----------------------------------------------------------- */
+
+.footix-landing #footix > h1 {
+  font-size: 3rem;
+  margin-bottom: 0.25rem;
+  text-align: center;
+}
+
+.footix-landing #footix > .footix-tagline,
+.footix-landing #footix > .footix-intro {
+  text-align: center;
+}
+
+.footix-landing #footix > .footix-intro {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.footix-hero-logo {
+  border-radius: 1.4rem;
+  box-shadow: 0 14px 35px rgb(8 24 38 / 18%);
+  margin: 0.5rem 0 1.25rem;
+}
+
+.footix-tagline {
+  color: var(--pst-color-text-muted);
+  font-size: 1.25rem;
+  margin: 0 0 1rem;
+}
+
+.footix-intro {
+  font-size: 1.05rem;
+  margin: 0 0 1.75rem;
+  max-width: 52rem;
+}
+
+/* Cards ------------------------------------------------------------------ */
+
+.sd-card {
+  border: 1px solid var(--pst-color-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 8px rgb(8 24 38 / 6%);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.sd-card:hover {
+  border-color: var(--pst-color-primary);
+  box-shadow: 0 10px 24px rgb(8 24 38 / 12%);
+  transform: translateY(-3px);
+}
+
+.sd-card-title {
+  font-weight: 600;
+}
+
+/* A quiet divider under section headings keeps long pages readable. */
+.bd-article h2 {
+  border-bottom: 1px solid var(--pst-color-border);
+  padding-bottom: 0.3rem;
+}
+
+.admonition {
+  border-radius: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sd-card {
+    transition: none;
+  }
+
+  .sd-card:hover {
+    transform: none;
+  }
+}
