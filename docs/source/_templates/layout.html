@@ -1,0 +1,5 @@
+{% extends "!layout.html" %}
+
+{% block body_tag %}
+  <body data-default-mode="{{ default_mode }}"{% if pagename == "index" %} class="footix-landing"{% endif %}>
+{%- endblock %}

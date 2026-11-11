@@ -1,33 +1,67 @@
-Welcome to **footix**'s documentation!
-======================================
+.. image:: _static/logo_footix.png
+   :alt: Footix, a football-loving robot rooster
+   :width: 132px
+   :align: center
+   :class: footix-hero-logo
 
-Footix is a Python package for football analytics and prediction. It ships
-statistical models for match scores, tools for odds analysis, and betting
-strategies, all on top of a small set of data providers.
+footix
+======
 
-Features
---------
+.. rst-class:: footix-tagline
 
-* **Data import**
-    * Historical results from football-data.co.uk and understat.com
-    * Upcoming fixtures from football-data.org and APIFootball.com
-    * Team name normalization between sources
+**Football analytics and prediction for Python.**
 
-* **Prediction models**
-    * `EloDavidson` rating system (fast, chronological)
-    * `PoissonModel` (maximum-likelihood score model)
-    * `BayesianModel` (PyMC MCMC, with calibration and posterior samples)
+.. rst-class:: footix-intro
 
-* **Score and betting tools**
-    * `GoalMatrix`: joint score distribution and market probabilities
-    * Implied odds normalization (multiplicative, power, Shin)
-    * Bet selection and staking strategies (flat, Kelly, portfolio)
+**footix** brings historical match data, score models and betting tools
+together in one focused package. Import results, fit an Elo or Poisson model,
+read market probabilities from a ``GoalMatrix``, and turn an edge into a
+staking plan.
+
+Start here
+----------
+
+.. grid:: 1 2 3 3
+   :gutter: 3
+
+   .. grid-item-card:: Installation
+      :link: installation
+      :link-type: doc
+
+      Install with ``uv`` or ``pip``, including the CPU-only PyTorch default.
+
+   .. grid-item-card:: Guides
+      :link: guides/index
+      :link-type: doc
+
+      Understand the data providers, competition keys and data contracts.
+
+   .. grid-item-card:: Tutorials
+      :link: tutorials/index
+      :link-type: doc
+
+      Train an Elo or Poisson model on Ligue 1 data, step by step.
+
+.. grid:: 1 2 2 2
+   :gutter: 3
+
+   .. grid-item-card:: Cookbook
+      :link: cookbook/index
+      :link-type: doc
+
+      Work through score matrices and market probabilities.
+
+   .. grid-item-card:: API reference
+      :link: api/index
+      :link-type: doc
+
+      Browse every public class, function and module.
 
 Quick start
 -----------
 
-No data download required — build a score matrix straight from expected
-goals and read off the 1X2 probabilities:
+No data download required. Build a score matrix straight from expected goals
+and read off the 1X2 probabilities:
 
 .. testcode::
 
@@ -45,8 +79,39 @@ goals and read off the 1X2 probabilities:
 
    Home: 0.44, Draw: 0.25, Away: 0.30
 
-Want to train a model on real match data? Start with the
-:doc:`Elo tutorial <tutorials/elo>` or the :doc:`Poisson tutorial <tutorials/poisson>`.
+The same matrix powers totals, Asian handicaps, double chance and BTTS; see
+the :doc:`GoalMatrix cookbook <cookbook/goal_matrix>` for the full tour.
+
+What's inside
+-------------
+
+.. grid:: 1 2 2 2
+   :gutter: 3
+
+   .. grid-item-card:: Data import
+
+      Historical results from football-data.co.uk and understat, upcoming
+      fixtures from football-data.org and APIFootball.com, plus team-name
+      normalization between sources.
+
+   .. grid-item-card:: Prediction models
+
+      ``EloDavidson`` for fast chronological ratings, ``PoissonModel`` for
+      maximum-likelihood score distributions, and ``BayesianModel`` for PyMC
+      posteriors with uncertainty.
+
+   .. grid-item-card:: Score and betting tools
+
+      ``GoalMatrix`` for joint score probabilities, bookmaker-margin
+      normalization (multiplicative, power, Shin), and flat, Kelly or
+      portfolio staking strategies.
+
+   .. grid-item-card:: Analysis and visualization
+
+      RPS, log loss, Brier score, calibration metrics, standings helpers and
+      Matplotlib views of any score matrix.
+
+.. _model-comparison:
 
 Which model should I use?
 -------------------------
@@ -79,34 +144,37 @@ The data contract for every provider is described in
 :doc:`Data sources and data contracts <guides/data_sources>`.
 
 .. toctree::
-   :maxdepth: 2
+   :hidden:
    :caption: Getting started
 
    installation
-   guides/data_sources
 
 .. toctree::
-   :maxdepth: 2
+   :hidden:
+   :caption: Guides
+
+   guides/index
+
+.. toctree::
+   :hidden:
    :caption: Tutorials
 
-   tutorials/elo
-   tutorials/poisson
-   prediction_export_tutorial
+   tutorials/index
 
 .. toctree::
-   :maxdepth: 2
+   :hidden:
    :caption: Cookbook
 
-   cookbook/goal_matrix
+   cookbook/index
 
 .. toctree::
-   :maxdepth: 4
+   :hidden:
    :caption: API Reference
 
    api/index
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
